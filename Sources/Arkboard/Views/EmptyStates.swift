@@ -47,7 +47,7 @@ struct SelectIssuePlaceholder: View {
         ContentUnavailableView(
             "Select an issue",
             systemImage: "checkmark.circle",
-            description: Text("Choose an issue from the list or board, or press ⌘N to create one.")
+            description: Text("Choose an issue from the list (or a project board), or press ⌘N to create one.")
         )
     }
 }

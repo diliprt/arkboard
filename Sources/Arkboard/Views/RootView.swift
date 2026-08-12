@@ -64,7 +64,7 @@ struct ContentColumn: View {
                 if store.projects.isEmpty {
                     EmptyProjectsView()
                 } else {
-                    switch store.viewMode {
+                    switch effectiveViewMode {
                     case .list:
                         IssueListView()
                     case .board:
@@ -75,6 +75,17 @@ struct ContentColumn: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .onChange(of: store.selectedProjectId) { _, newValue in
+            // Inbox is list-first; leaving a project board should not keep board mode active.
+            if newValue == nil, store.viewMode == .board {
+                store.viewMode = .list
+            }
+        }
+    }
+
+    /// Board only when a single project is selected.
+    private var effectiveViewMode: AppStore.ViewMode {
+        store.boardAvailable ? store.viewMode : .list
     }
 
     private var header: some View {
@@ -95,7 +106,13 @@ struct ContentColumn: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 140)
-            .disabled(store.projects.isEmpty)
+            .disabled(store.projects.isEmpty || !store.boardAvailable)
+            .help(store.boardAvailable
+                  ? "Switch between list and board"
+                  : "Select a project to use the board. Inbox stays list-first.")
+            .accessibilityHint(store.boardAvailable
+                               ? "List or board layout"
+                               : "Board disabled in Inbox; select a project first")
 
             if store.projects.isEmpty {
                 Button {
@@ -122,6 +139,7 @@ struct ContentColumn: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             TextField("Search issues", text: Bindable(store).filter.query)
                 .textFieldStyle(.plain)
                 .disabled(store.projects.isEmpty)
@@ -134,6 +152,7 @@ struct ContentColumn: View {
                 }
                 .buttonStyle(.plain)
                 .help("Clear search")
+                .accessibilityLabel("Clear search")
             }
             Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
                 .toggleStyle(.checkbox)
@@ -147,6 +166,10 @@ struct ContentColumn: View {
     private var subtitle: String {
         if store.projects.isEmpty { return "Create a project to get started" }
         let n = store.filteredIssues.count
-        return n == 1 ? "1 issue" : "\(n) issues"
+        let count = n == 1 ? "1 issue" : "\(n) issues"
+        if store.isInbox {
+            return "\(count) · list across projects"
+        }
+        return count
     }
 }

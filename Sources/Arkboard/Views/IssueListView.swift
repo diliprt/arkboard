@@ -11,7 +11,7 @@ struct IssueListView: View {
         } else {
             List(selection: Bindable(store).selectedIssueId) {
                 ForEach(store.filteredIssues) { issue in
-                    IssueRowView(issue: issue)
+                    IssueRowView(issue: issue, showProject: store.isInbox)
                         .tag(Optional(issue.id))
                         .contextMenu {
                             statusMenu(for: issue)
@@ -23,6 +23,7 @@ struct IssueListView: View {
                 }
             }
             .listStyle(.inset)
+            .accessibilityLabel(store.isInbox ? "Inbox issue list" : "Project issue list")
         }
     }
 
@@ -48,12 +49,14 @@ struct IssueListView: View {
 struct IssueRowView: View {
     @Environment(AppStore.self) private var store
     let issue: Issue
+    var showProject: Bool = false
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: statusSymbol)
                 .foregroundStyle(statusColor)
                 .frame(width: 16)
+                .accessibilityHidden(true)
 
             Text(issue.identifier)
                 .font(.caption.monospaced())
@@ -81,10 +84,27 @@ struct IssueRowView: View {
 
             Spacer(minLength: 4)
 
+            if showProject, let project = store.project(for: issue) {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color(hex: project.color))
+                        .frame(width: 6, height: 6)
+                    Text(project.key)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.secondary.opacity(0.1))
+                .clipShape(Capsule())
+                .accessibilityLabel("Project \(project.key)")
+            }
+
             Image(systemName: issue.priority.symbolName)
                 .font(.caption)
                 .foregroundStyle(priorityColor)
                 .frame(width: 16)
+                .accessibilityLabel(issue.priority.displayName)
 
             Text(issue.status.displayName)
                 .font(.caption)
@@ -93,6 +113,16 @@ struct IssueRowView: View {
                 .lineLimit(1)
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    private var accessibilitySummary: String {
+        var parts = [issue.identifier, issue.title, issue.status.displayName, issue.priority.displayName]
+        if showProject, let project = store.project(for: issue) {
+            parts.insert(project.key, at: 1)
+        }
+        return parts.joined(separator: ", ")
     }
 
     private var statusSymbol: String {

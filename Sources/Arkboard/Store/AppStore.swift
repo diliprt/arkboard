@@ -73,6 +73,12 @@ final class AppStore {
         return projects.first { $0.id == selectedProjectId }
     }
 
+    /// Board is per-project; Inbox (nil selection) stays list-first to avoid mixed-project columns.
+    var isInbox: Bool { selectedProjectId == nil }
+
+    var boardAvailable: Bool { selectedProjectId != nil }
+
+
     var selectedIssue: Issue? {
         guard let selectedIssueId else { return nil }
         return issues.first { $0.id == selectedIssueId }

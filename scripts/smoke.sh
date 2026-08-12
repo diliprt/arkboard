@@ -33,11 +33,16 @@ if [[ -z "$HEALTH" ]]; then
 fi
 check_json "health" "$HEALTH" '.name == "Arkboard"'
 
+info "REST GET /api/projects"
+PROJECTS="$(curl -sfS --max-time 5 "$BASE/api/projects")"
+check_json "REST list projects" "$PROJECTS" '.projects | type == "array" and length >= 1'
+
 info "MCP tools/list"
 TOOLS="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')"
 check_json "tools/list" "$TOOLS" '.result.tools | length >= 6'
+check_json "tools include update_issue" "$TOOLS" '[.result.tools[].name] | index("update_issue") != null'
 
 TITLE="Smoke $(date +%Y%m%d-%H%M%S)"
 info "MCP create_issue ($TITLE)"
@@ -53,9 +58,13 @@ CREATE="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
 check_json "create_issue" "$CREATE" '.result.structuredContent.title == "'"$TITLE"'" or (.result.content[0].text | contains("'"$TITLE"'"))'
 
 IDENT="$(echo "$CREATE" | jq -r '.result.structuredContent.identifier // empty')"
+ISSUE_ID="$(echo "$CREATE" | jq -r '.result.structuredContent.id // empty')"
 if [[ -z "$IDENT" ]]; then
   # Fallback: parse from text blob
   IDENT="$(echo "$CREATE" | jq -r '.result.content[0].text' | jq -r '.identifier // empty' 2>/dev/null || true)"
+fi
+if [[ -z "$ISSUE_ID" ]]; then
+  ISSUE_ID="$(echo "$CREATE" | jq -r '.result.content[0].text' | jq -r '.id // empty' 2>/dev/null || true)"
 fi
 info "Created identifier: ${IDENT:-unknown}"
 
@@ -64,6 +73,34 @@ LIST="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_issues","arguments":{"projectKey":"ARK","query":"Smoke"}}}')"
 check_json "list_issues" "$LIST" '.result.structuredContent.issues | length >= 1 or (.result.content[0].text | contains("Smoke"))'
+
+if [[ -n "$IDENT" ]]; then
+  info "MCP get_issue ($IDENT)"
+  GET="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg ident "$IDENT" '{
+      jsonrpc:"2.0", id:4, method:"tools/call",
+      params:{ name:"get_issue", arguments:{ identifier:$ident } }
+    }')")"
+  check_json "get_issue" "$GET" '.result.structuredContent.identifier == "'"$IDENT"'" or (.result.content[0].text | contains("'"$IDENT"'"))'
+fi
+
+if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
+  info "MCP update_issue (status -> in_progress)"
+  UPD_ARGS='{}'
+  if [[ -n "$ISSUE_ID" ]]; then
+    UPD_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, status:"in_progress"}')"
+  else
+    UPD_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, status:"in_progress"}')"
+  fi
+  UPDATE="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson args "$UPD_ARGS" '{
+      jsonrpc:"2.0", id:5, method:"tools/call",
+      params:{ name:"update_issue", arguments:$args }
+    }')")"
+  check_json "update_issue" "$UPDATE" '.result.structuredContent.status == "in_progress" or (.result.content[0].text | contains("in_progress"))'
+fi
 
 info "REST GET /api/issues"
 REST="$(curl -sfS --max-time 5 "$BASE/api/issues?projectKey=ARK")"
