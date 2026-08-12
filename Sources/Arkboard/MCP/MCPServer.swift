@@ -182,8 +182,8 @@ final class MCPServer: @unchecked Sendable {
                 } else {
                     projectId = json["projectId"] as? String
                 }
-                let status = (json["status"] as? String).flatMap(IssueStatus.init(rawValue:)) ?? .backlog
-                let priority = (json["priority"] as? String).flatMap(IssuePriority.init(rawValue:)) ?? .none
+                let status = try Self.parseStatusForCreate(json)
+                let priority = try Self.parsePriorityForCreate(json)
                 let description = json["description"] as? String ?? ""
                 let labels = json["labels"] as? [String] ?? []
                 let actor = (json["actor"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -227,8 +227,8 @@ final class MCPServer: @unchecked Sendable {
                     id: issue.id,
                     title: json["title"] as? String,
                     description: json["description"] as? String,
-                    status: (json["status"] as? String).flatMap(IssueStatus.init(rawValue:)),
-                    priority: (json["priority"] as? String).flatMap(IssuePriority.init(rawValue:)),
+                    status: try Self.parseOptionalStatus(json),
+                    priority: try Self.parseOptionalPriority(json),
                     assigneeName: json.keys.contains("assigneeName") ? .some(json["assigneeName"] as? String) : nil,
                     actor: resolvedActor
                 )
@@ -267,18 +267,8 @@ final class MCPServer: @unchecked Sendable {
                 let projectKey = json["projectKey"] as? String
                 let projectId = json["projectId"] as? String
                 let related = json["relatedIssueIdentifiers"] as? [String] ?? []
-                let targetDate: Date
-                if let s = json["targetDate"] as? String, let d = ISO8601DateFormatter().date(from: s) {
-                    targetDate = d
-                } else if let s = json["targetDate"] as? String {
-                    let f = DateFormatter()
-                    f.calendar = Calendar(identifier: .gregorian)
-                    f.locale = Locale(identifier: "en_US_POSIX")
-                    f.dateFormat = "yyyy-MM-dd"
-                    targetDate = f.date(from: s) ?? Date()
-                } else {
-                    targetDate = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
-                }
+                let defaultDate = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+                let targetDate = try Self.parseDateOrDefault(json["targetDate"], default: defaultDate)
                 let ms = try await store.createMilestone(
                     title: title,
                     description: description,
@@ -420,8 +410,8 @@ final class MCPServer: @unchecked Sendable {
                 projectId: projectId,
                 title: args["title"] as? String ?? "",
                 description: args["description"] as? String ?? "",
-                status: (args["status"] as? String).flatMap(IssueStatus.init(rawValue:)) ?? .backlog,
-                priority: (args["priority"] as? String).flatMap(IssuePriority.init(rawValue:)) ?? .none,
+                status: try Self.parseStatusForCreate(args),
+                priority: try Self.parsePriorityForCreate(args),
                 assigneeName: args["assigneeName"] as? String,
                 labelNames: args["labels"] as? [String] ?? [],
                 actor: actor
@@ -438,8 +428,8 @@ final class MCPServer: @unchecked Sendable {
                 id: issue.id,
                 title: args["title"] as? String,
                 description: args["description"] as? String,
-                status: (args["status"] as? String).flatMap(IssueStatus.init(rawValue:)),
-                priority: (args["priority"] as? String).flatMap(IssuePriority.init(rawValue:)),
+                status: try Self.parseOptionalStatus(args),
+                priority: try Self.parseOptionalPriority(args),
                 assigneeName: args.keys.contains("assigneeName") ? .some(args["assigneeName"] as? String) : nil,
                 actor: actor
             )
@@ -485,7 +475,8 @@ final class MCPServer: @unchecked Sendable {
             let actor = Self.resolvedActor(args)
             let status = (args["status"] as? String).flatMap(MilestoneStatus.init(rawValue:)) ?? .planned
             let related = args["relatedIssueIdentifiers"] as? [String] ?? []
-            let targetDate = Self.parseDate(args["targetDate"]) ?? (Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date())
+            let defaultDate = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+            let targetDate = try Self.parseDateOrDefault(args["targetDate"], default: defaultDate)
             let ms = try await store.createMilestone(
                 title: args["title"] as? String ?? "",
                 description: args["description"] as? String ?? "",
@@ -516,7 +507,7 @@ final class MCPServer: @unchecked Sendable {
                 id: id,
                 title: args["title"] as? String,
                 description: args["description"] as? String,
-                targetDate: Self.parseDate(args["targetDate"]),
+                targetDate: try Self.parseDate(args["targetDate"]),
                 status: (args["status"] as? String).flatMap(MilestoneStatus.init(rawValue:)),
                 projectId: projectIdUpdate,
                 relatedIssueIdentifiers: args["relatedIssueIdentifiers"] as? [String],
@@ -560,18 +551,72 @@ final class MCPServer: @unchecked Sendable {
     }
 
 
-    private static func parseDate(_ value: Any?) -> Date? {
-        if let s = value as? String {
-            let iso = ISO8601DateFormatter()
-            if let d = iso.date(from: s) { return d }
-            let f = DateFormatter()
-            f.calendar = Calendar(identifier: .gregorian)
-            f.locale = Locale(identifier: "en_US_POSIX")
-            f.timeZone = TimeZone.current
-            f.dateFormat = "yyyy-MM-dd"
-            return f.date(from: s)
+    /// Parse status when the key is present. Unknown values throw; omitted → nil.
+    private static func parseOptionalStatus(_ args: [String: Any], key: String = "status") throws -> IssueStatus? {
+        guard args.keys.contains(key) else { return nil }
+        guard let raw = args[key] as? String else {
+            throw StoreError.invalidStatus(String(describing: args[key] ?? "null"))
         }
-        return nil
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let status = IssueStatus(rawValue: trimmed) else {
+            throw StoreError.invalidStatus(trimmed)
+        }
+        return status
+    }
+
+    /// Create path: omitted → default; present but unknown → error.
+    private static func parseStatusForCreate(_ args: [String: Any], default defaultStatus: IssueStatus = .backlog) throws -> IssueStatus {
+        try parseOptionalStatus(args) ?? defaultStatus
+    }
+
+    private static func parseOptionalPriority(_ args: [String: Any], key: String = "priority") throws -> IssuePriority? {
+        guard args.keys.contains(key) else { return nil }
+        guard let raw = args[key] as? String else {
+            throw StoreError.invalidPriority(String(describing: args[key] ?? "null"))
+        }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let priority = IssuePriority(rawValue: trimmed) else {
+            throw StoreError.invalidPriority(trimmed)
+        }
+        return priority
+    }
+
+    private static func parsePriorityForCreate(_ args: [String: Any], default defaultPriority: IssuePriority = .none) throws -> IssuePriority {
+        try parseOptionalPriority(args) ?? defaultPriority
+    }
+
+    /// ISO8601 kept as-is. Date-only `yyyy-MM-dd` stored as noon UTC.
+    /// Unparseable non-empty strings throw. Nil/empty → nil (caller may default).
+    private static func parseDate(_ value: Any?) throws -> Date? {
+        guard let value else { return nil }
+        if value is NSNull { return nil }
+        guard let s = value as? String else {
+            throw StoreError.invalidDate(String(describing: value))
+        }
+        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return nil }
+
+        let isoFrac = ISO8601DateFormatter()
+        isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = isoFrac.date(from: trimmed) { return d }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        if let d = iso.date(from: trimmed) { return d }
+
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.dateFormat = "yyyy-MM-dd"
+        if let day = f.date(from: trimmed) {
+            // Noon UTC for date-only values (stable across agents/timezones).
+            return day.addingTimeInterval(12 * 60 * 60)
+        }
+        throw StoreError.invalidDate(trimmed)
+    }
+
+    private static func parseDateOrDefault(_ value: Any?, default defaultDate: Date) throws -> Date {
+        try parseDate(value) ?? defaultDate
     }
 
     private func jsonrpcError(id: Any?, code: Int, message: String) -> [String: Any] {
@@ -622,18 +667,18 @@ enum MCPToolCatalog {
                 "description": ["type": "string"],
                 "status": ["type": "string"],
                 "priority": ["type": "string"],
-                "labels": ["type": "array", "items": ["type": "string"]],
+                "labels": ["type": "array", "items": ["type": "string"], "description": "Deduped case-insensitively; feature+bug together is allowed"],
                 "assigneeName": ["type": "string"],
                 "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
             ], required: ["title"]),
-            tool("update_issue", "Update an issue", [
+            tool("update_issue", "Update an issue (unknown status/priority rejected; labels replace + dedupe)", [
                 "id": ["type": "string"],
                 "identifier": ["type": "string"],
                 "title": ["type": "string"],
                 "description": ["type": "string"],
-                "status": ["type": "string"],
-                "priority": ["type": "string"],
-                "labels": ["type": "array", "items": ["type": "string"]],
+                "status": ["type": "string", "description": "backlog|todo|in_progress|done|canceled"],
+                "priority": ["type": "string", "description": "none|low|medium|high|urgent"],
+                "labels": ["type": "array", "items": ["type": "string"], "description": "Full replace; duplicates trimmed case-insensitively"],
                 "assigneeName": ["type": "string"],
                 "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
             ]),
@@ -655,7 +700,7 @@ enum MCPToolCatalog {
             tool("create_milestone", "Create a milestone", [
                 "title": ["type": "string"],
                 "description": ["type": "string"],
-                "targetDate": ["type": "string", "description": "ISO8601 or yyyy-MM-dd"],
+                "targetDate": ["type": "string", "description": "ISO8601 or yyyy-MM-dd (date-only stored as noon UTC; unparseable rejected)"],
                 "status": ["type": "string", "description": "planned|in_progress|done|missed"],
                 "projectKey": ["type": "string", "description": "Omit or studio for studio-wide"],
                 "projectId": ["type": "string"],
@@ -666,7 +711,7 @@ enum MCPToolCatalog {
                 "id": ["type": "string"],
                 "title": ["type": "string"],
                 "description": ["type": "string"],
-                "targetDate": ["type": "string"],
+                "targetDate": ["type": "string", "description": "ISO8601 or yyyy-MM-dd (date-only noon UTC; unparseable rejected)"],
                 "status": ["type": "string"],
                 "projectKey": ["type": "string"],
                 "projectId": ["type": "string"],

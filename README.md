@@ -24,6 +24,18 @@ Built for Origin Ark Studio so product direction lives in a real tracker, not ch
 ### Priorities
 `none` · `low` · `medium` · `high` · `urgent`
 
+### Labels
+- An issue may carry **both** `feature` and `bug` (and any other distinct labels) at once.
+- Create/update label arrays are **deduped** (trim + case-insensitive) before insert; replace-labels deletes old links then inserts the unique set.
+- Duplicate entries like `["feature","feature","bug"]` succeed and become `feature` + `bug`.
+
+### Validation (MCP / REST)
+- Comments with multiple `@mentions` (e.g. `@Ops @Comms`) emit **one activity event per distinct** mentioned actor.
+- Empty comment body → error `"Comment cannot be empty"` (not the title error).
+- Unknown `status` / `priority` on create or update → rejected with a clear error (update does not partially apply other fields when status/priority is invalid).
+- Milestone `targetDate`: ISO8601 kept as-is; date-only `yyyy-MM-dd` stored as **noon UTC**; unparseable values (e.g. `not-a-date`) are rejected.
+- Titles collapse embedded/consecutive whitespace (including newlines) to single spaces.
+
 ## Requirements
 
 - macOS 14+

@@ -168,6 +168,77 @@ info "REST GET /api/milestones"
 REST_MS="$(curl -sfS --max-time 5 "$BASE/api/milestones")"
 check_json "REST list milestones" "$REST_MS" '.milestones | type == "array"'
 
+# Duplicate labels must succeed (dedupe), including feature+bug together.
+if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
+  info "MCP update_issue with duplicate labels"
+  if [[ -n "$ISSUE_ID" ]]; then
+    DUP_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, labels:["feature","feature","bug"," Feature "], actor:"Comms"}')"
+  else
+    DUP_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, labels:["feature","feature","bug"," Feature "], actor:"Comms"}')"
+  fi
+  DUP="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson args "$DUP_ARGS" '{
+      jsonrpc:"2.0", id:12, method:"tools/call",
+      params:{ name:"update_issue", arguments:$args }
+    }')")"
+  check_json "update_issue duplicate labels succeed" "$DUP" '(.error | not) and ((.result.structuredContent.labels // []) | map(ascii_downcase) | unique | sort == ["bug","feature"] or (.result.content[0].text | test("feature") and test("bug")))'
+fi
+
+# Multi-mention comments emit one activity per distinct target.
+if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
+  info "MCP add_comment multi-mention @Ops @Comms"
+  if [[ -n "$ISSUE_ID" ]]; then
+    MM_ARGS="$(jq -n --arg id "$ISSUE_ID" '{issueId:$id, body:"@Ops @Comms please both review multi-mention smoke", actor:"Product"}')"
+  else
+    MM_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, body:"@Ops @Comms please both review multi-mention smoke", actor:"Product"}')"
+  fi
+  MM="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson args "$MM_ARGS" '{
+      jsonrpc:"2.0", id:16, method:"tools/call",
+      params:{ name:"add_comment", arguments:$args }
+    }')")"
+  check_json "add_comment multi-mention" "$MM" '(.error | not) and ((.result.structuredContent.body // .result.content[0].text) | test("@Ops") and test("@Comms"))'
+  MM_ACT="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d '{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"list_activity","arguments":{"limit":30,"projectKey":"ARK"}}}')"
+  check_json "activity has Ops target from multi-mention" "$MM_ACT" '([(.result.structuredContent.activities // [])[] | select(.summary|test("multi-mention"))] | map(.targetActor) | unique | sort) | (index("Ops") != null and index("Comms") != null) or (.result.content[0].text | test("→ Ops") and test("→ Comms"))'
+fi
+
+info "MCP add_comment empty body must error"
+EMPTY_COMMENT="$(curl -sS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg id "${ISSUE_ID:-}" --arg ident "${IDENT:-ARK-1}" '{
+    jsonrpc:"2.0", id:13, method:"tools/call",
+    params:{
+      name:"add_comment",
+      arguments: (if $id != "" then {issueId:$id, body:"   ", actor:"Ops"} else {identifier:$ident, body:"   ", actor:"Ops"} end)
+    }
+  }')")"
+check_json "empty comment error" "$EMPTY_COMMENT" '.error.message | test("Comment cannot be empty")'
+
+info "MCP update_issue invalid status must error"
+BAD_STATUS="$(curl -sS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg id "${ISSUE_ID:-}" --arg ident "${IDENT:-ARK-1}" '{
+    jsonrpc:"2.0", id:14, method:"tools/call",
+    params:{
+      name:"update_issue",
+      arguments: (if $id != "" then {id:$id, status:"nope", title:"should-not-apply", actor:"Ops"} else {identifier:$ident, status:"nope", title:"should-not-apply", actor:"Ops"} end)
+    }
+  }')")"
+check_json "invalid status error" "$BAD_STATUS" '.error.message | test("Invalid status")'
+
+info "MCP create_milestone invalid date must error"
+BAD_DATE="$(curl -sS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0","id":15,"method":"tools/call",
+    "params":{"name":"create_milestone","arguments":{"title":"Bad date smoke","targetDate":"not-a-date","actor":"Ops"}}
+  }')"
+check_json "invalid milestone date error" "$BAD_DATE" '.error.message | test("Invalid date")'
+
 # Cancel the issue this run created so overnight smokes do not clutter forever.
 if [[ "$FAIL" -eq 0 && ( -n "$IDENT" || -n "$ISSUE_ID" ) ]]; then
   info "MCP update_issue (cancel smoke issue)"

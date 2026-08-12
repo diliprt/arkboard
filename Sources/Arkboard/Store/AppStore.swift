@@ -411,7 +411,7 @@ final class AppStore {
         labelNames: [String] = [],
         actor: String = "Riyu"
     ) async throws -> Issue {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = Self.normalizeTitle(title)
         guard !trimmed.isEmpty else { throw StoreError.emptyTitle }
 
         let pid = projectId ?? selectedProjectId ?? projects.first?.id
@@ -447,16 +447,8 @@ final class AppStore {
             try project.update(db)
             try issue.insert(db)
 
-            for name in labelNames {
-                let labelName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !labelName.isEmpty else { continue }
-                let label: IssueTag
-                if let existing = try IssueTag.filter(Column("name") == labelName).fetchOne(db) {
-                    label = existing
-                } else {
-                    label = IssueTag(id: UUID().uuidString, name: labelName, color: Self.randomColor())
-                    try label.insert(db)
-                }
+            for labelName in Self.dedupeLabelNames(labelNames) {
+                let label = try Self.resolveOrCreateLabel(named: labelName, db: db)
                 try IssueLabel(issueId: issue.id, labelId: label.id).insert(db)
             }
 
@@ -494,7 +486,7 @@ final class AppStore {
             }
             var changes: [String] = []
             if let title {
-                let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                let t = Self.normalizeTitle(title)
                 guard !t.isEmpty else { throw StoreError.emptyTitle }
                 if t != issue.title {
                     issue.title = t
@@ -602,11 +594,10 @@ final class AppStore {
     @discardableResult
     func addComment(issueId: String, body: String, authorName: String = "Riyu", actor: String? = nil) async throws -> Comment {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { throw StoreError.emptyTitle }
+        guard !trimmed.isEmpty else { throw StoreError.emptyComment }
         let author = (actor ?? authorName).trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedAuthor = author.isEmpty ? "Agent" : author
-        let target = MentionParser.firstMention(in: trimmed)
-        let kind = MentionParser.inferKind(body: trimmed, targetActor: target)
+        let targets = MentionParser.allMentions(in: trimmed)
         let comment = Comment(
             id: UUID().uuidString,
             issueId: issueId,
@@ -622,17 +613,22 @@ final class AppStore {
                 try issue.update(db)
             }
             let preview = trimmed.count > 80 ? String(trimmed.prefix(77)) + "…" : trimmed
-            let arrow = target.map { " → \($0)" } ?? ""
-            try ActivityLogger.insert(
-                db,
-                actor: resolvedAuthor,
-                action: ActivityAction.commented.rawValue,
-                summary: "\(resolvedAuthor)\(arrow) on \(issue.identifier): \(preview)",
-                issueId: issueId,
-                projectId: issue.projectId,
-                targetActor: target,
-                kind: kind
-            )
+            // One activity event per distinct @mention so @Ops @Comms both appear in Activity.
+            let mentionTargets: [String?] = targets.isEmpty ? [nil] : targets.map { Optional($0) }
+            for target in mentionTargets {
+                let kind = MentionParser.inferKind(body: trimmed, targetActor: target)
+                let arrow = target.map { " → \($0)" } ?? ""
+                try ActivityLogger.insert(
+                    db,
+                    actor: resolvedAuthor,
+                    action: ActivityAction.commented.rawValue,
+                    summary: "\(resolvedAuthor)\(arrow) on \(issue.identifier): \(preview)",
+                    issueId: issueId,
+                    projectId: issue.projectId,
+                    targetActor: target,
+                    kind: kind
+                )
+            }
         }
         try await reloadAll()
         return comment
@@ -641,18 +637,11 @@ final class AppStore {
     func setIssueLabels(issueId: String, labelNames: [String], actor: String = "Riyu") async throws {
         try await db.write { db in
             guard let issue = try Issue.fetchOne(db, key: issueId) else { throw StoreError.notFound }
+            // Replace-labels path: clear existing links, then insert the unique set.
             try db.execute(sql: "DELETE FROM issue_label WHERE issueId = ?", arguments: [issueId])
             var applied: [String] = []
-            for name in labelNames {
-                let labelName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !labelName.isEmpty else { continue }
-                let label: IssueTag
-                if let existing = try IssueTag.filter(Column("name") == labelName).fetchOne(db) {
-                    label = existing
-                } else {
-                    label = IssueTag(id: UUID().uuidString, name: labelName, color: Self.randomColor())
-                    try label.insert(db)
-                }
+            for labelName in Self.dedupeLabelNames(labelNames) {
+                let label = try Self.resolveOrCreateLabel(named: labelName, db: db)
                 try IssueLabel(issueId: issueId, labelId: label.id).insert(db)
                 applied.append(label.name)
             }
@@ -682,7 +671,7 @@ final class AppStore {
         relatedIssueIdentifiers: [String] = [],
         actor: String = "Riyu"
     ) async throws -> Milestone {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = Self.normalizeTitle(title)
         guard !trimmed.isEmpty else { throw StoreError.emptyTitle }
 
         var resolvedProjectId = projectId
@@ -738,7 +727,7 @@ final class AppStore {
             guard var ms = try Milestone.fetchOne(db, key: id) else { throw StoreError.notFound }
             var changes: [String] = []
             if let title {
-                let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                let t = Self.normalizeTitle(title)
                 guard !t.isEmpty else { throw StoreError.emptyTitle }
                 if t != ms.title {
                     ms.title = t
@@ -916,6 +905,39 @@ final class AppStore {
         ]
     }
 
+    /// Collapse embedded/consecutive whitespace (including newlines) to single spaces for UI safety.
+    nonisolated static func normalizeTitle(_ title: String) -> String {
+        let parts = title.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+        return parts.joined(separator: " ")
+    }
+
+    /// Trim + case-insensitive dedupe, preserving first-seen spelling. Empty names dropped.
+    /// An issue may carry both `feature` and `bug` (and any other distinct labels) at once.
+    nonisolated static func dedupeLabelNames(_ names: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for raw in names {
+            let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { continue }
+            let key = name.lowercased()
+            if seen.insert(key).inserted {
+                result.append(name)
+            }
+        }
+        return result
+    }
+
+    nonisolated private static func resolveOrCreateLabel(named labelName: String, db: Database) throws -> IssueTag {
+        if let existing = try IssueTag
+            .filter(sql: "LOWER(name) = LOWER(?)", arguments: [labelName])
+            .fetchOne(db) {
+            return existing
+        }
+        let label = IssueTag(id: UUID().uuidString, name: labelName, color: Self.randomColor())
+        try label.insert(db)
+        return label
+    }
+
     nonisolated private static func randomColor() -> String {
         let colors = ["#EB5757", "#F2C94C", "#27AE60", "#4EA7FC", "#BB87FC", "#F2994A", "#56CCF2"]
         return colors.randomElement() ?? "#5E6AD2"
@@ -923,14 +945,28 @@ final class AppStore {
 }
 
 enum StoreError: LocalizedError {
-    case emptyTitle, noProject, notFound, invalidProjectKey
+    case emptyTitle
+    case emptyComment
+    case noProject
+    case notFound
+    case invalidProjectKey
+    case invalidStatus(String)
+    case invalidPriority(String)
+    case invalidDate(String)
 
     var errorDescription: String? {
         switch self {
         case .emptyTitle: return "Title cannot be empty"
+        case .emptyComment: return "Comment cannot be empty"
         case .noProject: return "No project selected"
         case .notFound: return "Item not found"
         case .invalidProjectKey: return "Project key must be at least 2 alphanumeric characters"
+        case .invalidStatus(let value):
+            return "Invalid status '\(value)'. Expected one of: backlog, todo, in_progress, done, canceled"
+        case .invalidPriority(let value):
+            return "Invalid priority '\(value)'. Expected one of: none, low, medium, high, urgent"
+        case .invalidDate(let value):
+            return "Invalid date '\(value)'. Expected ISO8601 or yyyy-MM-dd"
         }
     }
 }

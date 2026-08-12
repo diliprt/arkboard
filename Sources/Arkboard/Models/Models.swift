@@ -305,18 +305,34 @@ enum MentionParser {
     /// Canonical bot / human names agents may @mention.
     static let knownActors: [String] = ["Product", "Ops", "Comms", "Riyu", "Agent"]
 
-    static func firstMention(in body: String) -> String? {
-        let pattern = #"@([A-Za-z][A-Za-z0-9_-]{0,31})"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
-        let range = NSRange(body.startIndex..<body.endIndex, in: body)
-        guard let match = regex.firstMatch(in: body, options: [], range: range),
-              match.numberOfRanges >= 2,
-              let nameRange = Range(match.range(at: 1), in: body) else { return nil }
-        let raw = String(body[nameRange])
+    static func canonicalizeActor(_ raw: String) -> String {
         if let known = knownActors.first(where: { $0.caseInsensitiveCompare(raw) == .orderedSame }) {
             return known
         }
         return raw.prefix(1).uppercased() + raw.dropFirst()
+    }
+
+    static func firstMention(in body: String) -> String? {
+        allMentions(in: body).first
+    }
+
+    /// Distinct @mentions in order of first appearance (case-insensitive dedupe).
+    static func allMentions(in body: String) -> [String] {
+        let pattern = #"@([A-Za-z][A-Za-z0-9_-]{0,31})"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let range = NSRange(body.startIndex..<body.endIndex, in: body)
+        var seen = Set<String>()
+        var result: [String] = []
+        regex.enumerateMatches(in: body, options: [], range: range) { match, _, _ in
+            guard let match, match.numberOfRanges >= 2,
+                  let nameRange = Range(match.range(at: 1), in: body) else { return }
+            let canonical = canonicalizeActor(String(body[nameRange]))
+            let key = canonical.lowercased()
+            if seen.insert(key).inserted {
+                result.append(canonical)
+            }
+        }
+        return result
     }
 
     static func inferKind(body: String, targetActor: String?) -> ActivityKind {
