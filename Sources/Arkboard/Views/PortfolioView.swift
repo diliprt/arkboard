@@ -21,16 +21,6 @@ struct PortfolioView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Picker("Portfolio section", selection: $tab) {
-                ForEach(PortfolioTab.allCases) { t in
-                    Text(t.title).tag(t)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .accessibilityLabel("Portfolio section")
-            .padding(.horizontal, 20)
-            .padding(.bottom, 12)
 
             switch tab {
             case .overview:
@@ -66,27 +56,37 @@ struct PortfolioView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
                 Text("Portfolio")
                     .font(.title2.weight(.semibold))
-                Text("Bird's-eye across projects — overview, shared timeline, milestones")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if tab == .milestones {
-                Button {
-                    showingCreate = true
-                } label: {
-                    Label("New milestone", systemImage: "plus")
+                Spacer(minLength: 8)
+                if tab == .milestones {
+                    Button {
+                        showingCreate = true
+                    } label: {
+                        Label("New milestone", systemImage: "plus")
+                    }
+                    .controlSize(.small)
                 }
-                .controlSize(.small)
             }
+
+            Picker("Portfolio section", selection: $tab) {
+                ForEach(PortfolioTab.allCases) { t in
+                    Text(t.title).tag(t)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityLabel("Portfolio section")
+
+            Text("Bird's-eye across projects — overview, shared timeline, milestones")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
-        .padding(.bottom, 10)
+        .padding(.bottom, 12)
     }
 
     private var overviewScroll: some View {
