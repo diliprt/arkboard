@@ -14,6 +14,7 @@
 		2FB026E1389C62E4047EB85B /* EmptyStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2C661A8888A4EE4E4FECCDB /* EmptyStates.swift */; };
 		37E1A8F0A0352666543F3DBB /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E128784F7CF9DB9F511DEA /* SidebarView.swift */; };
 		3D1ACF0882DA1ED6657DCC11 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = A565A1B4A02340C63B51DD2D /* GRDB */; };
+		418923F48E2C9EAB9A0530B5 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4590B891128234CAEDD8FCC /* AppIcon.icns */; };
 		4548EBBCC0D2771E51AD09DC /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF07FAF307783853DDB64880 /* Database.swift */; };
 		55797B9B3D845C53C1EAE6AF /* ArkboardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E5EE3913CF9079E5B96E81 /* ArkboardApp.swift */; };
 		844F4C1A7BF3841DA4C1C581 /* QuickAddSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */; };
@@ -43,6 +44,7 @@
 		7F4F596266E3DE39E1947110 /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
 		819337D1595290803F0B11C8 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		B139EC32050FAE74A00A8216 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		B4590B891128234CAEDD8FCC /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddSheet.swift; sourceTree = "<group>"; };
 		C4ADCCE22DAB9D7A78246901 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C8528C6ECEF75E8896DC0902 /* Arkboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Arkboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -99,6 +101,7 @@
 		5B40CABADBCBD1B99382A2D5 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				B4590B891128234CAEDD8FCC /* AppIcon.icns */,
 				C4ADCCE22DAB9D7A78246901 /* Assets.xcassets */,
 			);
 			path = Resources;
@@ -228,6 +231,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				418923F48E2C9EAB9A0530B5 /* AppIcon.icns in Resources */,
 				2CE8D6377AD4ACDE3C1DA1BB /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
