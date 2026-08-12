@@ -116,6 +116,26 @@ enum AppDatabase {
             }
         }
 
+        migrator.registerMigration("v3_milestones_activity_targets") { db in
+            try db.create(table: "milestone") { t in
+                t.column("id", .text).primaryKey()
+                t.column("projectId", .text).indexed()
+                    .references("project", onDelete: .setNull)
+                t.column("title", .text).notNull()
+                t.column("description", .text).notNull().defaults(to: "")
+                t.column("targetDate", .datetime).notNull().indexed()
+                t.column("status", .text).notNull().indexed()
+                t.column("relatedIssueIdentifiers", .text).notNull().defaults(to: "[]")
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+
+            try db.alter(table: "activity") { t in
+                t.add(column: "targetActor", .text)
+                t.add(column: "kind", .text).notNull().defaults(to: "system")
+            }
+        }
+
         return migrator
     }
 }

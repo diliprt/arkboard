@@ -6,14 +6,14 @@ Built for Origin Ark Studio so product direction lives in a real tracker, not ch
 
 ## Features (v1)
 
-- **Portfolio** bird's-eye view — cards per project with status + feature/bug breakdown
-- **Activity** feed — multi-agent collaboration (Product / Ops / Comms / Riyu) with avatars
+- **Portfolio** — Overview cards, shared **Timeline**, and **Milestones** (project or studio-wide)
+- **Activity** feed — multi-agent collaboration with bot↔bot visibility (`Product → Ops`), mention/handoff chips
 - Projects + Issues (status, priority, labels, comments)
 - **List** and **Board** (kanban by status) views for project/Inbox detail work
 - Quick add with **⌘N**
 - Local SQLite in Application Support
 - Local HTTP server on **`127.0.0.1:7420`**
-  - REST: `/api/projects`, `/api/issues`, `/api/activity`
+  - REST: `/api/projects`, `/api/issues`, `/api/activity`, `/api/milestones`
   - MCP-shaped JSON-RPC: `POST /mcp` (`tools/list`, `tools/call`)
 - Stdio MCP bridge: `mcp/server.py` for Cursor
 - Custom macOS **AppIcon** (asset catalog)
@@ -41,7 +41,9 @@ cd "/Users/dilipreddy/Origin Ark Studio/arkboard"
 
 **Important:** Launch via `open …/Arkboard.app` (or Xcode Run), not the raw Mach-O binary.
 
-On first launch the app seeds demo projects (**ARK**, **OPS**), sample issues, and a short Product/Ops/Comms conversation in Activity, then starts MCP on port **7420**. Existing DBs get activity auto-seeded once if the table is empty; use **Seed demo agent activity** on Portfolio/Activity to re-seed.
+On first launch the app seeds demo projects (**ARK**, **OPS**), sample issues, milestones across the next couple weeks, and a Product ↔ Ops ↔ Comms conversation (with `@mentions`) in Activity, then starts MCP on port **7420**. Existing DBs get milestones/activity auto-seeded when empty or thin; use **Seed demo agent activity** on Portfolio/Activity to re-seed the bot dialogue.
+
+**Click-through:** Portfolio → Overview / Timeline / Milestones · Activity → filter **Mentions/handoffs** to see dual-avatar Product → Ops rows.
 
 ### Smoke test
 
@@ -51,7 +53,7 @@ With the app running:
 ./scripts/smoke.sh
 ```
 
-Verifies `/health`, MCP `tools/list`, `create_issue` (with `actor`), `list_activity`, and REST list.
+Verifies `/health`, MCP `tools/list`, `create_issue` (with `actor`), `list_activity`, milestone CRUD, `list_bot_thread`, and REST list.
 
 ## REST API (curl)
 
@@ -69,6 +71,9 @@ curl -s 'http://127.0.0.1:7420/api/issues?projectKey=ARK' | jq
 
 # Activity feed
 curl -s 'http://127.0.0.1:7420/api/activity?limit=20' | jq
+
+# Milestones
+curl -s 'http://127.0.0.1:7420/api/milestones' | jq
 
 # Create issue
 curl -s -X POST http://127.0.0.1:7420/api/issues \
@@ -93,9 +98,9 @@ curl -s -X POST http://127.0.0.1:7420/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq
 ```
 
-Tools: `list_projects`, `create_project`, `list_issues`, `search_issues`, `get_issue`, `create_issue`, `update_issue`, `add_comment`, `list_activity`.
+Tools: `list_projects`, `create_project`, `list_issues`, `search_issues`, `get_issue`, `create_issue`, `update_issue`, `add_comment`, `list_activity`, `list_milestones`, `create_milestone`, `update_milestone`, `list_bot_thread`.
 
-Mutating tools accept optional **`actor`** (string; default `"Agent"`). `add_comment` sets `authorName` from `actor` when provided.
+Mutating tools accept optional **`actor`** (string; default `"Agent"`). `add_comment` parses `@Ops` / `@Product` / `@Comms` mentions into Activity `targetActor` (shown as **Product → Ops**).
 
 ### Option B — Cursor stdio bridge
 

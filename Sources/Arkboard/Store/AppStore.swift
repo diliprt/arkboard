@@ -12,11 +12,13 @@ final class AppStore {
     var labels: [IssueTag] = []
     var comments: [Comment] = []
     var activities: [Activity] = []
+    var milestones: [Milestone] = []
     /// Portfolio is the default bird's-eye landing.
     var selection: SidebarSelection = .portfolio
     var selectedIssueId: String? = nil
     var viewMode: ViewMode = .list
     var filter = IssueFilter()
+    var activityFilter: ActivityFeedFilter = .all
     var mcpRunning = false
     var mcpPort: UInt16 = 7420
     var lastError: String?
@@ -27,6 +29,18 @@ final class AppStore {
         case list, board
         var id: String { rawValue }
         var title: String { rawValue.capitalized }
+    }
+
+    enum ActivityFeedFilter: String, CaseIterable, Identifiable {
+        case all, bots, mentions
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .all: return "All"
+            case .bots: return "Bots only"
+            case .mentions: return "Mentions/handoffs"
+            }
+        }
     }
 
     private let db: DatabasePool
@@ -41,7 +55,9 @@ final class AppStore {
         do {
             try await db.write { db in
                 try SeedData.seedIfNeeded(db)
+                try SeedData.seedMilestonesIfNeeded(db)
                 try SeedData.seedDemoAgentActivityIfNeeded(db)
+                try SeedData.enrichBotDialogueIfThin(db)
             }
             try await reloadAll()
             startMCP()
@@ -181,6 +197,28 @@ final class AppStore {
         return nil
     }
 
+    func project(forMilestone milestone: Milestone) -> Project? {
+        guard let pid = milestone.projectId else { return nil }
+        return projects.first { $0.id == pid }
+    }
+
+    var filteredActivities: [Activity] {
+        let botNames: Set<String> = ["product", "ops", "comms", "agent"]
+        switch activityFilter {
+        case .all:
+            return activities
+        case .bots:
+            return activities.filter { botNames.contains($0.actor.lowercased()) }
+        case .mentions:
+            return activities.filter { activity in
+                let kind = ActivityKind(rawValue: activity.kind)
+                if kind == .mention || kind == .handoff { return true }
+                if let t = activity.targetActor, !t.isEmpty { return true }
+                return false
+            }
+        }
+    }
+
     // MARK: - Portfolio
 
     var portfolioCards: [ProjectPortfolioCard] {
@@ -223,12 +261,77 @@ final class AppStore {
         return totals
     }
 
+    /// Milestones grouped: studio-wide first, then by project name.
+    var milestonesGrouped: [(title: String, project: Project?, items: [Milestone])] {
+        var groups: [(title: String, project: Project?, items: [Milestone])] = []
+        let studio = milestones.filter { $0.projectId == nil }
+            .sorted { $0.targetDate < $1.targetDate }
+        if !studio.isEmpty {
+            groups.append(("Studio-wide", nil, studio))
+        }
+        for project in projects.sorted(by: { $0.name < $1.name }) {
+            let items = milestones.filter { $0.projectId == project.id }
+                .sorted { $0.targetDate < $1.targetDate }
+            if !items.isEmpty {
+                groups.append((project.name, project, items))
+            }
+        }
+        return groups
+    }
+
+    var timelineEvents: [TimelineEvent] {
+        var events: [TimelineEvent] = []
+        for ms in milestones {
+            let p = project(forMilestone: ms)
+            events.append(TimelineEvent(
+                id: "ms-\(ms.id)",
+                date: ms.targetDate,
+                title: ms.title,
+                subtitle: ms.description.isEmpty ? "Milestone" : ms.description,
+                kind: .milestone,
+                projectId: ms.projectId,
+                projectKey: p?.key,
+                projectColor: p?.color ?? "#8E8E93",
+                statusLabel: ms.status.displayName
+            ))
+        }
+        for issue in issues {
+            let p = project(for: issue)
+            let color = p?.color ?? "#8E8E93"
+            events.append(TimelineEvent(
+                id: "created-\(issue.id)",
+                date: issue.createdAt,
+                title: issue.identifier,
+                subtitle: "Created · \(issue.title)",
+                kind: .issueCreated,
+                projectId: issue.projectId,
+                projectKey: p?.key,
+                projectColor: color,
+                statusLabel: nil
+            ))
+            if issue.status == .done {
+                events.append(TimelineEvent(
+                    id: "done-\(issue.id)",
+                    date: issue.updatedAt,
+                    title: issue.identifier,
+                    subtitle: "Done · \(issue.title)",
+                    kind: .issueDone,
+                    projectId: issue.projectId,
+                    projectKey: p?.key,
+                    projectColor: color,
+                    statusLabel: "Done"
+                ))
+            }
+        }
+        return events.sorted { $0.date < $1.date }
+    }
+
     private var labelMap: [String: [IssueTag]] = [:]
 
     // MARK: - Reload
 
     func reloadAll() async throws {
-        let snapshot = try await db.read { db -> (Workspace?, [Project], [Issue], [IssueTag], [Comment], [IssueLabel], [Activity]) in
+        let snapshot = try await db.read { db -> (Workspace?, [Project], [Issue], [IssueTag], [Comment], [IssueLabel], [Activity], [Milestone]) in
             let ws = try Workspace.fetchOne(db)
             let projects = try Project.order(Column("name")).fetchAll(db)
             let issues = try Issue.order(Column("updatedAt").desc).fetchAll(db)
@@ -236,7 +339,8 @@ final class AppStore {
             let comments = try Comment.order(Column("createdAt")).fetchAll(db)
             let links = try IssueLabel.fetchAll(db)
             let activities = try Activity.order(Column("createdAt").desc).fetchAll(db)
-            return (ws, projects, issues, labels, comments, links, activities)
+            let milestones = try Milestone.order(Column("targetDate")).fetchAll(db)
+            return (ws, projects, issues, labels, comments, links, activities, milestones)
         }
 
         workspace = snapshot.0
@@ -245,6 +349,7 @@ final class AppStore {
         labels = snapshot.3
         comments = snapshot.4
         activities = snapshot.6
+        milestones = snapshot.7
 
         var map: [String: [IssueTag]] = [:]
         let labelById = Dictionary(uniqueKeysWithValues: snapshot.3.map { ($0.id, $0) })
@@ -286,7 +391,8 @@ final class AppStore {
                 actor: actor,
                 action: ActivityAction.created_project.rawValue,
                 summary: "\(actor) created project \(project.key) — \(project.name)",
-                projectId: project.id
+                projectId: project.id,
+                kind: .system
             )
         }
         try await reloadAll()
@@ -360,7 +466,8 @@ final class AppStore {
                 action: ActivityAction.created_issue.rawValue,
                 summary: "\(actor) created \(issue.identifier): \(issue.title)",
                 issueId: issue.id,
-                projectId: pid
+                projectId: pid,
+                kind: .system
             )
             return issue
         }
@@ -432,7 +539,8 @@ final class AppStore {
                     action: ActivityAction.updated_issue.rawValue,
                     summary: "\(actor) updated \(issue.identifier) (\(detail))",
                     issueId: issue.id,
-                    projectId: issue.projectId
+                    projectId: issue.projectId,
+                    kind: .system
                 )
             }
             return issue
@@ -475,7 +583,8 @@ final class AppStore {
                     action: ActivityAction.updated_issue.rawValue,
                     summary: "\(actor) moved \(moving.identifier) \(fromStatus.rawValue) → \(status.rawValue)",
                     issueId: moving.id,
-                    projectId: moving.projectId
+                    projectId: moving.projectId,
+                    kind: .system
                 )
             }
         }
@@ -496,6 +605,8 @@ final class AppStore {
         guard !trimmed.isEmpty else { throw StoreError.emptyTitle }
         let author = (actor ?? authorName).trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedAuthor = author.isEmpty ? "Agent" : author
+        let target = MentionParser.firstMention(in: trimmed)
+        let kind = MentionParser.inferKind(body: trimmed, targetActor: target)
         let comment = Comment(
             id: UUID().uuidString,
             issueId: issueId,
@@ -511,13 +622,16 @@ final class AppStore {
                 try issue.update(db)
             }
             let preview = trimmed.count > 80 ? String(trimmed.prefix(77)) + "…" : trimmed
+            let arrow = target.map { " → \($0)" } ?? ""
             try ActivityLogger.insert(
                 db,
                 actor: resolvedAuthor,
                 action: ActivityAction.commented.rawValue,
-                summary: "\(resolvedAuthor) on \(issue.identifier): \(preview)",
+                summary: "\(resolvedAuthor)\(arrow) on \(issue.identifier): \(preview)",
                 issueId: issueId,
-                projectId: issue.projectId
+                projectId: issue.projectId,
+                targetActor: target,
+                kind: kind
             )
         }
         try await reloadAll()
@@ -548,8 +662,130 @@ final class AppStore {
                 action: ActivityAction.updated_issue.rawValue,
                 summary: "\(actor) set labels on \(issue.identifier): \(applied.isEmpty ? "(none)" : applied.joined(separator: ", "))",
                 issueId: issueId,
-                projectId: issue.projectId
+                projectId: issue.projectId,
+                kind: .system
             )
+        }
+        try await reloadAll()
+    }
+
+    // MARK: - Milestones
+
+    @discardableResult
+    func createMilestone(
+        title: String,
+        description: String = "",
+        targetDate: Date,
+        status: MilestoneStatus = .planned,
+        projectId: String? = nil,
+        projectKey: String? = nil,
+        relatedIssueIdentifiers: [String] = [],
+        actor: String = "Riyu"
+    ) async throws -> Milestone {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw StoreError.emptyTitle }
+
+        var resolvedProjectId = projectId
+        if resolvedProjectId == nil, let projectKey,
+           let p = projects.first(where: { $0.key.caseInsensitiveCompare(projectKey) == .orderedSame }) {
+            resolvedProjectId = p.id
+        }
+        if let pid = resolvedProjectId, !projects.contains(where: { $0.id == pid }) {
+            throw StoreError.noProject
+        }
+
+        let now = Date()
+        let scopeKey = resolvedProjectId.flatMap { id in projects.first { $0.id == id }?.key } ?? "studio"
+        let projectIdForInsert = resolvedProjectId
+        let milestone = Milestone(
+            id: UUID().uuidString,
+            projectId: projectIdForInsert,
+            title: trimmed,
+            description: description,
+            targetDate: targetDate,
+            status: status,
+            relatedIssueIdentifiers: Milestone.encodeIdentifiers(relatedIssueIdentifiers),
+            createdAt: now,
+            updatedAt: now
+        )
+        try await db.write { db in
+            try milestone.insert(db)
+            try ActivityLogger.insert(
+                db,
+                actor: actor,
+                action: ActivityAction.created_milestone.rawValue,
+                summary: "\(actor) created milestone “\(milestone.title)” (\(scopeKey))",
+                projectId: projectIdForInsert,
+                kind: .system
+            )
+        }
+        try await reloadAll()
+        return milestone
+    }
+
+    @discardableResult
+    func updateMilestone(
+        id: String,
+        title: String? = nil,
+        description: String? = nil,
+        targetDate: Date? = nil,
+        status: MilestoneStatus? = nil,
+        projectId: String?? = nil,
+        relatedIssueIdentifiers: [String]? = nil,
+        actor: String = "Riyu"
+    ) async throws -> Milestone {
+        let updated = try await db.write { db -> Milestone in
+            guard var ms = try Milestone.fetchOne(db, key: id) else { throw StoreError.notFound }
+            var changes: [String] = []
+            if let title {
+                let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !t.isEmpty else { throw StoreError.emptyTitle }
+                if t != ms.title {
+                    ms.title = t
+                    changes.append("title")
+                }
+            }
+            if let description, description != ms.description {
+                ms.description = description
+                changes.append("description")
+            }
+            if let targetDate, targetDate != ms.targetDate {
+                ms.targetDate = targetDate
+                changes.append("targetDate")
+            }
+            if let status, status != ms.status {
+                ms.status = status
+                changes.append("status → \(status.rawValue)")
+            }
+            if let projectId {
+                ms.projectId = projectId
+                changes.append("project")
+            }
+            if let relatedIssueIdentifiers {
+                ms.relatedIssueIdentifiers = Milestone.encodeIdentifiers(relatedIssueIdentifiers)
+                changes.append("relatedIssues")
+            }
+            ms.updatedAt = Date()
+            try ms.update(db)
+            if !changes.isEmpty {
+                try ActivityLogger.insert(
+                    db,
+                    actor: actor,
+                    action: ActivityAction.updated_milestone.rawValue,
+                    summary: "\(actor) updated milestone “\(ms.title)” (\(changes.joined(separator: ", ")))",
+                    projectId: ms.projectId,
+                    kind: .system
+                )
+            }
+            return ms
+        }
+        try await reloadAll()
+        return updated
+    }
+
+    func deleteMilestone(_ id: String) async throws {
+        try await db.write { db in
+            _ = try Milestone.deleteOne(db, key: id)
         }
         try await reloadAll()
     }
@@ -558,7 +794,19 @@ final class AppStore {
     func seedDemoAgentActivity() async {
         do {
             try await db.write { db in
-                try SeedData.seedDemoAgentActivity(db)
+                try SeedData.seedMilestonesIfNeeded(db)
+                try SeedData.enrichBotDialogueIfThin(db)
+                // If already rich, still append a fresh beat set for demos when user clicks.
+                let targeted = try Int.fetchOne(
+                    db,
+                    sql: "SELECT COUNT(*) FROM activity WHERE targetActor IS NOT NULL AND TRIM(targetActor) != ''"
+                ) ?? 0
+                if targeted == 0 {
+                    try SeedData.seedDemoAgentActivity(db)
+                } else {
+                    // Re-seed richer dialogue so the button always feels useful.
+                    try SeedData.seedDemoAgentActivity(db)
+                }
             }
             try await reloadAll()
         } catch {
@@ -577,6 +825,33 @@ final class AppStore {
             }
         }
         return Array(items.prefix(max(1, min(limit, 500))))
+    }
+
+    func listMilestones(projectKey: String? = nil, status: MilestoneStatus? = nil) -> [Milestone] {
+        var items = milestones
+        if let projectKey {
+            if projectKey.lowercased() == "studio" || projectKey.lowercased() == "studio-wide" {
+                items = items.filter { $0.projectId == nil }
+            } else if let p = projects.first(where: { $0.key.caseInsensitiveCompare(projectKey) == .orderedSame }) {
+                items = items.filter { $0.projectId == p.id }
+            }
+        }
+        if let status {
+            items = items.filter { $0.status == status }
+        }
+        return items.sorted { $0.targetDate < $1.targetDate }
+    }
+
+    /// Chronological comments + activity for one issue (bot thread).
+    func botThread(issueIdOrIdentifier: String) -> (issue: Issue, comments: [Comment], activities: [Activity])? {
+        guard let issue = issues.first(where: {
+            $0.id == issueIdOrIdentifier || $0.identifier.caseInsensitiveCompare(issueIdOrIdentifier) == .orderedSame
+        }) else { return nil }
+        let threadComments = comments(for: issue)
+        let threadActivity = activities
+            .filter { $0.issueId == issue.id }
+            .sorted { $0.createdAt < $1.createdAt }
+        return (issue, threadComments, threadActivity)
     }
 
     // MARK: - Export for MCP / API
@@ -615,12 +890,29 @@ final class AppStore {
             "id": activity.id,
             "createdAt": ISO8601DateFormatter().string(from: activity.createdAt),
             "actor": activity.actor,
+            "targetActor": activity.targetActor ?? NSNull(),
             "action": activity.action,
+            "kind": activity.kind,
             "issueId": activity.issueId ?? NSNull(),
             "projectId": activity.projectId ?? NSNull(),
             "issueIdentifier": issue(forActivity: activity)?.identifier ?? NSNull(),
             "projectKey": project(forActivity: activity)?.key ?? NSNull(),
             "summary": activity.summary,
+        ]
+    }
+
+    func milestoneDictionary(_ milestone: Milestone) -> [String: Any] {
+        [
+            "id": milestone.id,
+            "projectId": milestone.projectId ?? NSNull(),
+            "projectKey": project(forMilestone: milestone)?.key ?? NSNull(),
+            "title": milestone.title,
+            "description": milestone.description,
+            "targetDate": ISO8601DateFormatter().string(from: milestone.targetDate),
+            "status": milestone.status.rawValue,
+            "relatedIssueIdentifiers": milestone.relatedIdentifiers,
+            "createdAt": ISO8601DateFormatter().string(from: milestone.createdAt),
+            "updatedAt": ISO8601DateFormatter().string(from: milestone.updatedAt),
         ]
     }
 

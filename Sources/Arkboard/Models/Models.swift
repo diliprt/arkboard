@@ -71,11 +71,37 @@ enum IssuePriority: String, Codable, CaseIterable, Identifiable, DatabaseValueCo
     }
 }
 
+enum MilestoneStatus: String, Codable, CaseIterable, Identifiable, DatabaseValueConvertible {
+    case planned, in_progress, done, missed
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .planned: return "Planned"
+        case .in_progress: return "In Progress"
+        case .done: return "Done"
+        case .missed: return "Missed"
+        }
+    }
+
+    var tintHex: String {
+        switch self {
+        case .planned: return "#4EA7FC"
+        case .in_progress: return "#F2C94C"
+        case .done: return "#27AE60"
+        case .missed: return "#EB5757"
+        }
+    }
+}
+
 enum ActivityAction: String, Codable, DatabaseValueConvertible {
     case created_issue
     case updated_issue
     case commented
     case created_project
+    case created_milestone
+    case updated_milestone
 
     var displayName: String {
         switch self {
@@ -83,6 +109,23 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
         case .updated_issue: return "updated issue"
         case .commented: return "commented"
         case .created_project: return "created project"
+        case .created_milestone: return "created milestone"
+        case .updated_milestone: return "updated milestone"
+        }
+    }
+}
+
+enum ActivityKind: String, Codable, CaseIterable, Identifiable, DatabaseValueConvertible {
+    case comment, mention, handoff, system
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .comment: return "comment"
+        case .mention: return "mention"
+        case .handoff: return "handoff"
+        case .system: return "system"
         }
     }
 }
@@ -173,6 +216,40 @@ struct Activity: Codable, FetchableRecord, PersistableRecord, Identifiable, Hash
     var issueId: String?
     var projectId: String?
     var summary: String
+    /// Who this entry addresses (e.g. Product → Ops).
+    var targetActor: String?
+    /// comment | mention | handoff | system
+    var kind: String
+}
+
+struct Milestone: Codable, FetchableRecord, PersistableRecord, Identifiable, Hashable {
+    static let databaseTableName = "milestone"
+    var id: String
+    /// nil = studio-wide
+    var projectId: String?
+    var title: String
+    var description: String
+    var targetDate: Date
+    var status: MilestoneStatus
+    /// JSON array of issue identifiers, e.g. ["ARK-1","OPS-2"]
+    var relatedIssueIdentifiers: String
+    var createdAt: Date
+    var updatedAt: Date
+
+    var relatedIdentifiers: [String] {
+        guard let data = relatedIssueIdentifiers.data(using: .utf8),
+              let arr = try? JSONDecoder().decode([String].self, from: data) else {
+            return []
+        }
+        return arr
+    }
+
+    static func encodeIdentifiers(_ ids: [String]) -> String {
+        let cleaned = ids.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        guard let data = try? JSONEncoder().encode(cleaned),
+              let s = String(data: data, encoding: .utf8) else { return "[]" }
+        return s
+    }
 }
 
 struct IssueFilter: Equatable {
@@ -203,4 +280,53 @@ struct PortfolioTotals: Hashable {
     var inProgress: Int = 0
     var bugs: Int = 0
     var features: Int = 0
+}
+
+/// Shared calendar strip event for Timeline.
+enum TimelineEventKind: String {
+    case milestone
+    case issueCreated
+    case issueDone
+}
+
+struct TimelineEvent: Identifiable, Hashable {
+    var id: String
+    var date: Date
+    var title: String
+    var subtitle: String
+    var kind: TimelineEventKind
+    var projectId: String?
+    var projectKey: String?
+    var projectColor: String
+    var statusLabel: String?
+}
+
+enum MentionParser {
+    /// Canonical bot / human names agents may @mention.
+    static let knownActors: [String] = ["Product", "Ops", "Comms", "Riyu", "Agent"]
+
+    static func firstMention(in body: String) -> String? {
+        let pattern = #"@([A-Za-z][A-Za-z0-9_-]{0,31})"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(body.startIndex..<body.endIndex, in: body)
+        guard let match = regex.firstMatch(in: body, options: [], range: range),
+              match.numberOfRanges >= 2,
+              let nameRange = Range(match.range(at: 1), in: body) else { return nil }
+        let raw = String(body[nameRange])
+        if let known = knownActors.first(where: { $0.caseInsensitiveCompare(raw) == .orderedSame }) {
+            return known
+        }
+        return raw.prefix(1).uppercased() + raw.dropFirst()
+    }
+
+    static func inferKind(body: String, targetActor: String?) -> ActivityKind {
+        let lower = body.lowercased()
+        if lower.contains("handoff") || lower.contains("hand off") || lower.contains("handing off") {
+            return .handoff
+        }
+        if targetActor != nil {
+            return .mention
+        }
+        return .comment
+    }
 }

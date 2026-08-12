@@ -252,6 +252,45 @@ final class MCPServer: @unchecked Sendable {
                     "authorName": comment.authorName,
                 ])
 
+
+            case ("GET", "/api/milestones"):
+                let projectKey = query["projectKey"]
+                let status = (query["status"]).flatMap(MilestoneStatus.init(rawValue:))
+                let items = store.listMilestones(projectKey: projectKey, status: status)
+                return .json(200, ["milestones": items.map { store.milestoneDictionary($0) }])
+
+            case ("POST", "/api/milestones"):
+                let title = json["title"] as? String ?? ""
+                let description = json["description"] as? String ?? ""
+                let actor = (json["actor"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let status = (json["status"] as? String).flatMap(MilestoneStatus.init(rawValue:)) ?? .planned
+                let projectKey = json["projectKey"] as? String
+                let projectId = json["projectId"] as? String
+                let related = json["relatedIssueIdentifiers"] as? [String] ?? []
+                let targetDate: Date
+                if let s = json["targetDate"] as? String, let d = ISO8601DateFormatter().date(from: s) {
+                    targetDate = d
+                } else if let s = json["targetDate"] as? String {
+                    let f = DateFormatter()
+                    f.calendar = Calendar(identifier: .gregorian)
+                    f.locale = Locale(identifier: "en_US_POSIX")
+                    f.dateFormat = "yyyy-MM-dd"
+                    targetDate = f.date(from: s) ?? Date()
+                } else {
+                    targetDate = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+                }
+                let ms = try await store.createMilestone(
+                    title: title,
+                    description: description,
+                    targetDate: targetDate,
+                    status: status,
+                    projectId: projectId,
+                    projectKey: projectKey,
+                    relatedIssueIdentifiers: related,
+                    actor: (actor?.isEmpty == false ? actor! : "Agent")
+                )
+                return .json(201, store.milestoneDictionary(ms))
+
             default:
                 return .json(404, ["error": "unknown endpoint", "path": path])
             }
@@ -435,6 +474,72 @@ final class MCPServer: @unchecked Sendable {
             let items = store.listActivity(limit: limit, projectKey: projectKey)
             return try text(["activities": items.map { store.activityDictionary($0) }])
 
+
+        case "list_milestones":
+            let projectKey = args["projectKey"] as? String
+            let status = (args["status"] as? String).flatMap(MilestoneStatus.init(rawValue:))
+            let items = store.listMilestones(projectKey: projectKey, status: status)
+            return try text(["milestones": items.map { store.milestoneDictionary($0) }])
+
+        case "create_milestone":
+            let actor = Self.resolvedActor(args)
+            let status = (args["status"] as? String).flatMap(MilestoneStatus.init(rawValue:)) ?? .planned
+            let related = args["relatedIssueIdentifiers"] as? [String] ?? []
+            let targetDate = Self.parseDate(args["targetDate"]) ?? (Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date())
+            let ms = try await store.createMilestone(
+                title: args["title"] as? String ?? "",
+                description: args["description"] as? String ?? "",
+                targetDate: targetDate,
+                status: status,
+                projectId: args["projectId"] as? String,
+                projectKey: args["projectKey"] as? String,
+                relatedIssueIdentifiers: related,
+                actor: actor
+            )
+            return try text(store.milestoneDictionary(ms))
+
+        case "update_milestone":
+            let id = args["id"] as? String ?? ""
+            guard !id.isEmpty else { throw StoreError.notFound }
+            let actor = Self.resolvedActor(args)
+            var projectIdUpdate: String?? = nil
+            if args.keys.contains("projectId") {
+                projectIdUpdate = .some(args["projectId"] as? String)
+            } else if let key = args["projectKey"] as? String {
+                if key.lowercased() == "studio" || key.lowercased() == "studio-wide" {
+                    projectIdUpdate = .some(nil)
+                } else if let p = store.projects.first(where: { $0.key.caseInsensitiveCompare(key) == .orderedSame }) {
+                    projectIdUpdate = .some(p.id)
+                }
+            }
+            let ms = try await store.updateMilestone(
+                id: id,
+                title: args["title"] as? String,
+                description: args["description"] as? String,
+                targetDate: Self.parseDate(args["targetDate"]),
+                status: (args["status"] as? String).flatMap(MilestoneStatus.init(rawValue:)),
+                projectId: projectIdUpdate,
+                relatedIssueIdentifiers: args["relatedIssueIdentifiers"] as? [String],
+                actor: actor
+            )
+            return try text(store.milestoneDictionary(ms))
+
+        case "list_bot_thread":
+            let key = (args["issueId"] as? String) ?? (args["identifier"] as? String) ?? ""
+            guard let thread = store.botThread(issueIdOrIdentifier: key) else { throw StoreError.notFound }
+            return try text([
+                "issue": store.issueDictionary(thread.issue),
+                "comments": thread.comments.map {
+                    [
+                        "id": $0.id,
+                        "body": $0.bodyMarkdown,
+                        "authorName": $0.authorName,
+                        "createdAt": ISO8601DateFormatter().string(from: $0.createdAt),
+                    ] as [String: Any]
+                },
+                "activities": thread.activities.map { store.activityDictionary($0) },
+            ])
+
         default:
             throw NSError(domain: "MCP", code: -32601, userInfo: [NSLocalizedDescriptionKey: "Unknown tool: \(name)"])
         }
@@ -454,6 +559,21 @@ final class MCPServer: @unchecked Sendable {
         return "Agent"
     }
 
+
+    private static func parseDate(_ value: Any?) -> Date? {
+        if let s = value as? String {
+            let iso = ISO8601DateFormatter()
+            if let d = iso.date(from: s) { return d }
+            let f = DateFormatter()
+            f.calendar = Calendar(identifier: .gregorian)
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.timeZone = TimeZone.current
+            f.dateFormat = "yyyy-MM-dd"
+            return f.date(from: s)
+        }
+        return nil
+    }
+
     private func jsonrpcError(id: Any?, code: Int, message: String) -> [String: Any] {
         var resp: [String: Any] = [
             "jsonrpc": "2.0",
@@ -468,6 +588,7 @@ enum MCPToolCatalog {
     static let toolNames = [
         "list_projects", "create_project", "list_issues", "get_issue",
         "create_issue", "update_issue", "add_comment", "search_issues", "list_activity",
+        "list_milestones", "create_milestone", "update_milestone", "list_bot_thread",
     ]
 
     static var tools: [[String: Any]] {
@@ -526,6 +647,35 @@ enum MCPToolCatalog {
             tool("list_activity", "List recent agent/UI activity (reverse chronological)", [
                 "limit": ["type": "integer", "description": "Max items (default 50)"],
                 "projectKey": ["type": "string", "description": "Optional project filter e.g. ARK"],
+            ]),
+            tool("list_milestones", "List milestones (studio-wide and per-project)", [
+                "projectKey": ["type": "string", "description": "ARK / OPS / studio"],
+                "status": ["type": "string", "description": "planned|in_progress|done|missed"],
+            ]),
+            tool("create_milestone", "Create a milestone", [
+                "title": ["type": "string"],
+                "description": ["type": "string"],
+                "targetDate": ["type": "string", "description": "ISO8601 or yyyy-MM-dd"],
+                "status": ["type": "string", "description": "planned|in_progress|done|missed"],
+                "projectKey": ["type": "string", "description": "Omit or studio for studio-wide"],
+                "projectId": ["type": "string"],
+                "relatedIssueIdentifiers": ["type": "array", "items": ["type": "string"]],
+                "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
+            ], required: ["title"]),
+            tool("update_milestone", "Update a milestone", [
+                "id": ["type": "string"],
+                "title": ["type": "string"],
+                "description": ["type": "string"],
+                "targetDate": ["type": "string"],
+                "status": ["type": "string"],
+                "projectKey": ["type": "string"],
+                "projectId": ["type": "string"],
+                "relatedIssueIdentifiers": ["type": "array", "items": ["type": "string"]],
+                "actor": ["type": "string"],
+            ], required: ["id"]),
+            tool("list_bot_thread", "Comments + activity for one issue in chronological order", [
+                "issueId": ["type": "string"],
+                "identifier": ["type": "string", "description": "e.g. ARK-1"],
             ]),
         ]
     }

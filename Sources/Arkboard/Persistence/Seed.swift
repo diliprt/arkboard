@@ -12,7 +12,12 @@ enum SeedData {
 
     static func seedIfNeeded(_ db: Database) throws {
         let count = try Project.fetchCount(db)
-        guard count == 0 else { return }
+        guard count == 0 else {
+            try seedMilestonesIfNeeded(db)
+            try seedDemoAgentActivityIfNeeded(db)
+            try enrichBotDialogueIfThin(db)
+            return
+        }
 
         let now = Date()
 
@@ -75,7 +80,7 @@ enum SeedData {
         try insertIssues(db, project: ark, seeds: arkIssues, labels: labels, now: now)
         try insertIssues(db, project: ops, seeds: opsIssues, labels: labels, now: now)
 
-        // Fresh DB: scripted multi-agent conversation so Activity is alive immediately.
+        try seedMilestonesIfNeeded(db)
         try seedDemoAgentActivity(db)
     }
 
@@ -86,7 +91,78 @@ enum SeedData {
         try seedDemoAgentActivity(db)
     }
 
-    /// Scripted Product / Ops / Comms conversation across a couple ARK issues.
+    /// If activity exists but has no bot↔bot targeting, append the richer dialogue.
+    static func enrichBotDialogueIfThin(_ db: Database) throws {
+        let targeted = try Int.fetchOne(
+            db,
+            sql: "SELECT COUNT(*) FROM activity WHERE targetActor IS NOT NULL AND TRIM(targetActor) != ''"
+        ) ?? 0
+        if targeted > 0 { return }
+        try seedDemoAgentActivity(db)
+    }
+
+    static func seedMilestonesIfNeeded(_ db: Database) throws {
+        let count = try Milestone.fetchCount(db)
+        guard count == 0 else { return }
+        try seedMilestones(db)
+    }
+
+    static func seedMilestones(_ db: Database) throws {
+        let ark = try Project.filter(Column("key") == "ARK").fetchOne(db)
+        let ops = try Project.filter(Column("key") == "OPS").fetchOne(db)
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+
+        func day(_ offset: Int) -> Date {
+            cal.date(byAdding: .day, value: offset, to: today) ?? today
+        }
+
+        struct SeedMS {
+            let projectId: String?
+            let title: String
+            let description: String
+            let targetOffset: Int
+            let status: MilestoneStatus
+            let related: [String]
+        }
+
+        let seeds: [SeedMS] = [
+            SeedMS(projectId: nil, title: "Studio weekly sync", description: "Cross-project check-in for Origin Ark.",
+                   targetOffset: -3, status: .done, related: []),
+            SeedMS(projectId: ark?.id, title: "Portfolio + Activity ship", description: "Bird's-eye Portfolio and agent Activity feed live.",
+                   targetOffset: -1, status: .done, related: ["ARK-1"]),
+            SeedMS(projectId: ark?.id, title: "Milestones + Timeline", description: "Cross-project timeline and milestone cards.",
+                   targetOffset: 2, status: .in_progress, related: ["ARK-1", "ARK-2"]),
+            SeedMS(projectId: ark?.id, title: "Agent handoff polish", description: "Visible bot↔bot mentions in Activity.",
+                   targetOffset: 5, status: .planned, related: ["ARK-3"]),
+            SeedMS(projectId: ops?.id, title: "MCP bridge verified", description: "Cursor stdio bridge + smoke.sh green.",
+                   targetOffset: 1, status: .in_progress, related: ["OPS-1"]),
+            SeedMS(projectId: ops?.id, title: "Launch hold decision", description: "Comms gate before public mention.",
+                   targetOffset: 7, status: .planned, related: ["OPS-2"]),
+            SeedMS(projectId: nil, title: "Origin Ark demo day", description: "Studio-wide demo for Riyu.",
+                   targetOffset: 10, status: .planned, related: ["ARK-1", "OPS-2"]),
+            SeedMS(projectId: ark?.id, title: "Empty-state polish pass", description: "Missed earlier window — catch up.",
+                   targetOffset: -10, status: .missed, related: ["ARK-5"]),
+        ]
+
+        let now = Date()
+        for s in seeds {
+            let ms = Milestone(
+                id: UUID().uuidString,
+                projectId: s.projectId,
+                title: s.title,
+                description: s.description,
+                targetDate: day(s.targetOffset),
+                status: s.status,
+                relatedIssueIdentifiers: Milestone.encodeIdentifiers(s.related),
+                createdAt: now.addingTimeInterval(-86400),
+                updatedAt: now
+            )
+            try ms.insert(db)
+        }
+    }
+
+    /// Scripted Product / Ops / Comms conversation with @mentions (bot↔bot).
     static func seedDemoAgentActivity(_ db: Database) throws {
         guard let ark = try Project.filter(Column("key") == "ARK").fetchOne(db) else { return }
         let issues = try Issue
@@ -104,33 +180,46 @@ enum SeedData {
             let issue: Issue
             let summary: String
             let commentBody: String?
+            let targetActor: String?
+            let kind: ActivityKind
         }
 
         let beats: [Beat] = [
             Beat(offset: 0, actor: "Product", action: ActivityAction.updated_issue.rawValue, issue: ship,
                  summary: "Product set \(ship.identifier) to in_progress — overnight ship is the focus.",
-                 commentBody: nil),
-            Beat(offset: 120, actor: "Product", action: ActivityAction.commented.rawValue, issue: ship,
-                 summary: "Product on \(ship.identifier): Scoped List + Board + local MCP for morning demo.",
-                 commentBody: "Scoped for morning: List + Board + local MCP. Portfolio overview is next so we can see the whole studio at a glance."),
-            Beat(offset: 300, actor: "Ops", action: ActivityAction.commented.rawValue, issue: ship,
-                 summary: "Ops on \(ship.identifier): Confirming MCP binds to 127.0.0.1:7420.",
-                 commentBody: "Confirming MCP binds to 127.0.0.1:7420 only. I'll wire the Cursor stdio bridge once health returns OK."),
-            Beat(offset: 480, actor: "Comms", action: ActivityAction.commented.rawValue, issue: ship,
-                 summary: "Comms on \(ship.identifier): Drafting the morning handoff blurb.",
-                 commentBody: "Drafting the morning handoff blurb — need one sentence on agent collaboration visibility for Riyu."),
-            Beat(offset: 720, actor: "Ops", action: ActivityAction.commented.rawValue, issue: mcp,
-                 summary: "Ops on \(mcp.identifier): smoke.sh covers create/list/update.",
-                 commentBody: "smoke.sh will cover create_issue with actor + list_activity so we can prove agents are talking in the feed."),
-            Beat(offset: 900, actor: "Product", action: ActivityAction.commented.rawValue, issue: mcp,
-                 summary: "Product on \(mcp.identifier): Pass optional actor on mutating tools.",
-                 commentBody: "Please pass optional `actor` on create/update/comment so Activity shows Product / Ops / Comms clearly — default Agent if omitted."),
-            Beat(offset: 1080, actor: "Comms", action: ActivityAction.commented.rawValue, issue: ship,
-                 summary: "Comms on \(ship.identifier): Activity feed copy is ready.",
-                 commentBody: "Activity feed copy is ready: avatar initials + color per agent. Opening Activity should feel like the team is already talking."),
-            Beat(offset: 1200, actor: "Riyu", action: ActivityAction.commented.rawValue, issue: ship,
-                 summary: "Riyu on \(ship.identifier): Looking good — ship Portfolio + Activity.",
-                 commentBody: "Looking good. Ship Portfolio + Activity; keep List/Board for project detail work."),
+                 commentBody: nil, targetActor: nil, kind: .system),
+            Beat(offset: 90, actor: "Product", action: ActivityAction.commented.rawValue, issue: ship,
+                 summary: "Product → Ops on \(ship.identifier): Need MCP bind confirmation before we call it shippable.",
+                 commentBody: "@Ops can you confirm MCP binds to 127.0.0.1:7420 only? Portfolio + Activity are ready for the morning demo — need your green light.",
+                 targetActor: "Ops", kind: .mention),
+            Beat(offset: 210, actor: "Ops", action: ActivityAction.commented.rawValue, issue: ship,
+                 summary: "Ops → Product on \(ship.identifier): Confirmed loopback bind; smoke next.",
+                 commentBody: "@Product confirmed — listener is loopback-only on :7420. I'll run smoke.sh after the next create_issue with actor. Handing off health check to myself once UI lands.",
+                 targetActor: "Product", kind: .mention),
+            Beat(offset: 360, actor: "Comms", action: ActivityAction.commented.rawValue, issue: ship,
+                 summary: "Comms → Product on \(ship.identifier): Hold external launch language.",
+                 commentBody: "@Product hold the public launch blurb — Activity + Milestones are internal-only until Riyu signs off. I'll draft the handoff note after Ops finishes smoke.",
+                 targetActor: "Product", kind: .handoff),
+            Beat(offset: 480, actor: "Ops", action: ActivityAction.commented.rawValue, issue: mcp,
+                 summary: "Ops → Comms on \(mcp.identifier): smoke covers actor + list_activity.",
+                 commentBody: "@Comms smoke.sh will cover create_issue with actor + list_activity so you can quote “agents are talking” truthfully.",
+                 targetActor: "Comms", kind: .mention),
+            Beat(offset: 600, actor: "Product", action: ActivityAction.commented.rawValue, issue: mcp,
+                 summary: "Product → Ops on \(mcp.identifier): Pass optional actor on mutating tools.",
+                 commentBody: "@Ops please pass optional `actor` on create/update/comment so Activity shows Product / Ops / Comms clearly — default Agent if omitted.",
+                 targetActor: "Ops", kind: .mention),
+            Beat(offset: 720, actor: "Ops", action: ActivityAction.commented.rawValue, issue: ship,
+                 summary: "Ops → Comms on \(ship.identifier): Health OK — you can draft.",
+                 commentBody: "@Comms health is green. Handing off: draft the morning blurb with one sentence on bot↔bot visibility (Product → Ops avatars).",
+                 targetActor: "Comms", kind: .handoff),
+            Beat(offset: 840, actor: "Comms", action: ActivityAction.commented.rawValue, issue: ship,
+                 summary: "Comms → Riyu on \(ship.identifier): Activity copy ready; launch still on hold.",
+                 commentBody: "@Riyu Activity feed shows Product → Ops with dual avatars. Launch language stays on hold until you say go.",
+                 targetActor: "Riyu", kind: .mention),
+            Beat(offset: 960, actor: "Riyu", action: ActivityAction.commented.rawValue, issue: ship,
+                 summary: "Riyu → Product on \(ship.identifier): Ship Portfolio Timeline + Milestones.",
+                 commentBody: "@Product looking good. Ship Portfolio Timeline + Milestones and keep the bot dialogue visible in Activity.",
+                 targetActor: "Product", kind: .mention),
         ]
 
         for beat in beats {
@@ -152,7 +241,9 @@ enum SeedData {
                 summary: beat.summary,
                 issueId: beat.issue.id,
                 projectId: ark.id,
-                createdAt: at
+                createdAt: at,
+                targetActor: beat.targetActor,
+                kind: beat.kind
             )
         }
     }
@@ -215,9 +306,12 @@ enum ActivityLogger {
         summary: String,
         issueId: String? = nil,
         projectId: String? = nil,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        targetActor: String? = nil,
+        kind: ActivityKind = .system
     ) throws {
         let trimmedActor = actor.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTarget = targetActor?.trimmingCharacters(in: .whitespacesAndNewlines)
         let activity = Activity(
             id: UUID().uuidString,
             createdAt: createdAt,
@@ -225,7 +319,9 @@ enum ActivityLogger {
             action: action,
             issueId: issueId,
             projectId: projectId,
-            summary: summary
+            summary: summary,
+            targetActor: (trimmedTarget?.isEmpty == false) ? trimmedTarget : nil,
+            kind: kind.rawValue
         )
         try activity.insert(db)
     }

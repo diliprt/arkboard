@@ -22,13 +22,29 @@ struct ActivityFeedView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
+            // Filter chips
+            HStack(spacing: 8) {
+                ForEach(AppStore.ActivityFeedFilter.allCases) { f in
+                    FilterChip(
+                        title: f.title,
+                        selected: store.activityFilter == f
+                    ) {
+                        store.activityFilter = f
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+
             Divider()
 
-            if store.activities.isEmpty {
+            let items = store.filteredActivities
+            if items.isEmpty {
                 ContentUnavailableView {
                     Label("No activity yet", systemImage: "bubble.left.and.bubble.right")
                 } description: {
-                    Text("Mutations from the UI or MCP show up here. Seed a demo conversation to preview agents talking.")
+                    Text(emptyDescription)
                 } actions: {
                     Button("Seed demo agent activity") {
                         Task { await store.seedDemoAgentActivity() }
@@ -37,7 +53,7 @@ struct ActivityFeedView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(store.activities) { activity in
+                List(items) { activity in
                     ActivityRow(activity: activity)
                         .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
                         .contentShape(Rectangle())
@@ -55,18 +71,54 @@ struct ActivityFeedView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
     }
+
+    private var emptyDescription: String {
+        switch store.activityFilter {
+        case .all:
+            return "Mutations from the UI or MCP show up here. Seed a demo conversation to preview agents talking."
+        case .bots:
+            return "No bot activity in this filter. Seed the demo or widen to All."
+        case .mentions:
+            return "No @mentions or handoffs yet. Comments with @Ops / @Product / @Comms appear here."
+        }
+    }
+}
+
+private struct FilterChip: View {
+    let title: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(selected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.10))
+                .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 private struct ActivityRow: View {
     @Environment(AppStore.self) private var store
     let activity: Activity
 
+    private var isSpeech: Bool {
+        let kind = ActivityKind(rawValue: activity.kind)
+        return kind == .comment || kind == .mention || kind == .handoff
+            || activity.action == ActivityAction.commented.rawValue
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            ActorAvatar(name: activity.actor, size: 32)
+            avatarCluster
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Text(activity.actor)
+                    Text(actorLabel)
                         .font(.subheadline.weight(.semibold))
                     Text(actionLabel)
                         .font(.caption)
@@ -76,10 +128,24 @@ private struct ActivityRow: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
-                Text(activity.summary)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
+
+                Group {
+                    if isSpeech {
+                        Text(activity.summary)
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(ActorStyle.color(for: activity.actor).opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    } else {
+                        Text(activity.summary)
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
 
                 HStack(spacing: 8) {
                     if let issue = store.issue(forActivity: activity) {
@@ -95,21 +161,62 @@ private struct ActivityRow: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    if activity.action == ActivityAction.commented.rawValue {
-                        Text("comment")
-                            .font(.caption2.weight(.medium))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(ActorStyle.color(for: activity.actor).opacity(0.18))
-                            .clipShape(Capsule())
-                    }
+                    kindChip
                 }
             }
         }
         .padding(.vertical, 4)
     }
 
+    @ViewBuilder
+    private var avatarCluster: some View {
+        if let target = activity.targetActor, !target.isEmpty {
+            HStack(spacing: -6) {
+                ActorAvatar(name: activity.actor, size: 30)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 2)
+                ActorAvatar(name: target, size: 30)
+            }
+            .frame(width: 72, alignment: .leading)
+        } else {
+            ActorAvatar(name: activity.actor, size: 32)
+                .frame(width: 72, alignment: .leading)
+        }
+    }
+
+    private var actorLabel: String {
+        if let target = activity.targetActor, !target.isEmpty {
+            return "\(activity.actor) → \(target)"
+        }
+        return activity.actor
+    }
+
     private var actionLabel: String {
-        ActivityAction(rawValue: activity.action)?.displayName ?? activity.action.replacingOccurrences(of: "_", with: " ")
+        if let kind = ActivityKind(rawValue: activity.kind), kind != .system {
+            return kind.displayName
+        }
+        return ActivityAction(rawValue: activity.action)?.displayName
+            ?? activity.action.replacingOccurrences(of: "_", with: " ")
+    }
+
+    @ViewBuilder
+    private var kindChip: some View {
+        if let kind = ActivityKind(rawValue: activity.kind), kind == .mention || kind == .handoff || kind == .comment {
+            Text(kind.displayName)
+                .font(.caption2.weight(.medium))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(ActorStyle.color(for: activity.actor).opacity(0.18))
+                .clipShape(Capsule())
+        } else if activity.action == ActivityAction.commented.rawValue {
+            Text("comment")
+                .font(.caption2.weight(.medium))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(ActorStyle.color(for: activity.actor).opacity(0.18))
+                .clipShape(Capsule())
+        }
     }
 }

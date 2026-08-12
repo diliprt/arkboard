@@ -116,6 +116,58 @@ info "REST GET /api/activity"
 REST_ACT="$(curl -sfS --max-time 5 "$BASE/api/activity?limit=10")"
 check_json "REST list activity" "$REST_ACT" '.activities | type == "array"'
 
+
+info "MCP list_milestones"
+MS="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"list_milestones","arguments":{}}}')"
+check_json "list_milestones" "$MS" '.result.structuredContent.milestones | type == "array" and length >= 1 or (.result.content[0].text | contains("milestones"))'
+check_json "tools include list_milestones" "$TOOLS" '[.result.tools[].name] | index("list_milestones") != null'
+check_json "tools include create_milestone" "$TOOLS" '[.result.tools[].name] | index("create_milestone") != null'
+
+MS_TITLE="Smoke Milestone $(date +%Y%m%d-%H%M%S)"
+info "MCP create_milestone ($MS_TITLE)"
+MSC="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg t "$MS_TITLE" '{
+    jsonrpc:"2.0", id:9, method:"tools/call",
+    params:{
+      name:"create_milestone",
+      arguments:{ title:$t, projectKey:"ARK", status:"planned", targetDate:(now | strftime("%Y-%m-%d")), actor:"Product", description:"smoke milestone" }
+    }
+  }')")"
+check_json "create_milestone" "$MSC" '.result.structuredContent.title == "'"$MS_TITLE"'" or (.result.content[0].text | contains("'"$MS_TITLE"'"))'
+MS_ID="$(echo "$MSC" | jq -r '.result.structuredContent.id // empty')"
+if [[ -z "$MS_ID" ]]; then
+  MS_ID="$(echo "$MSC" | jq -r '.result.content[0].text' | jq -r '.id // empty' 2>/dev/null || true)"
+fi
+
+if [[ -n "$MS_ID" ]]; then
+  info "MCP update_milestone ($MS_ID -> in_progress)"
+  MSU="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg id "$MS_ID" '{
+      jsonrpc:"2.0", id:10, method:"tools/call",
+      params:{ name:"update_milestone", arguments:{ id:$id, status:"in_progress", actor:"Ops" } }
+    }')")"
+  check_json "update_milestone" "$MSU" '.result.structuredContent.status == "in_progress" or (.result.content[0].text | contains("in_progress"))'
+fi
+
+if [[ -n "$IDENT" ]]; then
+  info "MCP list_bot_thread ($IDENT)"
+  THREAD="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg ident "$IDENT" '{
+      jsonrpc:"2.0", id:11, method:"tools/call",
+      params:{ name:"list_bot_thread", arguments:{ identifier:$ident } }
+    }')")"
+  check_json "list_bot_thread" "$THREAD" '.result.structuredContent.issue != null or (.result.content[0].text | contains("issue"))'
+fi
+
+info "REST GET /api/milestones"
+REST_MS="$(curl -sfS --max-time 5 "$BASE/api/milestones")"
+check_json "REST list milestones" "$REST_MS" '.milestones | type == "array"'
+
 # Cancel the issue this run created so overnight smokes do not clutter forever.
 if [[ "$FAIL" -eq 0 && ( -n "$IDENT" || -n "$ISSUE_ID" ) ]]; then
   info "MCP update_issue (cancel smoke issue)"
