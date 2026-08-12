@@ -25,6 +25,14 @@ enum IssueStatus: String, Codable, CaseIterable, Identifiable, DatabaseValueConv
         case .canceled: return 4
         }
     }
+
+    /// Open = not done and not canceled.
+    var isOpen: Bool {
+        switch self {
+        case .done, .canceled: return false
+        default: return true
+        }
+    }
 }
 
 enum IssuePriority: String, Codable, CaseIterable, Identifiable, DatabaseValueConvertible {
@@ -59,6 +67,39 @@ enum IssuePriority: String, Codable, CaseIterable, Identifiable, DatabaseValueCo
         case .medium: return "equal"
         case .high: return "arrow.up"
         case .urgent: return "exclamationmark.2"
+        }
+    }
+}
+
+enum ActivityAction: String, Codable, DatabaseValueConvertible {
+    case created_issue
+    case updated_issue
+    case commented
+    case created_project
+
+    var displayName: String {
+        switch self {
+        case .created_issue: return "created issue"
+        case .updated_issue: return "updated issue"
+        case .commented: return "commented"
+        case .created_project: return "created project"
+        }
+    }
+}
+
+/// Top-level sidebar destinations. Portfolio sits above Inbox.
+enum SidebarSelection: Hashable, Identifiable {
+    case portfolio
+    case activity
+    case inbox
+    case project(String)
+
+    var id: String {
+        switch self {
+        case .portfolio: return "__portfolio__"
+        case .activity: return "__activity__"
+        case .inbox: return "__inbox__"
+        case .project(let id): return id
         }
     }
 }
@@ -123,10 +164,43 @@ struct Comment: Codable, FetchableRecord, PersistableRecord, Identifiable, Hasha
     var createdAt: Date
 }
 
+struct Activity: Codable, FetchableRecord, PersistableRecord, Identifiable, Hashable {
+    static let databaseTableName = "activity"
+    var id: String
+    var createdAt: Date
+    var actor: String
+    var action: String
+    var issueId: String?
+    var projectId: String?
+    var summary: String
+}
+
 struct IssueFilter: Equatable {
     var projectId: String? = nil
     var status: IssueStatus? = nil
     var priority: IssuePriority? = nil
     var query: String = ""
     var showCanceled: Bool = false
+}
+
+/// Aggregates for the Portfolio bird's-eye view.
+struct ProjectPortfolioCard: Identifiable, Hashable {
+    var id: String { project.id }
+    var project: Project
+    var total: Int
+    var byStatus: [IssueStatus: Int]
+    var featureCount: Int
+    var bugCount: Int
+    var otherCount: Int
+
+    var openCount: Int {
+        IssueStatus.allCases.filter(\.isOpen).reduce(0) { $0 + (byStatus[$1] ?? 0) }
+    }
+}
+
+struct PortfolioTotals: Hashable {
+    var openWork: Int = 0
+    var inProgress: Int = 0
+    var bugs: Int = 0
+    var features: Int = 0
 }

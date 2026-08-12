@@ -122,16 +122,20 @@ struct IssueDetailView: View {
                     }
 
                     ForEach(comments) { comment in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(comment.authorName)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        HStack(alignment: .top, spacing: 10) {
+                            ActorAvatar(name: comment.authorName, size: 28)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(comment.authorName)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(ActorStyle.color(for: comment.authorName))
+                                    Text(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(comment.bodyMarkdown)
+                                    .font(.body)
                             }
-                            Text(comment.bodyMarkdown)
-                                .font(.body)
                         }
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)

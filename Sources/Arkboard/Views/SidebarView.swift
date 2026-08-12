@@ -5,15 +5,19 @@ struct SidebarView: View {
     @Binding var showNewProject: Bool
 
     var body: some View {
-        List(selection: Bindable(store).selectedProjectId) {
+        List(selection: Bindable(store).selection) {
             Section("Workspace") {
                 Label(store.workspace?.name ?? "Origin Ark", systemImage: "building.2")
                     .foregroundStyle(.secondary)
             }
 
             Section("Views") {
+                Label("Portfolio", systemImage: "square.grid.2x2")
+                    .tag(SidebarSelection.portfolio)
                 Label("Inbox", systemImage: "tray")
-                    .tag(Optional<String>.none)
+                    .tag(SidebarSelection.inbox)
+                Label("Activity", systemImage: "bubble.left.and.bubble.right")
+                    .tag(SidebarSelection.activity)
             }
 
             Section("Projects") {
@@ -34,7 +38,7 @@ struct SidebarView: View {
                                 .font(.caption.monospaced())
                                 .foregroundStyle(.secondary)
                         }
-                        .tag(Optional(project.id))
+                        .tag(SidebarSelection.project(project.id))
                     }
                 }
             }

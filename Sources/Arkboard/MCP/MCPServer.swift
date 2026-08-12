@@ -139,8 +139,20 @@ final class MCPServer: @unchecked Sendable {
                 let key = json["key"] as? String ?? ""
                 let name = json["name"] as? String ?? key
                 let color = json["color"] as? String ?? "#5E6AD2"
-                let project = try await store.createProject(key: key, name: name, color: color)
+                let actor = (json["actor"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let project = try await store.createProject(
+                    key: key,
+                    name: name,
+                    color: color,
+                    actor: (actor?.isEmpty == false ? actor! : "Agent")
+                )
                 return .json(201, store.projectDictionary(project))
+
+            case ("GET", "/api/activity"):
+                let limit = Int(query["limit"] ?? "") ?? 50
+                let projectKey = query["projectKey"]
+                let items = store.listActivity(limit: limit, projectKey: projectKey)
+                return .json(200, ["activities": items.map { store.activityDictionary($0) }])
 
             case ("GET", "/api/issues"):
                 var issues = store.issues
@@ -174,6 +186,7 @@ final class MCPServer: @unchecked Sendable {
                 let priority = (json["priority"] as? String).flatMap(IssuePriority.init(rawValue:)) ?? .none
                 let description = json["description"] as? String ?? ""
                 let labels = json["labels"] as? [String] ?? []
+                let actor = (json["actor"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
                 let issue = try await store.createIssue(
                     projectId: projectId,
                     title: title,
@@ -181,7 +194,8 @@ final class MCPServer: @unchecked Sendable {
                     status: status,
                     priority: priority,
                     assigneeName: json["assigneeName"] as? String,
-                    labelNames: labels
+                    labelNames: labels,
+                    actor: (actor?.isEmpty == false ? actor! : "Agent")
                 )
                 return .json(201, store.issueDictionary(issue))
 
@@ -207,16 +221,19 @@ final class MCPServer: @unchecked Sendable {
                 guard let issue = store.issues.first(where: { $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame }) else {
                     return .json(404, ["error": "issue not found"])
                 }
+                let actor = (json["actor"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let resolvedActor = (actor?.isEmpty == false ? actor! : "Agent")
                 let updated = try await store.updateIssue(
                     id: issue.id,
                     title: json["title"] as? String,
                     description: json["description"] as? String,
                     status: (json["status"] as? String).flatMap(IssueStatus.init(rawValue:)),
                     priority: (json["priority"] as? String).flatMap(IssuePriority.init(rawValue:)),
-                    assigneeName: json.keys.contains("assigneeName") ? .some(json["assigneeName"] as? String) : nil
+                    assigneeName: json.keys.contains("assigneeName") ? .some(json["assigneeName"] as? String) : nil,
+                    actor: resolvedActor
                 )
                 if let labels = json["labels"] as? [String] {
-                    try await store.setIssueLabels(issueId: updated.id, labelNames: labels)
+                    try await store.setIssueLabels(issueId: updated.id, labelNames: labels, actor: resolvedActor)
                 }
                 return .json(200, store.issueDictionary(store.issues.first(where: { $0.id == updated.id }) ?? updated))
 
@@ -227,8 +244,8 @@ final class MCPServer: @unchecked Sendable {
                     return .json(404, ["error": "issue not found"])
                 }
                 let bodyText = json["body"] as? String ?? ""
-                let author = json["authorName"] as? String ?? "Agent"
-                let comment = try await store.addComment(issueId: issue.id, body: bodyText, authorName: author)
+                let actor = (json["actor"] as? String) ?? (json["authorName"] as? String) ?? "Agent"
+                let comment = try await store.addComment(issueId: issue.id, body: bodyText, authorName: actor, actor: actor)
                 return .json(201, [
                     "id": comment.id,
                     "body": comment.bodyMarkdown,
@@ -308,10 +325,12 @@ final class MCPServer: @unchecked Sendable {
             return try text(["projects": store.projects.map { store.projectDictionary($0) }])
 
         case "create_project":
+            let actor = Self.resolvedActor(args)
             let project = try await store.createProject(
                 key: args["key"] as? String ?? "",
                 name: args["name"] as? String ?? (args["key"] as? String ?? "Project"),
-                color: args["color"] as? String ?? "#5E6AD2"
+                color: args["color"] as? String ?? "#5E6AD2",
+                actor: actor
             )
             return try text(store.projectDictionary(project))
 
@@ -357,6 +376,7 @@ final class MCPServer: @unchecked Sendable {
             } else {
                 projectId = args["projectId"] as? String
             }
+            let actor = Self.resolvedActor(args)
             let issue = try await store.createIssue(
                 projectId: projectId,
                 title: args["title"] as? String ?? "",
@@ -364,7 +384,8 @@ final class MCPServer: @unchecked Sendable {
                 status: (args["status"] as? String).flatMap(IssueStatus.init(rawValue:)) ?? .backlog,
                 priority: (args["priority"] as? String).flatMap(IssuePriority.init(rawValue:)) ?? .none,
                 assigneeName: args["assigneeName"] as? String,
-                labelNames: args["labels"] as? [String] ?? []
+                labelNames: args["labels"] as? [String] ?? [],
+                actor: actor
             )
             return try text(store.issueDictionary(issue))
 
@@ -373,16 +394,18 @@ final class MCPServer: @unchecked Sendable {
             guard let issue = store.issues.first(where: {
                 $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame
             }) else { throw StoreError.notFound }
+            let actor = Self.resolvedActor(args)
             let updated = try await store.updateIssue(
                 id: issue.id,
                 title: args["title"] as? String,
                 description: args["description"] as? String,
                 status: (args["status"] as? String).flatMap(IssueStatus.init(rawValue:)),
                 priority: (args["priority"] as? String).flatMap(IssuePriority.init(rawValue:)),
-                assigneeName: args.keys.contains("assigneeName") ? .some(args["assigneeName"] as? String) : nil
+                assigneeName: args.keys.contains("assigneeName") ? .some(args["assigneeName"] as? String) : nil,
+                actor: actor
             )
             if let labels = args["labels"] as? [String] {
-                try await store.setIssueLabels(issueId: updated.id, labelNames: labels)
+                try await store.setIssueLabels(issueId: updated.id, labelNames: labels, actor: actor)
             }
             let fresh = store.issues.first(where: { $0.id == updated.id }) ?? updated
             return try text(store.issueDictionary(fresh))
@@ -392,10 +415,12 @@ final class MCPServer: @unchecked Sendable {
             guard let issue = store.issues.first(where: {
                 $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame
             }) else { throw StoreError.notFound }
+            let actor = Self.resolvedActor(args, fallbackAuthor: args["authorName"] as? String)
             let comment = try await store.addComment(
                 issueId: issue.id,
                 body: args["body"] as? String ?? "",
-                authorName: args["authorName"] as? String ?? "Agent"
+                authorName: actor,
+                actor: actor
             )
             return try text([
                 "id": comment.id,
@@ -404,9 +429,29 @@ final class MCPServer: @unchecked Sendable {
                 "authorName": comment.authorName,
             ])
 
+        case "list_activity":
+            let limit = args["limit"] as? Int ?? (args["limit"] as? NSNumber)?.intValue ?? 50
+            let projectKey = args["projectKey"] as? String
+            let items = store.listActivity(limit: limit, projectKey: projectKey)
+            return try text(["activities": items.map { store.activityDictionary($0) }])
+
         default:
             throw NSError(domain: "MCP", code: -32601, userInfo: [NSLocalizedDescriptionKey: "Unknown tool: \(name)"])
         }
+    }
+
+
+    /// MCP default actor is "Agent" when omitted; `actor` wins over legacy authorName.
+    private static func resolvedActor(_ args: [String: Any], fallbackAuthor: String? = nil) -> String {
+        if let actor = args["actor"] as? String {
+            let t = actor.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !t.isEmpty { return t }
+        }
+        if let author = fallbackAuthor {
+            let t = author.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !t.isEmpty { return t }
+        }
+        return "Agent"
     }
 
     private func jsonrpcError(id: Any?, code: Int, message: String) -> [String: Any] {
@@ -422,7 +467,7 @@ final class MCPServer: @unchecked Sendable {
 enum MCPToolCatalog {
     static let toolNames = [
         "list_projects", "create_project", "list_issues", "get_issue",
-        "create_issue", "update_issue", "add_comment", "search_issues",
+        "create_issue", "update_issue", "add_comment", "search_issues", "list_activity",
     ]
 
     static var tools: [[String: Any]] {
@@ -432,6 +477,7 @@ enum MCPToolCatalog {
                 "key": ["type": "string", "description": "Short key e.g. ARK"],
                 "name": ["type": "string", "description": "Display name"],
                 "color": ["type": "string", "description": "Hex color"],
+                "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
             ], required: ["key", "name"]),
             tool("list_issues", "List issues with optional filters", [
                 "projectKey": ["type": "string"],
@@ -457,6 +503,7 @@ enum MCPToolCatalog {
                 "priority": ["type": "string"],
                 "labels": ["type": "array", "items": ["type": "string"]],
                 "assigneeName": ["type": "string"],
+                "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
             ], required: ["title"]),
             tool("update_issue", "Update an issue", [
                 "id": ["type": "string"],
@@ -467,13 +514,19 @@ enum MCPToolCatalog {
                 "priority": ["type": "string"],
                 "labels": ["type": "array", "items": ["type": "string"]],
                 "assigneeName": ["type": "string"],
+                "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
             ]),
             tool("add_comment", "Add a comment to an issue", [
                 "issueId": ["type": "string"],
                 "identifier": ["type": "string"],
                 "body": ["type": "string"],
-                "authorName": ["type": "string"],
+                "authorName": ["type": "string", "description": "Legacy; prefer actor"],
+                "actor": ["type": "string", "description": "Sets authorName + activity actor (default Agent)"],
             ], required: ["body"]),
+            tool("list_activity", "List recent agent/UI activity (reverse chronological)", [
+                "limit": ["type": "integer", "description": "Max items (default 50)"],
+                "projectKey": ["type": "string", "description": "Optional project filter e.g. ARK"],
+            ]),
         ]
     }
 

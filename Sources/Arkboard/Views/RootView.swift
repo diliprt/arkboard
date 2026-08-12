@@ -13,14 +13,7 @@ struct RootView: View {
             ContentColumn(showQuickAdd: $showQuickAdd, showNewProject: $showNewProject)
                 .navigationSplitViewColumnWidth(min: 340, ideal: 460, max: 740)
         } detail: {
-            if store.projects.isEmpty {
-                EmptyProjectsView()
-            } else if let issue = store.selectedIssue {
-                IssueDetailView(issue: issue)
-                    .id(issue.id)
-            } else {
-                SelectIssuePlaceholder()
-            }
+            detailColumn
         }
         .sheet(isPresented: $showQuickAdd) {
             QuickAddSheet()
@@ -46,6 +39,30 @@ struct RootView: View {
             Text(store.lastError ?? "")
         }
     }
+
+    @ViewBuilder
+    private var detailColumn: some View {
+        if store.isPortfolio {
+            ContentUnavailableView(
+                "Portfolio overview",
+                systemImage: "square.grid.2x2",
+                description: Text("Select a project card to open its issue list, or pick Inbox / a project in the sidebar.")
+            )
+        } else if store.isActivity {
+            ContentUnavailableView(
+                "Agent activity",
+                systemImage: "bubble.left.and.bubble.right",
+                description: Text("Tap a feed item to jump to the related issue. Comments from agents appear here and on the issue.")
+            )
+        } else if store.projects.isEmpty {
+            EmptyProjectsView()
+        } else if let issue = store.selectedIssue {
+            IssueDetailView(issue: issue)
+                .id(issue.id)
+        } else {
+            SelectIssuePlaceholder()
+        }
+    }
 }
 
 struct ContentColumn: View {
@@ -54,6 +71,27 @@ struct ContentColumn: View {
     @Binding var showNewProject: Bool
 
     var body: some View {
+        Group {
+            if store.isPortfolio {
+                PortfolioView()
+            } else if store.isActivity {
+                ActivityFeedView()
+            } else {
+                issueBrowser
+            }
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onChange(of: store.selection) { _, newValue in
+            // Leaving a project board should not keep board mode active in Inbox.
+            if case .inbox = newValue, store.viewMode == .board {
+                store.viewMode = .list
+            }
+            if case .portfolio = newValue { store.viewMode = .list }
+            if case .activity = newValue { store.viewMode = .list }
+        }
+    }
+
+    private var issueBrowser: some View {
         VStack(spacing: 0) {
             header
             Divider()
@@ -73,13 +111,6 @@ struct ContentColumn: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .background(Color(nsColor: .windowBackgroundColor))
-        .onChange(of: store.selectedProjectId) { _, newValue in
-            // Inbox is list-first; leaving a project board should not keep board mode active.
-            if newValue == nil, store.viewMode == .board {
-                store.viewMode = .list
-            }
         }
     }
 

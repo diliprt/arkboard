@@ -10,6 +10,7 @@
 		03FDD864BF4AEE42C0C2A092 /* LabelTokensField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DD03300B375A1AA94F9F24 /* LabelTokensField.swift */; };
 		19863E0CC792A7E5327ABE31 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 819337D1595290803F0B11C8 /* Theme.swift */; };
 		20FF3F5933F4FB084561987C /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 619C85475CA602B7E3CA8B6D /* BoardView.swift */; };
+		2CE8D6377AD4ACDE3C1DA1BB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C4ADCCE22DAB9D7A78246901 /* Assets.xcassets */; };
 		2FB026E1389C62E4047EB85B /* EmptyStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2C661A8888A4EE4E4FECCDB /* EmptyStates.swift */; };
 		37E1A8F0A0352666543F3DBB /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E128784F7CF9DB9F511DEA /* SidebarView.swift */; };
 		3D1ACF0882DA1ED6657DCC11 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = A565A1B4A02340C63B51DD2D /* GRDB */; };
@@ -21,6 +22,8 @@
 		87CA37DC88CC206CA0424924 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C66B960BC6623A666AB5A3C /* SettingsView.swift */; };
 		B3A297417464FB8DD8A50950 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E530EAE692902D376454BDC0 /* RootView.swift */; };
 		B7FF141559F1CA828EFFD8E1 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB8648EA8477A5B7ED187668 /* Models.swift */; };
+		C0A95BA632C7BFD4D3A9C175 /* ActivityFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DED51408B047CE48749C7D91 /* ActivityFeedView.swift */; };
+		E9005D385404250D02DDB2D1 /* PortfolioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D58B0EE37E6A84A407B3F91 /* PortfolioView.swift */; };
 		E9020F24CE9935A0E3FD6F31 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B139EC32050FAE74A00A8216 /* AppStore.swift */; };
 		F502F378CD5B813ED894101E /* Seed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6806623E2040D5B7EF3B03FD /* Seed.swift */; };
 		FD6AD1AC9DDB5A81B8276F8A /* IssueDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16FF590965F29383224A2B13 /* IssueDetailView.swift */; };
@@ -29,6 +32,7 @@
 /* Begin PBXFileReference section */
 		0100CADAE429735C3651EABF /* IssueListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueListView.swift; sourceTree = "<group>"; };
 		16FF590965F29383224A2B13 /* IssueDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueDetailView.swift; sourceTree = "<group>"; };
+		1D58B0EE37E6A84A407B3F91 /* PortfolioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioView.swift; sourceTree = "<group>"; };
 		28E5EE3913CF9079E5B96E81 /* ArkboardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArkboardApp.swift; sourceTree = "<group>"; };
 		36E128784F7CF9DB9F511DEA /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		3C66B960BC6623A666AB5A3C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -40,8 +44,10 @@
 		819337D1595290803F0B11C8 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		B139EC32050FAE74A00A8216 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
 		B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddSheet.swift; sourceTree = "<group>"; };
+		C4ADCCE22DAB9D7A78246901 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C8528C6ECEF75E8896DC0902 /* Arkboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Arkboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DB8648EA8477A5B7ED187668 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		DED51408B047CE48749C7D91 /* ActivityFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityFeedView.swift; sourceTree = "<group>"; };
 		E2C661A8888A4EE4E4FECCDB /* EmptyStates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStates.swift; sourceTree = "<group>"; };
 		E530EAE692902D376454BDC0 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		FF07FAF307783853DDB64880 /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
@@ -65,6 +71,7 @@
 				1751704022B7C506D62EC539 /* MCP */,
 				E3B3448B085DCFFD8A3831A7 /* Models */,
 				77E648E10B411ED684D4EFC9 /* Persistence */,
+				5B40CABADBCBD1B99382A2D5 /* Resources */,
 				E0D2ACB00D00934451FAB844 /* Store */,
 				773A3614F6F3779D05F87060 /* Views */,
 				632C2BE37129EE7A6CC3944F /* Arkboard.entitlements */,
@@ -89,14 +96,24 @@
 			);
 			sourceTree = "<group>";
 		};
+		5B40CABADBCBD1B99382A2D5 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				C4ADCCE22DAB9D7A78246901 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		773A3614F6F3779D05F87060 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				DED51408B047CE48749C7D91 /* ActivityFeedView.swift */,
 				619C85475CA602B7E3CA8B6D /* BoardView.swift */,
 				E2C661A8888A4EE4E4FECCDB /* EmptyStates.swift */,
 				16FF590965F29383224A2B13 /* IssueDetailView.swift */,
 				0100CADAE429735C3651EABF /* IssueListView.swift */,
 				78DD03300B375A1AA94F9F24 /* LabelTokensField.swift */,
+				1D58B0EE37E6A84A407B3F91 /* PortfolioView.swift */,
 				B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */,
 				E530EAE692902D376454BDC0 /* RootView.swift */,
 				3C66B960BC6623A666AB5A3C /* SettingsView.swift */,
@@ -155,6 +172,7 @@
 			buildConfigurationList = 170141609873488AC65CA0D1 /* Build configuration list for PBXNativeTarget "Arkboard" */;
 			buildPhases = (
 				3240AAEAE017224F05647F8D /* Sources */,
+				31506705D5E93E8626076D7F /* Resources */,
 				405198A5D1233D839ACC7686 /* Frameworks */,
 			);
 			buildRules = (
@@ -205,11 +223,23 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		31506705D5E93E8626076D7F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2CE8D6377AD4ACDE3C1DA1BB /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		3240AAEAE017224F05647F8D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0A95BA632C7BFD4D3A9C175 /* ActivityFeedView.swift in Sources */,
 				E9020F24CE9935A0E3FD6F31 /* AppStore.swift in Sources */,
 				55797B9B3D845C53C1EAE6AF /* ArkboardApp.swift in Sources */,
 				20FF3F5933F4FB084561987C /* BoardView.swift in Sources */,
@@ -220,6 +250,7 @@
 				03FDD864BF4AEE42C0C2A092 /* LabelTokensField.swift in Sources */,
 				8505497618D4107B6BCA63FF /* MCPServer.swift in Sources */,
 				B7FF141559F1CA828EFFD8E1 /* Models.swift in Sources */,
+				E9005D385404250D02DDB2D1 /* PortfolioView.swift in Sources */,
 				844F4C1A7BF3841DA4C1C581 /* QuickAddSheet.swift in Sources */,
 				B3A297417464FB8DD8A50950 /* RootView.swift in Sources */,
 				F502F378CD5B813ED894101E /* Seed.swift in Sources */,

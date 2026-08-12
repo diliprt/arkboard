@@ -43,16 +43,17 @@ TOOLS="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')"
 check_json "tools/list" "$TOOLS" '.result.tools | length >= 6'
 check_json "tools include update_issue" "$TOOLS" '[.result.tools[].name] | index("update_issue") != null'
+check_json "tools include list_activity" "$TOOLS" '[.result.tools[].name] | index("list_activity") != null'
 
 TITLE="Smoke $(date +%Y%m%d-%H%M%S)"
-info "MCP create_issue ($TITLE)"
+info "MCP create_issue with actor ($TITLE)"
 CREATE="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
   -H 'Content-Type: application/json' \
   -d "$(jq -n --arg t "$TITLE" '{
     jsonrpc:"2.0", id:2, method:"tools/call",
     params:{
       name:"create_issue",
-      arguments:{ projectKey:"ARK", title:$t, status:"todo", priority:"low", labels:["smoke"] }
+      arguments:{ projectKey:"ARK", title:$t, status:"todo", priority:"low", labels:["smoke"], actor:"Ops" }
     }
   }')")"
 check_json "create_issue" "$CREATE" '.result.structuredContent.title == "'"$TITLE"'" or (.result.content[0].text | contains("'"$TITLE"'"))'
@@ -60,7 +61,6 @@ check_json "create_issue" "$CREATE" '.result.structuredContent.title == "'"$TITL
 IDENT="$(echo "$CREATE" | jq -r '.result.structuredContent.identifier // empty')"
 ISSUE_ID="$(echo "$CREATE" | jq -r '.result.structuredContent.id // empty')"
 if [[ -z "$IDENT" ]]; then
-  # Fallback: parse from text blob
   IDENT="$(echo "$CREATE" | jq -r '.result.content[0].text' | jq -r '.identifier // empty' 2>/dev/null || true)"
 fi
 if [[ -z "$ISSUE_ID" ]]; then
@@ -86,12 +86,11 @@ if [[ -n "$IDENT" ]]; then
 fi
 
 if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
-  info "MCP update_issue (status -> in_progress)"
-  UPD_ARGS='{}'
+  info "MCP update_issue (status -> in_progress, actor Product)"
   if [[ -n "$ISSUE_ID" ]]; then
-    UPD_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, status:"in_progress"}')"
+    UPD_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, status:"in_progress", actor:"Product"}')"
   else
-    UPD_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, status:"in_progress"}')"
+    UPD_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, status:"in_progress", actor:"Product"}')"
   fi
   UPDATE="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
     -H 'Content-Type: application/json' \
@@ -102,18 +101,28 @@ if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
   check_json "update_issue" "$UPDATE" '.result.structuredContent.status == "in_progress" or (.result.content[0].text | contains("in_progress"))'
 fi
 
+info "MCP list_activity"
+ACT="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"list_activity","arguments":{"limit":20,"projectKey":"ARK"}}}')"
+check_json "list_activity" "$ACT" '.result.structuredContent.activities | type == "array" and length >= 1 or (.result.content[0].text | contains("activities"))'
+check_json "list_activity has Ops actor" "$ACT" '(.result.structuredContent.activities // []) | map(.actor) | index("Ops") != null or (.result.content[0].text | contains("Ops"))'
+
 info "REST GET /api/issues"
 REST="$(curl -sfS --max-time 5 "$BASE/api/issues?projectKey=ARK")"
 check_json "REST list issues" "$REST" '.issues | type == "array"'
 
+info "REST GET /api/activity"
+REST_ACT="$(curl -sfS --max-time 5 "$BASE/api/activity?limit=10")"
+check_json "REST list activity" "$REST_ACT" '.activities | type == "array"'
+
 # Cancel the issue this run created so overnight smokes do not clutter forever.
-# Historical smoke issues (e.g. ARK-8..10) are left alone.
 if [[ "$FAIL" -eq 0 && ( -n "$IDENT" || -n "$ISSUE_ID" ) ]]; then
   info "MCP update_issue (cancel smoke issue)"
   if [[ -n "$ISSUE_ID" ]]; then
-    CANCEL_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, status:"canceled"}')"
+    CANCEL_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, status:"canceled", actor:"Ops"}')"
   else
-    CANCEL_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, status:"canceled"}')"
+    CANCEL_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, status:"canceled", actor:"Ops"}')"
   fi
   CANCEL="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
     -H 'Content-Type: application/json' \

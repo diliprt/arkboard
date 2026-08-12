@@ -2,18 +2,21 @@
 
 **Local Linear-style issue tracker for macOS** — SwiftUI + SQLite (GRDB) + agent MCP on localhost.
 
-Built for Origin Ark Studio so product direction lives in a real tracker, not chat scrollback. Agents (Cursor / Grok Bot) can list, create, and update issues via a local API.
+Built for Origin Ark Studio so product direction lives in a real tracker, not chat scrollback. Agents (Cursor / Grok Bot) can list, create, and update issues via a local API — and show up in an **Activity** feed when they talk.
 
 ## Features (v1)
 
+- **Portfolio** bird's-eye view — cards per project with status + feature/bug breakdown
+- **Activity** feed — multi-agent collaboration (Product / Ops / Comms / Riyu) with avatars
 - Projects + Issues (status, priority, labels, comments)
-- **List** and **Board** (kanban by status) views
+- **List** and **Board** (kanban by status) views for project/Inbox detail work
 - Quick add with **⌘N**
 - Local SQLite in Application Support
 - Local HTTP server on **`127.0.0.1:7420`**
-  - REST: `/api/projects`, `/api/issues`
+  - REST: `/api/projects`, `/api/issues`, `/api/activity`
   - MCP-shaped JSON-RPC: `POST /mcp` (`tools/list`, `tools/call`)
 - Stdio MCP bridge: `mcp/server.py` for Cursor
+- Custom macOS **AppIcon** (asset catalog)
 
 ### Statuses
 `backlog` · `todo` · `in_progress` · `done` · `canceled`
@@ -32,14 +35,13 @@ Built for Origin Ark Studio so product direction lives in a real tracker, not ch
 
 ```bash
 cd "/Users/dilipreddy/Origin Ark Studio/arkboard"
-xcodegen generate
-xcodebuild -scheme Arkboard -configuration Debug \
-  -derivedDataPath build/DerivedData \
-  -destination 'platform=macOS' build
-open build/DerivedData/Build/Products/Debug/Arkboard.app
+./scripts/run.sh
+# or: open build/DerivedData/Build/Products/Debug/Arkboard.app
 ```
 
-Or open the generated `Arkboard.xcodeproj` in Xcode and press Run.
+**Important:** Launch via `open …/Arkboard.app` (or Xcode Run), not the raw Mach-O binary.
+
+On first launch the app seeds demo projects (**ARK**, **OPS**), sample issues, and a short Product/Ops/Comms conversation in Activity, then starts MCP on port **7420**. Existing DBs get activity auto-seeded once if the table is empty; use **Seed demo agent activity** on Portfolio/Activity to re-seed.
 
 ### Smoke test
 
@@ -49,9 +51,7 @@ With the app running:
 ./scripts/smoke.sh
 ```
 
-Verifies `/health`, MCP `tools/list`, MCP create/list issue, and REST list.
-
-On first launch the app seeds demo projects (**ARK**, **OPS**) and sample issues, then starts MCP on port **7420**.
+Verifies `/health`, MCP `tools/list`, `create_issue` (with `actor`), `list_activity`, and REST list.
 
 ## REST API (curl)
 
@@ -67,15 +67,18 @@ curl -s http://127.0.0.1:7420/api/projects | jq
 # List issues
 curl -s 'http://127.0.0.1:7420/api/issues?projectKey=ARK' | jq
 
+# Activity feed
+curl -s 'http://127.0.0.1:7420/api/activity?limit=20' | jq
+
 # Create issue
 curl -s -X POST http://127.0.0.1:7420/api/issues \
   -H 'Content-Type: application/json' \
-  -d '{"projectKey":"ARK","title":"From curl","status":"todo","priority":"high","labels":["agent"]}' | jq
+  -d '{"projectKey":"ARK","title":"From curl","status":"todo","priority":"high","labels":["agent"],"actor":"Ops"}' | jq
 
 # Update issue
 curl -s -X PATCH http://127.0.0.1:7420/api/issues/ARK-1 \
   -H 'Content-Type: application/json' \
-  -d '{"status":"in_progress"}' | jq
+  -d '{"status":"in_progress","actor":"Product"}' | jq
 ```
 
 ## MCP for Cursor / agents
@@ -90,7 +93,9 @@ curl -s -X POST http://127.0.0.1:7420/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq
 ```
 
-Tools: `list_projects`, `create_project`, `list_issues`, `search_issues`, `get_issue`, `create_issue`, `update_issue`, `add_comment`.
+Tools: `list_projects`, `create_project`, `list_issues`, `search_issues`, `get_issue`, `create_issue`, `update_issue`, `add_comment`, `list_activity`.
+
+Mutating tools accept optional **`actor`** (string; default `"Agent"`). `add_comment` sets `authorName` from `actor` when provided.
 
 ### Option B — Cursor stdio bridge
 
@@ -125,10 +130,10 @@ Keep the Arkboard app running — the bridge proxies to `http://127.0.0.1:7420/m
 
 ```
 ArkboardApp
-  AppStore (Observable, single write path)
+  AppStore (Observable, single write path + activity log)
   GRDB DatabasePool
   MCPServer (NWListener → 127.0.0.1:7420)
-  Views: Sidebar · List · Board · Detail · QuickAdd
+  Views: Sidebar · Portfolio · Activity · List · Board · Detail · QuickAdd
 ```
 
 ## License

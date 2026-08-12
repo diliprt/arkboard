@@ -102,6 +102,20 @@ enum AppDatabase {
             }
         }
 
+        migrator.registerMigration("v2_activity") { db in
+            try db.create(table: "activity") { t in
+                t.column("id", .text).primaryKey()
+                t.column("createdAt", .datetime).notNull().indexed()
+                t.column("actor", .text).notNull().indexed()
+                t.column("action", .text).notNull().indexed()
+                t.column("issueId", .text).indexed()
+                    .references("issue", onDelete: .setNull)
+                t.column("projectId", .text).indexed()
+                    .references("project", onDelete: .setNull)
+                t.column("summary", .text).notNull()
+            }
+        }
+
         return migrator
     }
 }

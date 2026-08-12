@@ -11,7 +11,9 @@ final class AppStore {
     var issues: [Issue] = []
     var labels: [IssueTag] = []
     var comments: [Comment] = []
-    var selectedProjectId: String? = nil // nil = Inbox (all)
+    var activities: [Activity] = []
+    /// Portfolio is the default bird's-eye landing.
+    var selection: SidebarSelection = .portfolio
     var selectedIssueId: String? = nil
     var viewMode: ViewMode = .list
     var filter = IssueFilter()
@@ -39,6 +41,7 @@ final class AppStore {
         do {
             try await db.write { db in
                 try SeedData.seedIfNeeded(db)
+                try SeedData.seedDemoAgentActivityIfNeeded(db)
             }
             try await reloadAll()
             startMCP()
@@ -66,18 +69,50 @@ final class AppStore {
         mcpRunning = false
     }
 
-    // MARK: - Queries
+    // MARK: - Selection helpers
+
+    var selectedProjectId: String? {
+        if case .project(let id) = selection { return id }
+        return nil
+    }
 
     var selectedProject: Project? {
         guard let selectedProjectId else { return nil }
         return projects.first { $0.id == selectedProjectId }
     }
 
-    /// Board is per-project; Inbox (nil selection) stays list-first to avoid mixed-project columns.
-    var isInbox: Bool { selectedProjectId == nil }
+    var isInbox: Bool {
+        if case .inbox = selection { return true }
+        return false
+    }
 
+    var isPortfolio: Bool {
+        if case .portfolio = selection { return true }
+        return false
+    }
+
+    var isActivity: Bool {
+        if case .activity = selection { return true }
+        return false
+    }
+
+    /// Board is per-project; Inbox / Portfolio / Activity stay list-or-overview.
     var boardAvailable: Bool { selectedProjectId != nil }
 
+    var showsIssueBrowser: Bool {
+        switch selection {
+        case .inbox, .project: return true
+        case .portfolio, .activity: return false
+        }
+    }
+
+    func selectProject(_ projectId: String) {
+        selection = .project(projectId)
+        viewMode = .list
+        selectedIssueId = filteredIssues.first?.id
+    }
+
+    // MARK: - Queries
 
     var selectedIssue: Issue? {
         guard let selectedIssueId else { return nil }
@@ -89,6 +124,9 @@ final class AppStore {
             if let pid = selectedProjectId ?? filter.projectId, issue.projectId != pid {
                 return false
             }
+            // Inbox / project browser only — portfolio/activity ignore filter project
+            if case .portfolio = selection { return false }
+            if case .activity = selection { return false }
             if let status = filter.status, issue.status != status { return false }
             if let priority = filter.priority, issue.priority != priority { return false }
             if !filter.showCanceled && issue.status == .canceled { return false }
@@ -121,7 +159,6 @@ final class AppStore {
     }
 
     func labels(for issue: Issue) -> [IssueTag] {
-        // Load via join cache: issue_label not held in memory — query sync from labels attached after reload
         labelMap[issue.id] ?? []
     }
 
@@ -129,19 +166,77 @@ final class AppStore {
         comments.filter { $0.issueId == issue.id }.sorted { $0.createdAt < $1.createdAt }
     }
 
+    func issue(forActivity activity: Activity) -> Issue? {
+        guard let issueId = activity.issueId else { return nil }
+        return issues.first { $0.id == issueId }
+    }
+
+    func project(forActivity activity: Activity) -> Project? {
+        if let pid = activity.projectId {
+            return projects.first { $0.id == pid }
+        }
+        if let issue = issue(forActivity: activity) {
+            return project(for: issue)
+        }
+        return nil
+    }
+
+    // MARK: - Portfolio
+
+    var portfolioCards: [ProjectPortfolioCard] {
+        projects.map { project in
+            let projectIssues = issues.filter { $0.projectId == project.id }
+            var byStatus: [IssueStatus: Int] = [:]
+            for status in IssueStatus.allCases {
+                byStatus[status] = projectIssues.filter { $0.status == status }.count
+            }
+            var features = 0, bugs = 0, other = 0
+            for issue in projectIssues {
+                let names = Set(labels(for: issue).map { $0.name.lowercased() })
+                if names.contains("bug") {
+                    bugs += 1
+                } else if names.contains("feature") {
+                    features += 1
+                } else {
+                    other += 1
+                }
+            }
+            return ProjectPortfolioCard(
+                project: project,
+                total: projectIssues.count,
+                byStatus: byStatus,
+                featureCount: features,
+                bugCount: bugs,
+                otherCount: other
+            )
+        }
+    }
+
+    var portfolioTotals: PortfolioTotals {
+        var totals = PortfolioTotals()
+        for card in portfolioCards {
+            totals.openWork += card.openCount
+            totals.inProgress += card.byStatus[.in_progress] ?? 0
+            totals.bugs += card.bugCount
+            totals.features += card.featureCount
+        }
+        return totals
+    }
+
     private var labelMap: [String: [IssueTag]] = [:]
 
     // MARK: - Reload
 
     func reloadAll() async throws {
-        let snapshot = try await db.read { db -> (Workspace?, [Project], [Issue], [IssueTag], [Comment], [IssueLabel]) in
+        let snapshot = try await db.read { db -> (Workspace?, [Project], [Issue], [IssueTag], [Comment], [IssueLabel], [Activity]) in
             let ws = try Workspace.fetchOne(db)
             let projects = try Project.order(Column("name")).fetchAll(db)
             let issues = try Issue.order(Column("updatedAt").desc).fetchAll(db)
             let labels = try IssueTag.order(Column("name")).fetchAll(db)
             let comments = try Comment.order(Column("createdAt")).fetchAll(db)
             let links = try IssueLabel.fetchAll(db)
-            return (ws, projects, issues, labels, comments, links)
+            let activities = try Activity.order(Column("createdAt").desc).fetchAll(db)
+            return (ws, projects, issues, labels, comments, links, activities)
         }
 
         workspace = snapshot.0
@@ -149,6 +244,7 @@ final class AppStore {
         issues = snapshot.2
         labels = snapshot.3
         comments = snapshot.4
+        activities = snapshot.6
 
         var map: [String: [IssueTag]] = [:]
         let labelById = Dictionary(uniqueKeysWithValues: snapshot.3.map { ($0.id, $0) })
@@ -160,17 +256,19 @@ final class AppStore {
         labelMap = map
         dataRevision &+= 1
 
-        if selectedIssueId == nil {
-            selectedIssueId = filteredIssues.first?.id
-        } else if !issues.contains(where: { $0.id == selectedIssueId }) {
-            selectedIssueId = filteredIssues.first?.id
+        if showsIssueBrowser {
+            if selectedIssueId == nil {
+                selectedIssueId = filteredIssues.first?.id
+            } else if !issues.contains(where: { $0.id == selectedIssueId }) {
+                selectedIssueId = filteredIssues.first?.id
+            }
         }
     }
 
     // MARK: - Mutations
 
     @discardableResult
-    func createProject(key: String, name: String, color: String = "#5E6AD2") async throws -> Project {
+    func createProject(key: String, name: String, color: String = "#5E6AD2", actor: String = "Riyu") async throws -> Project {
         let cleanedKey = key.uppercased().filter { $0.isLetter || $0.isNumber }
         guard cleanedKey.count >= 2 else { throw StoreError.invalidProjectKey }
         let project = Project(
@@ -183,9 +281,16 @@ final class AppStore {
         )
         try await db.write { db in
             try project.insert(db)
+            try ActivityLogger.insert(
+                db,
+                actor: actor,
+                action: ActivityAction.created_project.rawValue,
+                summary: "\(actor) created project \(project.key) — \(project.name)",
+                projectId: project.id
+            )
         }
         try await reloadAll()
-        selectedProjectId = project.id
+        selection = .project(project.id)
         return project
     }
 
@@ -197,7 +302,8 @@ final class AppStore {
         status: IssueStatus = .backlog,
         priority: IssuePriority = .none,
         assigneeName: String? = nil,
-        labelNames: [String] = []
+        labelNames: [String] = [],
+        actor: String = "Riyu"
     ) async throws -> Issue {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw StoreError.emptyTitle }
@@ -247,6 +353,15 @@ final class AppStore {
                 }
                 try IssueLabel(issueId: issue.id, labelId: label.id).insert(db)
             }
+
+            try ActivityLogger.insert(
+                db,
+                actor: actor,
+                action: ActivityAction.created_issue.rawValue,
+                summary: "\(actor) created \(issue.identifier): \(issue.title)",
+                issueId: issue.id,
+                projectId: pid
+            )
             return issue
         }
 
@@ -263,34 +378,73 @@ final class AppStore {
         priority: IssuePriority? = nil,
         assigneeName: String?? = nil,
         estimatePoints: Int?? = nil,
-        orderInStatus: Double? = nil
+        orderInStatus: Double? = nil,
+        actor: String = "Riyu"
     ) async throws -> Issue {
         let updated = try await db.write { db -> Issue in
             guard var issue = try Issue.fetchOne(db, key: id) else {
                 throw StoreError.notFound
             }
+            var changes: [String] = []
             if let title {
                 let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !t.isEmpty else { throw StoreError.emptyTitle }
-                issue.title = t
+                if t != issue.title {
+                    issue.title = t
+                    changes.append("title")
+                }
             }
-            if let description { issue.descriptionMarkdown = description }
-            if let status { issue.status = status }
-            if let priority { issue.priority = priority }
-            if let assigneeName { issue.assigneeName = assigneeName }
-            if let estimatePoints { issue.estimatePoints = estimatePoints }
+            if let description, description != issue.descriptionMarkdown {
+                issue.descriptionMarkdown = description
+                changes.append("description")
+            }
+            if let status, status != issue.status {
+                issue.status = status
+                changes.append("status → \(status.rawValue)")
+            }
+            if let priority, priority != issue.priority {
+                issue.priority = priority
+                changes.append("priority → \(priority.rawValue)")
+            }
+            if let assigneeName {
+                let newVal = assigneeName
+                if newVal != issue.assigneeName {
+                    issue.assigneeName = newVal
+                    changes.append("assignee")
+                }
+            }
+            if let estimatePoints {
+                let newVal = estimatePoints
+                if newVal != issue.estimatePoints {
+                    issue.estimatePoints = newVal
+                    changes.append("estimate")
+                }
+            }
             if let orderInStatus { issue.orderInStatus = orderInStatus }
             issue.updatedAt = Date()
             try issue.update(db)
+
+            if !changes.isEmpty {
+                let detail = changes.joined(separator: ", ")
+                try ActivityLogger.insert(
+                    db,
+                    actor: actor,
+                    action: ActivityAction.updated_issue.rawValue,
+                    summary: "\(actor) updated \(issue.identifier) (\(detail))",
+                    issueId: issue.id,
+                    projectId: issue.projectId
+                )
+            }
             return issue
         }
         try await reloadAll()
         return updated
     }
 
-    func moveIssue(_ issueId: String, to status: IssueStatus, before beforeId: String?) async throws {
+    func moveIssue(_ issueId: String, to status: IssueStatus, before beforeId: String?, actor: String = "Riyu") async throws {
         try await db.write { db in
             guard let moving = try Issue.fetchOne(db, key: issueId) else { return }
+            let fromStatus = moving.status
             var siblings = try Issue
                 .filter(Column("status") == status.rawValue)
                 .filter(Column("projectId") == moving.projectId)
@@ -313,6 +467,17 @@ final class AppStore {
                 item.updatedAt = now
                 try item.update(db)
             }
+
+            if fromStatus != status {
+                try ActivityLogger.insert(
+                    db,
+                    actor: actor,
+                    action: ActivityAction.updated_issue.rawValue,
+                    summary: "\(actor) moved \(moving.identifier) \(fromStatus.rawValue) → \(status.rawValue)",
+                    issueId: moving.id,
+                    projectId: moving.projectId
+                )
+            }
         }
         try await reloadAll()
     }
@@ -326,31 +491,44 @@ final class AppStore {
     }
 
     @discardableResult
-    func addComment(issueId: String, body: String, authorName: String = "Riyu") async throws -> Comment {
+    func addComment(issueId: String, body: String, authorName: String = "Riyu", actor: String? = nil) async throws -> Comment {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw StoreError.emptyTitle }
+        let author = (actor ?? authorName).trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedAuthor = author.isEmpty ? "Agent" : author
         let comment = Comment(
             id: UUID().uuidString,
             issueId: issueId,
             bodyMarkdown: trimmed,
-            authorName: authorName,
+            authorName: resolvedAuthor,
             createdAt: Date()
         )
         try await db.write { db in
-            guard try Issue.fetchOne(db, key: issueId) != nil else { throw StoreError.notFound }
+            guard let issue = try Issue.fetchOne(db, key: issueId) else { throw StoreError.notFound }
             try comment.insert(db)
             if var issue = try Issue.fetchOne(db, key: issueId) {
                 issue.updatedAt = Date()
                 try issue.update(db)
             }
+            let preview = trimmed.count > 80 ? String(trimmed.prefix(77)) + "…" : trimmed
+            try ActivityLogger.insert(
+                db,
+                actor: resolvedAuthor,
+                action: ActivityAction.commented.rawValue,
+                summary: "\(resolvedAuthor) on \(issue.identifier): \(preview)",
+                issueId: issueId,
+                projectId: issue.projectId
+            )
         }
         try await reloadAll()
         return comment
     }
 
-    func setIssueLabels(issueId: String, labelNames: [String]) async throws {
+    func setIssueLabels(issueId: String, labelNames: [String], actor: String = "Riyu") async throws {
         try await db.write { db in
+            guard let issue = try Issue.fetchOne(db, key: issueId) else { throw StoreError.notFound }
             try db.execute(sql: "DELETE FROM issue_label WHERE issueId = ?", arguments: [issueId])
+            var applied: [String] = []
             for name in labelNames {
                 let labelName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !labelName.isEmpty else { continue }
@@ -362,9 +540,43 @@ final class AppStore {
                     try label.insert(db)
                 }
                 try IssueLabel(issueId: issueId, labelId: label.id).insert(db)
+                applied.append(label.name)
             }
+            try ActivityLogger.insert(
+                db,
+                actor: actor,
+                action: ActivityAction.updated_issue.rawValue,
+                summary: "\(actor) set labels on \(issue.identifier): \(applied.isEmpty ? "(none)" : applied.joined(separator: ", "))",
+                issueId: issueId,
+                projectId: issue.projectId
+            )
         }
         try await reloadAll()
+    }
+
+    /// Re-seed the Product/Ops/Comms demo conversation (for existing DBs / demos).
+    func seedDemoAgentActivity() async {
+        do {
+            try await db.write { db in
+                try SeedData.seedDemoAgentActivity(db)
+            }
+            try await reloadAll()
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func listActivity(limit: Int = 50, projectKey: String? = nil) -> [Activity] {
+        var items = activities
+        if let projectKey,
+           let p = projects.first(where: { $0.key.caseInsensitiveCompare(projectKey) == .orderedSame }) {
+            items = items.filter { activity in
+                if activity.projectId == p.id { return true }
+                if let issue = issue(forActivity: activity), issue.projectId == p.id { return true }
+                return false
+            }
+        }
+        return Array(items.prefix(max(1, min(limit, 500))))
     }
 
     // MARK: - Export for MCP / API
@@ -395,6 +607,20 @@ final class AppStore {
             "color": project.color,
             "issueCount": issues.filter { $0.projectId == project.id }.count,
             "createdAt": ISO8601DateFormatter().string(from: project.createdAt),
+        ]
+    }
+
+    func activityDictionary(_ activity: Activity) -> [String: Any] {
+        [
+            "id": activity.id,
+            "createdAt": ISO8601DateFormatter().string(from: activity.createdAt),
+            "actor": activity.actor,
+            "action": activity.action,
+            "issueId": activity.issueId ?? NSNull(),
+            "projectId": activity.projectId ?? NSNull(),
+            "issueIdentifier": issue(forActivity: activity)?.identifier ?? NSNull(),
+            "projectKey": project(forActivity: activity)?.key ?? NSNull(),
+            "summary": activity.summary,
         ]
     }
 
