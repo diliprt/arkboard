@@ -5,39 +5,35 @@ struct ActivityFeedView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .center, spacing: 12) {
                     Text("Activity")
                         .font(.title2.weight(.semibold))
-                    Text("Agents talking — Product, Ops, Comms, and you")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                if !store.hasRichBotDialogue {
-                    Button("Seed demo agent activity") {
-                        Task { await store.seedDemoAgentActivity() }
+                    Spacer(minLength: 8)
+                    if !store.hasRichBotDialogue {
+                        Button("Seed demo agent activity") {
+                            Task { await store.seedDemoAgentActivity() }
+                        }
+                        .controlSize(.small)
                     }
-                    .controlSize(.small)
                 }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
 
-            // Filter chips
-            HStack(spacing: 8) {
-                ForEach(AppStore.ActivityFeedFilter.allCases) { f in
-                    FilterChip(
-                        title: f.title,
-                        selected: store.activityFilter == f
-                    ) {
-                        store.activityFilter = f
+                Picker("Activity filter", selection: Bindable(store).activityFilter) {
+                    ForEach(AppStore.ActivityFeedFilter.allCases) { f in
+                        Text(f.title).tag(f)
                     }
                 }
-                Spacer()
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .accessibilityLabel("Activity filter")
+
+                Text("Agents talking — Product, Ops, Comms, and you")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 10)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
 
             Divider()
 

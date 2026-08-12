@@ -709,6 +709,61 @@ private struct PortfolioStatChip: View {
     }
 }
 
+
+private func labelSummary(_ card: ProjectPortfolioCard) -> String {
+    "Labels: \(card.featureCount) feature · \(card.bugCount) bug · \(card.otherCount) other"
+}
+
+private struct StatusCountScroller: View {
+    let byStatus: [IssueStatus: Int]
+
+    private var entries: [(IssueStatus, Int)] {
+        IssueStatus.allCases.compactMap { s in
+            let c = byStatus[s] ?? 0
+            return c > 0 ? (s, c) : nil
+        }
+    }
+
+    var body: some View {
+        let items = entries
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                ForEach(items, id: \.0) { status, count in
+                    statusChip(status, count)
+                }
+            }
+            HStack(spacing: 0) {
+                ScrollView(.horizontal, showsIndicators: true) {
+                    HStack(spacing: 6) {
+                        ForEach(items, id: \.0) { status, count in
+                            statusChip(status, count)
+                        }
+                    }
+                }
+                if items.count > 3 {
+                    Text("+\(max(0, items.count - 3)) more")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, 6)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+    }
+
+    private func statusChip(_ status: IssueStatus, _ count: Int) -> some View {
+        Text("\(status.shortName) \(count)")
+            .font(.caption2.monospacedDigit())
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .background(Color.secondary.opacity(0.12))
+            .clipShape(Capsule())
+            .accessibilityLabel("\(status.displayName): \(count)")
+    }
+}
+
 private struct ProjectPortfolioCardView: View {
     let card: ProjectPortfolioCard
     let onSelect: () -> Void
@@ -734,32 +789,13 @@ private struct ProjectPortfolioCardView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(IssueStatus.allCases) { status in
-                            let count = card.byStatus[status] ?? 0
-                            if count > 0 {
-                                Text("\(status.shortName) \(count)")
-                                    .font(.caption2.monospacedDigit())
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .lineLimit(1)
-                                    .fixedSize(horizontal: true, vertical: false)
-                                    .background(Color.secondary.opacity(0.12))
-                                    .clipShape(Capsule())
-                                    .accessibilityLabel("\(status.displayName): \(count)")
-                            }
-                        }
-                    }
-                }
+                // Primary scan row: status counts (scroll with edge fade + overflow hint)
+                StatusCountScroller(byStatus: card.byStatus)
 
-                HStack(spacing: 10) {
-                    Label("\(card.featureCount) feature", systemImage: "sparkles")
-                    Label("\(card.bugCount) bug", systemImage: "ant")
-                    Label("\(card.otherCount) other", systemImage: "tag")
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text(labelSummary(card))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)

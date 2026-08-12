@@ -5,12 +5,21 @@ struct SidebarView: View {
     @Binding var showNewProject: Bool
 
     var body: some View {
-        List(selection: Bindable(store).selection) {
-            Section("Workspace") {
-                Label(store.workspace?.name ?? "Origin Ark", systemImage: "building.2")
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "building.2")
                     .foregroundStyle(.secondary)
+                Text(store.workspace?.name ?? "Origin Ark")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Workspace \(store.workspace?.name ?? "Origin Ark")")
 
+            List(selection: Bindable(store).selection) {
             Section("Views") {
                 Label("Portfolio", systemImage: "square.grid.2x2")
                     .tag(SidebarSelection.portfolio)
@@ -44,6 +53,7 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        }
         .navigationTitle("Arkboard")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
