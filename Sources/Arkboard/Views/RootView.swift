@@ -219,9 +219,9 @@ struct ContentColumn: View {
                 Menu {
                     Button("All") { store.filter.priority = nil }
                     Divider()
-                    ForEach(IssuePriority.allCases) { priority in
+                    ForEach([IssuePriority.urgent, .high, .medium, .low, .none]) { priority in
                         Button {
-                            store.filter.priority = store.filter.priority == priority ? nil : priority
+                            store.filter.priority = priority
                         } label: {
                             if store.filter.priority == priority {
                                 Label(priority.displayName, systemImage: "checkmark")
@@ -236,7 +236,9 @@ struct ContentColumn: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .disabled(store.projects.isEmpty)
-                .help("Filter by priority")
+                .help("Filter by priority: All, Urgent, High, Medium, Low, No priority")
+                .accessibilityLabel("Priority filter")
+                .accessibilityValue(store.filter.priority?.displayName ?? "All")
 
                 Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
                     .toggleStyle(.checkbox)

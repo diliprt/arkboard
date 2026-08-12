@@ -48,6 +48,7 @@ struct BoardColumnView: View {
     let issues: [Issue]
 
     @State private var appendTargeted = false
+    @State private var pendingDeleteId: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -81,14 +82,35 @@ struct BoardColumnView: View {
                                 store.selectedIssueId = issue.id
                             }
                             .contextMenu {
-                                Button("Archive", role: .destructive) {
-                                    Task {
-                                        do {
-                                            try await store.deleteIssue(issue.id)
-                                        } catch {
-                                            store.lastError = error.localizedDescription
+                                Menu("Status") {
+                                    ForEach(IssueStatus.allCases) { s in
+                                        Button(s.displayName) {
+                                            Task {
+                                                do {
+                                                    try await store.updateIssue(id: issue.id, status: s)
+                                                } catch {
+                                                    store.lastError = error.localizedDescription
+                                                }
+                                            }
                                         }
                                     }
+                                }
+                                Menu("Priority") {
+                                    ForEach(IssuePriority.allCases) { p in
+                                        Button(p.displayName) {
+                                            Task {
+                                                do {
+                                                    try await store.updateIssue(id: issue.id, priority: p)
+                                                } catch {
+                                                    store.lastError = error.localizedDescription
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Divider()
+                                Button("Archive", role: .destructive) {
+                                    pendingDeleteId = issue.id
                                 }
                             }
                             .draggable(issue.id) {
@@ -135,6 +157,33 @@ struct BoardColumnView: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(status.displayName) column")
+        .confirmationDialog(
+            "Archive this issue?",
+            isPresented: Binding(
+                get: { pendingDeleteId != nil },
+                set: { if !$0 { pendingDeleteId = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Archive", role: .destructive) {
+                guard let id = pendingDeleteId else { return }
+                pendingDeleteId = nil
+                Task {
+                    do {
+                        try await store.deleteIssue(id)
+                    } catch {
+                        store.lastError = error.localizedDescription
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) { pendingDeleteId = nil }
+        } message: {
+            if let id = pendingDeleteId, let issue = store.issues.first(where: { $0.id == id }) {
+                Text("\(issue.identifier) — \(issue.title) will be archived. You can undo for ~10s or restore from Archived.")
+            } else {
+                Text("The issue will be archived (soft-deleted). Undo is available briefly.")
+            }
+        }
     }
 
     @ViewBuilder

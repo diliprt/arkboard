@@ -15,6 +15,7 @@ struct IssueDetailView: View {
     @State private var lastSyncedUpdatedAt: Date?
     @State private var isDirty = false
     @State private var saveState: SaveState = .idle
+    @State private var confirmArchive = false
 
     private enum SaveState: Equatable {
         case idle, saving, saved, failed
@@ -180,12 +181,24 @@ struct IssueDetailView: View {
                     }
                 } else {
                     Button("Archive", role: .destructive) {
-                        Task {
-                            await mutate { try await store.deleteIssue(issue.id) }
-                        }
+                        confirmArchive = true
                     }
                 }
             }
+        }
+        .confirmationDialog(
+            "Archive this issue?",
+            isPresented: $confirmArchive,
+            titleVisibility: .visible
+        ) {
+            Button("Archive", role: .destructive) {
+                Task {
+                    await mutate { try await store.deleteIssue(issue.id) }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("\(issue.identifier) — \(issue.title) will be archived. You can undo for ~10s or restore from Archived.")
         }
         .onAppear { syncFromIssue(force: true) }
         .onChange(of: issue.id) { _, _ in syncFromIssue(force: true) }
