@@ -9,7 +9,7 @@ struct QuickAddSheet: View {
     @State private var projectId: String = ""
     @State private var status: IssueStatus = .backlog
     @State private var priority: IssuePriority = .none
-    @State private var labels = ""
+    @State private var labelTokens: [String] = []
     @State private var isSaving = false
 
     var body: some View {
@@ -25,9 +25,15 @@ struct QuickAddSheet: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(minHeight: 60)
 
-            Picker("Project", selection: $projectId) {
-                ForEach(store.projects) { project in
-                    Text("\(project.key) — \(project.name)").tag(project.id)
+            if store.projects.isEmpty {
+                Text("Create a project before adding issues.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            } else {
+                Picker("Project", selection: $projectId) {
+                    ForEach(store.projects) { project in
+                        Text("\(project.key) — \(project.name)").tag(project.id)
+                    }
                 }
             }
 
@@ -44,8 +50,12 @@ struct QuickAddSheet: View {
                 }
             }
 
-            TextField("Labels (comma separated)", text: $labels)
-                .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Labels")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                LabelTokensField(tokens: $labelTokens, placeholder: "Add label, Return or comma")
+            }
 
             HStack {
                 Button("Cancel") { dismiss() }
@@ -56,7 +66,7 @@ struct QuickAddSheet: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
-                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
+                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving || store.projects.isEmpty)
             }
         }
         .padding(24)
@@ -70,7 +80,6 @@ struct QuickAddSheet: View {
         guard !isSaving else { return }
         isSaving = true
         defer { isSaving = false }
-        let labelNames = labels.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
         do {
             _ = try await store.createIssue(
                 projectId: projectId.isEmpty ? nil : projectId,
@@ -78,7 +87,7 @@ struct QuickAddSheet: View {
                 description: description,
                 status: status,
                 priority: priority,
-                labelNames: labelNames
+                labelNames: labelTokens
             )
             dismiss()
         } catch {

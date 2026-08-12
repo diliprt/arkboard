@@ -12,13 +12,24 @@ struct BoardView: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: true) {
-            HStack(alignment: .top, spacing: 12) {
-                ForEach(columns) { status in
-                    BoardColumnView(status: status, issues: store.issues(for: status))
+        Group {
+            if store.projects.isEmpty {
+                EmptyProjectsView()
+            } else if store.filteredIssues.isEmpty {
+                EmptyIssuesView(
+                    hasActiveSearch: !store.filter.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+            } else {
+                ScrollView(.horizontal, showsIndicators: true) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(columns) { status in
+                            BoardColumnView(status: status, issues: store.issues(for: status))
+                        }
+                    }
+                    .padding(16)
+                    .frame(minHeight: 420)
                 }
             }
-            .padding(16)
         }
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
     }
@@ -47,6 +58,19 @@ struct BoardColumnView: View {
 
             ScrollView {
                 LazyVStack(spacing: 8) {
+                    if issues.isEmpty {
+                        Text("Drop issues here")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 28)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                                    .foregroundStyle(Color.secondary.opacity(0.35))
+                            )
+                    }
+
                     ForEach(issues) { issue in
                         BoardCardView(issue: issue)
                             .onTapGesture {
@@ -56,6 +80,15 @@ struct BoardColumnView: View {
                                 BoardCardView(issue: issue)
                                     .frame(width: 240)
                                     .opacity(0.9)
+                            }
+                            // Drop onto a card → insert before that card (within-column reorder + cross-column)
+                            .dropDestination(for: String.self) { items, _ in
+                                guard let id = items.first, id != issue.id else { return false }
+                                Task {
+                                    try? await store.moveIssue(id, to: status, before: issue.id)
+                                    store.selectedIssueId = id
+                                }
+                                return true
                             }
                     }
                 }
@@ -72,6 +105,7 @@ struct BoardColumnView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
         )
+        // Drop onto column chrome / empty area → append at end
         .dropDestination(for: String.self) { items, _ in
             guard let id = items.first else { return false }
             Task {

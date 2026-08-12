@@ -10,8 +10,10 @@ struct IssueDetailView: View {
     @State private var priority: IssuePriority = .none
     @State private var assignee: String = ""
     @State private var commentDraft: String = ""
-    @State private var labelsText: String = ""
+    @State private var labelTokens: [String] = []
     @State private var saveTask: Task<Void, Never>?
+    @State private var lastSyncedUpdatedAt: Date?
+    @State private var isDirty = false
 
     var body: some View {
         ScrollView {
@@ -34,7 +36,10 @@ struct IssueDetailView: View {
                 TextField("Issue title", text: $title, axis: .vertical)
                     .font(.title2.weight(.semibold))
                     .textFieldStyle(.plain)
-                    .onChange(of: title) { _, _ in scheduleSave() }
+                    .onChange(of: title) { _, _ in
+                        isDirty = true
+                        scheduleSave()
+                    }
 
                 HStack(spacing: 12) {
                     Picker("Status", selection: $status) {
@@ -42,7 +47,7 @@ struct IssueDetailView: View {
                             Text(s.displayName).tag(s)
                         }
                     }
-                    .frame(width: 160)
+                    .frame(minWidth: 140, idealWidth: 160, maxWidth: 180)
                     .onChange(of: status) { _, newValue in
                         Task { try? await store.updateIssue(id: issue.id, status: newValue) }
                     }
@@ -52,7 +57,7 @@ struct IssueDetailView: View {
                             Label(p.displayName, systemImage: p.symbolName).tag(p)
                         }
                     }
-                    .frame(width: 160)
+                    .frame(minWidth: 140, idealWidth: 160, maxWidth: 180)
                     .onChange(of: priority) { _, newValue in
                         Task { try? await store.updateIssue(id: issue.id, priority: newValue) }
                     }
@@ -69,14 +74,14 @@ struct IssueDetailView: View {
                         }
                 }
 
-                LabeledContent("Labels") {
-                    TextField("comma,separated", text: $labelsText)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 280)
-                        .onSubmit {
-                            let names = labelsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-                            Task { try? await store.setIssueLabels(issueId: issue.id, labelNames: names) }
-                        }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Labels")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    LabelTokensField(tokens: $labelTokens, placeholder: "Add label, Return or comma") {
+                        Task { try? await store.setIssueLabels(issueId: issue.id, labelNames: labelTokens) }
+                    }
+                    .frame(maxWidth: 360)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -92,7 +97,10 @@ struct IssueDetailView: View {
                             RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color.secondary.opacity(0.2))
                         )
-                        .onChange(of: description) { _, _ in scheduleSave() }
+                        .onChange(of: description) { _, _ in
+                            isDirty = true
+                            scheduleSave()
+                        }
                 }
 
                 Divider()
@@ -101,7 +109,14 @@ struct IssueDetailView: View {
                     Text("Comments")
                         .font(.headline)
 
-                    ForEach(store.comments(for: issue)) { comment in
+                    let comments = store.comments(for: issue)
+                    if comments.isEmpty {
+                        Text("No comments yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    ForEach(comments) { comment in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
                                 Text(comment.authorName)
@@ -135,25 +150,39 @@ struct IssueDetailView: View {
             .padding(20)
         }
         .navigationTitle(issue.identifier)
-        .onAppear { syncFromIssue() }
-        .onChange(of: issue.id) { _, _ in syncFromIssue() }
+        .onAppear { syncFromIssue(force: true) }
+        .onChange(of: issue.id) { _, _ in syncFromIssue(force: true) }
         .onChange(of: issue.updatedAt) { _, _ in
-            // Avoid clobbering in-progress edits of same issue unless external update
-            if title == issue.title || description != issue.descriptionMarkdown {
-                // keep local drafts for title/description while typing; refresh selects
-                status = issue.status
-                priority = issue.priority
-            }
+            // External MCP/UI mutation — refresh unless the user has unsaved local edits
+            syncFromIssue(force: false)
+        }
+        .onChange(of: store.dataRevision) { _, _ in
+            syncFromIssue(force: false)
         }
     }
 
-    private func syncFromIssue() {
+    private func syncFromIssue(force: Bool) {
+        if !force, isDirty, lastSyncedUpdatedAt == issue.updatedAt {
+            return
+        }
+        // If dirty and updatedAt changed (external write), prefer remote unless title/desc still matching draft intent
+        if !force, isDirty {
+            // Keep in-progress title/description drafts; still refresh discrete fields
+            status = issue.status
+            priority = issue.priority
+            assignee = issue.assigneeName ?? ""
+            labelTokens = store.labels(for: issue).map(\.name)
+            lastSyncedUpdatedAt = issue.updatedAt
+            return
+        }
         title = issue.title
         description = issue.descriptionMarkdown
         status = issue.status
         priority = issue.priority
         assignee = issue.assigneeName ?? ""
-        labelsText = store.labels(for: issue).map(\.name).joined(separator: ", ")
+        labelTokens = store.labels(for: issue).map(\.name)
+        lastSyncedUpdatedAt = issue.updatedAt
+        isDirty = false
     }
 
     private func scheduleSave() {
@@ -165,6 +194,10 @@ struct IssueDetailView: View {
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard !Task.isCancelled else { return }
             try? await store.updateIssue(id: id, title: t, description: d)
+            await MainActor.run {
+                isDirty = false
+                lastSyncedUpdatedAt = store.issues.first(where: { $0.id == id })?.updatedAt
+            }
         }
     }
 }

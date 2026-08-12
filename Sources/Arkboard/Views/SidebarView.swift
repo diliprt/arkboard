@@ -17,18 +17,25 @@ struct SidebarView: View {
             }
 
             Section("Projects") {
-                ForEach(store.projects) { project in
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(Color(hex: project.color))
-                            .frame(width: 8, height: 8)
-                        Text(project.name)
-                        Spacer()
-                        Text(project.key)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
+                if store.projects.isEmpty {
+                    Text("No projects yet")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(store.projects) { project in
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(Color(hex: project.color))
+                                .frame(width: 8, height: 8)
+                            Text(project.name)
+                                .lineLimit(1)
+                            Spacer()
+                            Text(project.key)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
+                        .tag(Optional(project.id))
                     }
-                    .tag(Optional(project.id))
                 }
             }
         }
@@ -45,14 +52,26 @@ struct SidebarView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(store.mcpRunning ? Color.green : Color.orange)
-                    .frame(width: 8, height: 8)
-                Text(store.mcpRunning ? "MCP :\(store.mcpPort)" : "MCP offline")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
+            VStack(alignment: .leading, spacing: 8) {
+                if store.projects.isEmpty {
+                    Button {
+                        showNewProject = true
+                    } label: {
+                        Label("New Project", systemImage: "plus.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(store.mcpRunning ? Color.green : Color.orange)
+                        .frame(width: 8, height: 8)
+                    Text(store.mcpRunning ? "MCP :\(store.mcpPort)" : "MCP offline")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
             }
             .padding(12)
             .background(.bar)

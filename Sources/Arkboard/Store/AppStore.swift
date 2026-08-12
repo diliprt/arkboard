@@ -18,6 +18,8 @@ final class AppStore {
     var mcpRunning = false
     var mcpPort: UInt16 = 7420
     var lastError: String?
+    /// Bumped on every successful reload so SwiftUI views refresh after MCP mutations.
+    var dataRevision: UInt64 = 0
 
     enum ViewMode: String, CaseIterable, Identifiable {
         case list, board
@@ -150,6 +152,7 @@ final class AppStore {
             }
         }
         labelMap = map
+        dataRevision &+= 1
 
         if selectedIssueId == nil {
             selectedIssueId = filteredIssues.first?.id
@@ -281,29 +284,29 @@ final class AppStore {
 
     func moveIssue(_ issueId: String, to status: IssueStatus, before beforeId: String?) async throws {
         try await db.write { db in
-            guard var issue = try Issue.fetchOne(db, key: issueId) else { return }
+            guard let moving = try Issue.fetchOne(db, key: issueId) else { return }
             var siblings = try Issue
                 .filter(Column("status") == status.rawValue)
-                .filter(Column("projectId") == issue.projectId)
+                .filter(Column("projectId") == moving.projectId)
                 .order(Column("orderInStatus"))
                 .fetchAll(db)
                 .filter { $0.id != issueId }
 
-            let newOrder: Double
             if let beforeId, let idx = siblings.firstIndex(where: { $0.id == beforeId }) {
-                let beforeOrder = siblings[idx].orderInStatus
-                let prevOrder = idx > 0 ? siblings[idx - 1].orderInStatus : beforeOrder - 1
-                newOrder = (prevOrder + beforeOrder) / 2
-            } else if let last = siblings.last {
-                newOrder = last.orderInStatus + 1
+                siblings.insert(moving, at: idx)
             } else {
-                newOrder = 0
+                siblings.append(moving)
             }
 
-            issue.status = status
-            issue.orderInStatus = newOrder
-            issue.updatedAt = Date()
-            try issue.update(db)
+            let now = Date()
+            for (index, var item) in siblings.enumerated() {
+                if item.id == issueId {
+                    item.status = status
+                }
+                item.orderInStatus = Double(index)
+                item.updatedAt = now
+                try item.update(db)
+            }
         }
         try await reloadAll()
     }

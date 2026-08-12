@@ -10,17 +10,16 @@ struct RootView: View {
             SidebarView(showNewProject: $showNewProject)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
         } content: {
-            ContentColumn(showQuickAdd: $showQuickAdd)
-                .navigationSplitViewColumnWidth(min: 360, ideal: 480, max: 720)
+            ContentColumn(showQuickAdd: $showQuickAdd, showNewProject: $showNewProject)
+                .navigationSplitViewColumnWidth(min: 340, ideal: 460, max: 740)
         } detail: {
-            if let issue = store.selectedIssue {
+            if store.projects.isEmpty {
+                EmptyProjectsView()
+            } else if let issue = store.selectedIssue {
                 IssueDetailView(issue: issue)
+                    .id(issue.id)
             } else {
-                ContentUnavailableView(
-                    "Select an issue",
-                    systemImage: "checkmark.circle",
-                    description: Text("Choose an issue from the list or board, or press ⌘N to create one.")
-                )
+                SelectIssuePlaceholder()
             }
         }
         .sheet(isPresented: $showQuickAdd) {
@@ -32,7 +31,11 @@ struct RootView: View {
                 .environment(store)
         }
         .onReceive(NotificationCenter.default.publisher(for: .arkboardQuickAdd)) { _ in
-            showQuickAdd = true
+            if store.projects.isEmpty {
+                showNewProject = true
+            } else {
+                showQuickAdd = true
+            }
         }
         .alert("Error", isPresented: Binding(
             get: { store.lastError != nil },
@@ -48,26 +51,60 @@ struct RootView: View {
 struct ContentColumn: View {
     @Environment(AppStore.self) private var store
     @Binding var showQuickAdd: Bool
+    @Binding var showNewProject: Bool
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(store.selectedProject?.name ?? "Inbox")
-                        .font(.title2.weight(.semibold))
-                    Text("\(store.filteredIssues.count) issues")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Picker("View", selection: Bindable(store).viewMode) {
-                    ForEach(AppStore.ViewMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
+            header
+            Divider()
+            filterBar
+            Divider()
+
+            Group {
+                if store.projects.isEmpty {
+                    EmptyProjectsView()
+                } else {
+                    switch store.viewMode {
+                    case .list:
+                        IssueListView()
+                    case .board:
+                        BoardView()
                     }
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 160)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
 
+    private var header: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(store.selectedProject?.name ?? "Inbox")
+                    .font(.title2.weight(.semibold))
+                    .lineLimit(1)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Picker("View", selection: Bindable(store).viewMode) {
+                ForEach(AppStore.ViewMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 140)
+            .disabled(store.projects.isEmpty)
+
+            if store.projects.isEmpty {
+                Button {
+                    showNewProject = true
+                } label: {
+                    Label("New Project", systemImage: "folder.badge.plus")
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
                 Button {
                     showQuickAdd = true
                 } label: {
@@ -76,34 +113,40 @@ struct ContentColumn: View {
                 .keyboardShortcut("n", modifiers: .command)
                 .buttonStyle(.borderedProminent)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-
-            Divider()
-
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search issues", text: Bindable(store).filter.query)
-                    .textFieldStyle(.plain)
-                Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
-                    .toggleStyle(.checkbox)
-                    .font(.caption)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-
-            Divider()
-
-            Group {
-                switch store.viewMode {
-                case .list:
-                    IssueListView()
-                case .board:
-                    BoardView()
-                }
-            }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var filterBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search issues", text: Bindable(store).filter.query)
+                .textFieldStyle(.plain)
+                .disabled(store.projects.isEmpty)
+            if !store.filter.query.isEmpty {
+                Button {
+                    store.filter.query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear search")
+            }
+            Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
+                .toggleStyle(.checkbox)
+                .font(.caption)
+                .disabled(store.projects.isEmpty)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
+    private var subtitle: String {
+        if store.projects.isEmpty { return "Create a project to get started" }
+        let n = store.filteredIssues.count
+        return n == 1 ? "1 issue" : "\(n) issues"
     }
 }

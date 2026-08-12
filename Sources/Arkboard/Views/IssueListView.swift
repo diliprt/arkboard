@@ -5,10 +5,8 @@ struct IssueListView: View {
 
     var body: some View {
         if store.filteredIssues.isEmpty {
-            ContentUnavailableView(
-                "No issues",
-                systemImage: "tray",
-                description: Text("Press ⌘N to create your first issue.")
+            EmptyIssuesView(
+                hasActiveSearch: !store.filter.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
         } else {
             List(selection: Bindable(store).selectedIssueId) {
@@ -60,25 +58,28 @@ struct IssueRowView: View {
             Text(issue.identifier)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
-                .frame(width: 64, alignment: .leading)
+                .frame(minWidth: 56, idealWidth: 72, maxWidth: 88, alignment: .leading)
+                .lineLimit(1)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(issue.title)
                     .lineLimit(1)
-                HStack(spacing: 6) {
-                    ForEach(store.labels(for: issue).prefix(3)) { label in
-                        Text(label.name)
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color(hex: label.color).opacity(0.2))
-                            .foregroundStyle(Color(hex: label.color))
-                            .clipShape(Capsule())
+                if !store.labels(for: issue).isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(store.labels(for: issue).prefix(3)) { label in
+                            Text(label.name)
+                                .font(.caption2)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color(hex: label.color).opacity(0.2))
+                                .foregroundStyle(Color(hex: label.color))
+                                .clipShape(Capsule())
+                        }
                     }
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 4)
 
             Image(systemName: issue.priority.symbolName)
                 .font(.caption)
@@ -88,7 +89,8 @@ struct IssueRowView: View {
             Text(issue.status.displayName)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(width: 80, alignment: .trailing)
+                .frame(width: 72, alignment: .trailing)
+                .lineLimit(1)
         }
         .padding(.vertical, 2)
     }

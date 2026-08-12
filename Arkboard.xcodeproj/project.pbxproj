@@ -7,8 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03FDD864BF4AEE42C0C2A092 /* LabelTokensField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DD03300B375A1AA94F9F24 /* LabelTokensField.swift */; };
 		19863E0CC792A7E5327ABE31 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 819337D1595290803F0B11C8 /* Theme.swift */; };
 		20FF3F5933F4FB084561987C /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 619C85475CA602B7E3CA8B6D /* BoardView.swift */; };
+		2FB026E1389C62E4047EB85B /* EmptyStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2C661A8888A4EE4E4FECCDB /* EmptyStates.swift */; };
 		37E1A8F0A0352666543F3DBB /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E128784F7CF9DB9F511DEA /* SidebarView.swift */; };
 		3D1ACF0882DA1ED6657DCC11 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = A565A1B4A02340C63B51DD2D /* GRDB */; };
 		4548EBBCC0D2771E51AD09DC /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF07FAF307783853DDB64880 /* Database.swift */; };
@@ -33,12 +35,14 @@
 		619C85475CA602B7E3CA8B6D /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		632C2BE37129EE7A6CC3944F /* Arkboard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Arkboard.entitlements; sourceTree = "<group>"; };
 		6806623E2040D5B7EF3B03FD /* Seed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Seed.swift; sourceTree = "<group>"; };
+		78DD03300B375A1AA94F9F24 /* LabelTokensField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelTokensField.swift; sourceTree = "<group>"; };
 		7F4F596266E3DE39E1947110 /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
 		819337D1595290803F0B11C8 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		B139EC32050FAE74A00A8216 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
 		B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddSheet.swift; sourceTree = "<group>"; };
 		C8528C6ECEF75E8896DC0902 /* Arkboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Arkboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DB8648EA8477A5B7ED187668 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		E2C661A8888A4EE4E4FECCDB /* EmptyStates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStates.swift; sourceTree = "<group>"; };
 		E530EAE692902D376454BDC0 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		FF07FAF307783853DDB64880 /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -89,8 +93,10 @@
 			isa = PBXGroup;
 			children = (
 				619C85475CA602B7E3CA8B6D /* BoardView.swift */,
+				E2C661A8888A4EE4E4FECCDB /* EmptyStates.swift */,
 				16FF590965F29383224A2B13 /* IssueDetailView.swift */,
 				0100CADAE429735C3651EABF /* IssueListView.swift */,
+				78DD03300B375A1AA94F9F24 /* LabelTokensField.swift */,
 				B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */,
 				E530EAE692902D376454BDC0 /* RootView.swift */,
 				3C66B960BC6623A666AB5A3C /* SettingsView.swift */,
@@ -208,8 +214,10 @@
 				55797B9B3D845C53C1EAE6AF /* ArkboardApp.swift in Sources */,
 				20FF3F5933F4FB084561987C /* BoardView.swift in Sources */,
 				4548EBBCC0D2771E51AD09DC /* Database.swift in Sources */,
+				2FB026E1389C62E4047EB85B /* EmptyStates.swift in Sources */,
 				FD6AD1AC9DDB5A81B8276F8A /* IssueDetailView.swift in Sources */,
 				8789BCED0F496BB82D518193 /* IssueListView.swift in Sources */,
+				03FDD864BF4AEE42C0C2A092 /* LabelTokensField.swift in Sources */,
 				8505497618D4107B6BCA63FF /* MCPServer.swift in Sources */,
 				B7FF141559F1CA828EFFD8E1 /* Models.swift in Sources */,
 				844F4C1A7BF3841DA4C1C581 /* QuickAddSheet.swift in Sources */,
