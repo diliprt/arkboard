@@ -18,7 +18,7 @@ final class AppStore {
     var selectedIssueId: String? = nil
     var viewMode: ViewMode = .list
     var filter = IssueFilter()
-    var activityFilter: ActivityFeedFilter = .all
+    var activityFilter: ActivityFeedFilter = .mentions
     var mcpRunning = false
     var mcpPort: UInt16 = 7420
     var lastError: String?
@@ -38,7 +38,7 @@ final class AppStore {
             switch self {
             case .all: return "All"
             case .bots: return "Bots only"
-            case .mentions: return "Mentions/handoffs"
+            case .mentions: return "Mentions"
             }
         }
     }
@@ -60,10 +60,21 @@ final class AppStore {
                 try SeedData.enrichBotDialogueIfThin(db)
             }
             try await reloadAll()
+            applyDefaultActivityFilter()
             startMCP()
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    /// Mentions if any exist; otherwise Bots-only.
+    private func applyDefaultActivityFilter() {
+        let hasMentions = activities.contains { activity in
+            let kind = ActivityKind(rawValue: activity.kind)
+            if kind == .mention || kind == .handoff { return true }
+            return !activity.targetActors.isEmpty
+        }
+        activityFilter = hasMentions ? .mentions : .bots
     }
 
     func startMCP() {
@@ -204,19 +215,65 @@ final class AppStore {
 
     var filteredActivities: [Activity] {
         let botNames: Set<String> = ["product", "ops", "comms", "agent"]
+        let base: [Activity]
         switch activityFilter {
         case .all:
-            return activities
+            base = activities
         case .bots:
-            return activities.filter { botNames.contains($0.actor.lowercased()) }
+            base = activities.filter {
+                botNames.contains($0.actor.lowercased()) && ActivityKind(rawValue: $0.kind) != .system
+            }
         case .mentions:
-            return activities.filter { activity in
+            base = activities.filter { activity in
                 let kind = ActivityKind(rawValue: activity.kind)
                 if kind == .mention || kind == .handoff { return true }
-                if let t = activity.targetActor, !t.isEmpty { return true }
+                if !activity.targetActors.isEmpty { return true }
                 return false
             }
         }
+        // Fallback: collapse legacy fan-out rows that share issue/actor/action/second + comment core.
+        return Self.collapseDuplicateMentionRows(base)
+    }
+
+    /// Group legacy N-row multi-mention fan-out into one display row with merged targets.
+    nonisolated static func collapseDuplicateMentionRows(_ items: [Activity]) -> [Activity] {
+        var result: [Activity] = []
+        var indexByKey: [String: Int] = [:]
+
+        func coreSummary(_ summary: String) -> String {
+            if let range = summary.range(of: #":\s+"#, options: .regularExpression) {
+                return String(summary[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            return summary
+        }
+
+        for item in items {
+            let second = Int(item.createdAt.timeIntervalSince1970)
+            let key = "\(item.issueId ?? "")|\(item.actor.lowercased())|\(item.action)|\(second)|\(coreSummary(item.summary))"
+            if let idx = indexByKey[key] {
+                var existing = result[idx]
+                var merged = existing.targetActors
+                for t in item.targetActors where !merged.map({ $0.lowercased() }).contains(t.lowercased()) {
+                    merged.append(t)
+                }
+                existing.targetActor = Activity.encodeTargets(merged)
+                if merged.count > 1, let encoded = Activity.encodeTargets(merged) {
+                    let arrow = merged.joined(separator: ", ")
+                    if let onRange = existing.summary.range(of: " on "),
+                       let colon = existing.summary.range(of: ": ", range: onRange.upperBound..<existing.summary.endIndex) {
+                        let issuePart = String(existing.summary[onRange.upperBound..<colon.lowerBound])
+                        let tail = String(existing.summary[colon.upperBound...])
+                        existing.summary = "\(existing.actor) → \(arrow) on \(issuePart): \(tail)"
+                    }
+                    _ = encoded
+                }
+                result[idx] = existing
+            } else {
+                indexByKey[key] = result.count
+                result.append(item)
+            }
+        }
+        return result
     }
 
     // MARK: - Portfolio
@@ -231,13 +288,12 @@ final class AppStore {
             var features = 0, bugs = 0, other = 0
             for issue in projectIssues {
                 let names = Set(labels(for: issue).map { $0.name.lowercased() })
-                if names.contains("bug") {
-                    bugs += 1
-                } else if names.contains("feature") {
-                    features += 1
-                } else {
-                    other += 1
-                }
+                let isBug = names.contains("bug")
+                let isFeature = names.contains("feature")
+                // Feature and bug counts are independent — an issue can contribute to both.
+                if isBug { bugs += 1 }
+                if isFeature { features += 1 }
+                if !isBug && !isFeature { other += 1 }
             }
             return ProjectPortfolioCard(
                 project: project,
@@ -292,7 +348,8 @@ final class AppStore {
                 projectId: ms.projectId,
                 projectKey: p?.key,
                 projectColor: p?.color ?? "#8E8E93",
-                statusLabel: ms.status.displayName
+                statusLabel: ms.status.displayName,
+                milestoneId: ms.id
             ))
         }
         for issue in issues {
@@ -307,23 +364,52 @@ final class AppStore {
                 projectId: issue.projectId,
                 projectKey: p?.key,
                 projectColor: color,
-                statusLabel: nil
+                statusLabel: nil,
+                issueId: issue.id
             ))
-            if issue.status == .done {
+            if let doneAt = issue.completedAt ?? (issue.status == .done ? issue.updatedAt : nil) {
                 events.append(TimelineEvent(
                     id: "done-\(issue.id)",
-                    date: issue.updatedAt,
+                    date: doneAt,
                     title: issue.identifier,
                     subtitle: "Done · \(issue.title)",
                     kind: .issueDone,
                     projectId: issue.projectId,
                     projectKey: p?.key,
                     projectColor: color,
-                    statusLabel: "Done"
+                    statusLabel: "Done",
+                    issueId: issue.id
                 ))
             }
         }
         return events.sorted { $0.date < $1.date }
+    }
+
+    /// Plan = milestones + done completions; All also includes issue-created events.
+    func timelineEvents(mode: TimelineMode) -> [TimelineEvent] {
+        switch mode {
+        case .plan:
+            return timelineEvents.filter { $0.kind == .milestone || $0.kind == .issueDone }
+        case .all:
+            return timelineEvents
+        }
+    }
+
+    enum TimelineMode: String, CaseIterable, Identifiable {
+        case plan, all
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .plan: return "Plan"
+            case .all: return "All"
+            }
+        }
+    }
+
+    /// True when the feed already has a rich bot↔bot dialogue (hide Seed CTA).
+    var hasRichBotDialogue: Bool {
+        let targeted = activities.filter { !$0.targetActors.isEmpty || ActivityKind(rawValue: $0.kind) == .mention || ActivityKind(rawValue: $0.kind) == .handoff }
+        return targeted.count >= 3
     }
 
     private var labelMap: [String: [IssueTag]] = [:]
@@ -442,6 +528,7 @@ final class AppStore {
                 estimatePoints: nil,
                 createdAt: now,
                 updatedAt: now,
+                completedAt: status == .done ? now : nil,
                 orderInStatus: maxOrder + 1
             )
             try project.update(db)
@@ -498,6 +585,11 @@ final class AppStore {
                 changes.append("description")
             }
             if let status, status != issue.status {
+                if status == .done {
+                    issue.completedAt = Date()
+                } else if issue.status == .done {
+                    issue.completedAt = nil
+                }
                 issue.status = status
                 changes.append("status → \(status.rawValue)")
             }
@@ -561,6 +653,11 @@ final class AppStore {
             let now = Date()
             for (index, var item) in siblings.enumerated() {
                 if item.id == issueId {
+                    if status == .done && fromStatus != .done {
+                        item.completedAt = now
+                    } else if status != .done && fromStatus == .done {
+                        item.completedAt = nil
+                    }
                     item.status = status
                 }
                 item.orderInStatus = Double(index)
@@ -583,8 +680,18 @@ final class AppStore {
         try await reloadAll()
     }
 
-    func deleteIssue(_ id: String) async throws {
+    func deleteIssue(_ id: String, actor: String = "Riyu") async throws {
         try await db.write { db in
+            guard let issue = try Issue.fetchOne(db, key: id) else { throw StoreError.notFound }
+            try ActivityLogger.insert(
+                db,
+                actor: actor,
+                action: ActivityAction.deleted_issue.rawValue,
+                summary: "\(actor) deleted \(issue.identifier): \(issue.title)",
+                issueId: nil,
+                projectId: issue.projectId,
+                kind: .system
+            )
             _ = try Issue.deleteOne(db, key: id)
         }
         if selectedIssueId == id { selectedIssueId = nil }
@@ -613,22 +720,20 @@ final class AppStore {
                 try issue.update(db)
             }
             let preview = trimmed.count > 80 ? String(trimmed.prefix(77)) + "…" : trimmed
-            // One activity event per distinct @mention so @Ops @Comms both appear in Activity.
-            let mentionTargets: [String?] = targets.isEmpty ? [nil] : targets.map { Optional($0) }
-            for target in mentionTargets {
-                let kind = MentionParser.inferKind(body: trimmed, targetActor: target)
-                let arrow = target.map { " → \($0)" } ?? ""
-                try ActivityLogger.insert(
-                    db,
-                    actor: resolvedAuthor,
-                    action: ActivityAction.commented.rawValue,
-                    summary: "\(resolvedAuthor)\(arrow) on \(issue.identifier): \(preview)",
-                    issueId: issueId,
-                    projectId: issue.projectId,
-                    targetActor: target,
-                    kind: kind
-                )
-            }
+            // One activity row per comment; multi-mention → multi-avatar targets in one event.
+            let encodedTargets = Activity.encodeTargets(targets)
+            let kind = MentionParser.inferKind(body: trimmed, targetActor: encodedTargets)
+            let arrow = targets.isEmpty ? "" : " → \(targets.joined(separator: ", "))"
+            try ActivityLogger.insert(
+                db,
+                actor: resolvedAuthor,
+                action: ActivityAction.commented.rawValue,
+                summary: "\(resolvedAuthor)\(arrow) on \(issue.identifier): \(preview)",
+                issueId: issueId,
+                projectId: issue.projectId,
+                targetActor: encodedTargets,
+                kind: kind
+            )
         }
         try await reloadAll()
         return comment
@@ -673,6 +778,7 @@ final class AppStore {
     ) async throws -> Milestone {
         let trimmed = Self.normalizeTitle(title)
         guard !trimmed.isEmpty else { throw StoreError.emptyTitle }
+        try Self.validateRelatedIdentifiers(relatedIssueIdentifiers)
 
         var resolvedProjectId = projectId
         if resolvedProjectId == nil, let projectKey,
@@ -751,6 +857,7 @@ final class AppStore {
                 changes.append("project")
             }
             if let relatedIssueIdentifiers {
+                try Self.validateRelatedIdentifiers(relatedIssueIdentifiers)
                 ms.relatedIssueIdentifiers = Milestone.encodeIdentifiers(relatedIssueIdentifiers)
                 changes.append("relatedIssues")
             }
@@ -860,6 +967,7 @@ final class AppStore {
             "labels": labels(for: issue).map(\.name),
             "createdAt": ISO8601DateFormatter().string(from: issue.createdAt),
             "updatedAt": ISO8601DateFormatter().string(from: issue.updatedAt),
+            "completedAt": issue.completedAt.map { ISO8601DateFormatter().string(from: $0) } ?? NSNull(),
         ]
     }
 
@@ -880,6 +988,7 @@ final class AppStore {
             "createdAt": ISO8601DateFormatter().string(from: activity.createdAt),
             "actor": activity.actor,
             "targetActor": activity.targetActor ?? NSNull(),
+            "targetActors": activity.targetActors,
             "action": activity.action,
             "kind": activity.kind,
             "issueId": activity.issueId ?? NSNull(),
@@ -903,6 +1012,20 @@ final class AppStore {
             "createdAt": ISO8601DateFormatter().string(from: milestone.createdAt),
             "updatedAt": ISO8601DateFormatter().string(from: milestone.updatedAt),
         ]
+    }
+
+    /// Basic related-issue identifier check: KEY-123 (2–6 alnum key + digits).
+    nonisolated static func validateRelatedIdentifiers(_ ids: [String]) throws {
+        let pattern = #"^[A-Za-z][A-Za-z0-9]{1,5}-\d+$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
+        for raw in ids {
+            let id = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !id.isEmpty else { continue }
+            let range = NSRange(id.startIndex..<id.endIndex, in: id)
+            if regex.firstMatch(in: id, options: [], range: range) == nil {
+                throw StoreError.invalidRelatedIssue(id)
+            }
+        }
     }
 
     /// Collapse embedded/consecutive whitespace (including newlines) to single spaces for UI safety.
@@ -953,6 +1076,7 @@ enum StoreError: LocalizedError {
     case invalidStatus(String)
     case invalidPriority(String)
     case invalidDate(String)
+    case invalidRelatedIssue(String)
 
     var errorDescription: String? {
         switch self {
@@ -967,6 +1091,8 @@ enum StoreError: LocalizedError {
             return "Invalid priority '\(value)'. Expected one of: none, low, medium, high, urgent"
         case .invalidDate(let value):
             return "Invalid date '\(value)'. Expected ISO8601 or yyyy-MM-dd"
+        case .invalidRelatedIssue(let value):
+            return "Invalid related issue id '\(value)'. Expected KEY-123 (e.g. ARK-1)"
         }
     }
 }

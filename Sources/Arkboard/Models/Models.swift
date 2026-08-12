@@ -102,6 +102,7 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
     case created_project
     case created_milestone
     case updated_milestone
+    case deleted_issue
 
     var displayName: String {
         switch self {
@@ -111,6 +112,7 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
         case .created_project: return "created project"
         case .created_milestone: return "created milestone"
         case .updated_milestone: return "updated milestone"
+        case .deleted_issue: return "deleted issue"
         }
     }
 }
@@ -179,6 +181,8 @@ struct Issue: Codable, FetchableRecord, PersistableRecord, Identifiable, Hashabl
     var estimatePoints: Int?
     var createdAt: Date
     var updatedAt: Date
+    /// Set when status becomes `.done`; cleared when leaving done.
+    var completedAt: Date?
     var orderInStatus: Double
 
     static let project = belongsTo(Project.self)
@@ -216,10 +220,35 @@ struct Activity: Codable, FetchableRecord, PersistableRecord, Identifiable, Hash
     var issueId: String?
     var projectId: String?
     var summary: String
-    /// Who this entry addresses (e.g. Product → Ops).
+    /// Who this entry addresses. Single name or comma-separated multi-mention targets (e.g. "Ops, Comms").
     var targetActor: String?
     /// comment | mention | handoff | system
     var kind: String
+
+    /// Distinct target actors parsed from `targetActor` (comma-separated).
+    var targetActors: [String] {
+        Self.parseTargets(targetActor)
+    }
+
+    static func parseTargets(_ raw: String?) -> [String] {
+        guard let raw else { return [] }
+        var seen = Set<String>()
+        var result: [String] = []
+        for part in raw.split(separator: ",") {
+            let name = part.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { continue }
+            let key = name.lowercased()
+            if seen.insert(key).inserted {
+                result.append(name)
+            }
+        }
+        return result
+    }
+
+    static func encodeTargets(_ targets: [String]) -> String? {
+        let cleaned = parseTargets(targets.joined(separator: ", "))
+        return cleaned.isEmpty ? nil : cleaned.joined(separator: ", ")
+    }
 }
 
 struct Milestone: Codable, FetchableRecord, PersistableRecord, Identifiable, Hashable {
@@ -299,6 +328,8 @@ struct TimelineEvent: Identifiable, Hashable {
     var projectKey: String?
     var projectColor: String
     var statusLabel: String?
+    var issueId: String? = nil
+    var milestoneId: String? = nil
 }
 
 enum MentionParser {
@@ -340,7 +371,7 @@ enum MentionParser {
         if lower.contains("handoff") || lower.contains("hand off") || lower.contains("handing off") {
             return .handoff
         }
-        if targetActor != nil {
+        if let targetActor, !targetActor.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return .mention
         }
         return .comment

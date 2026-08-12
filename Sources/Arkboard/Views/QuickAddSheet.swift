@@ -119,13 +119,19 @@ struct NewProjectSheet: View {
             HStack {
                 Text("Color")
                 ForEach(swatches, id: \.self) { hex in
-                    Circle()
-                        .fill(Color(hex: hex))
-                        .frame(width: 22, height: 22)
-                        .overlay(
-                            Circle().stroke(Color.primary, lineWidth: color == hex ? 2 : 0)
-                        )
-                        .onTapGesture { color = hex }
+                    Button {
+                        color = hex
+                    } label: {
+                        Circle()
+                            .fill(Color(hex: hex))
+                            .frame(width: 22, height: 22)
+                            .overlay(
+                                Circle().stroke(Color.primary, lineWidth: color == hex ? 2 : 0)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Color \(hex)")
+                    .accessibilityAddTraits(color == hex ? .isSelected : [])
                 }
             }
 

@@ -130,20 +130,18 @@ struct ContentColumn: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
-            Picker("View", selection: Bindable(store).viewMode) {
-                ForEach(AppStore.ViewMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
+            // Inbox: hide Board segment entirely (list-only).
+            if store.boardAvailable {
+                Picker("View", selection: Bindable(store).viewMode) {
+                    ForEach(AppStore.ViewMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .frame(width: 140)
+                .help("Switch between list and board")
+                .accessibilityHint("List or board layout")
             }
-            .pickerStyle(.segmented)
-            .frame(width: 140)
-            .disabled(store.projects.isEmpty || !store.boardAvailable)
-            .help(store.boardAvailable
-                  ? "Switch between list and board"
-                  : "Select a project to use the board. Inbox stays list-first.")
-            .accessibilityHint(store.boardAvailable
-                               ? "List or board layout"
-                               : "Board disabled in Inbox; select a project first")
 
             if store.projects.isEmpty {
                 Button {
@@ -167,31 +165,57 @@ struct ContentColumn: View {
     }
 
     private var filterBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            TextField("Search issues", text: Bindable(store).filter.query)
-                .textFieldStyle(.plain)
-                .disabled(store.projects.isEmpty)
-            if !store.filter.query.isEmpty {
-                Button {
-                    store.filter.query = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                TextField("Search issues", text: Bindable(store).filter.query)
+                    .textFieldStyle(.plain)
+                    .disabled(store.projects.isEmpty)
+                if !store.filter.query.isEmpty {
+                    Button {
+                        store.filter.query = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                            .frame(minWidth: 22, minHeight: 22)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear search")
+                    .accessibilityLabel("Clear search")
                 }
-                .buttonStyle(.plain)
-                .help("Clear search")
-                .accessibilityLabel("Clear search")
+                Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
+                    .toggleStyle(.checkbox)
+                    .font(.caption)
+                    .disabled(store.projects.isEmpty)
             }
-            Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
-                .toggleStyle(.checkbox)
-                .font(.caption)
-                .disabled(store.projects.isEmpty)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    FilterChip(title: "All", selected: store.filter.status == nil) {
+                        store.filter.status = nil
+                    }
+                    ForEach(statusChipCases) { status in
+                        FilterChip(title: status.displayName, selected: store.filter.status == status) {
+                            store.filter.status = store.filter.status == status ? nil : status
+                        }
+                    }
+                }
+            }
+            .disabled(store.projects.isEmpty)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    private var statusChipCases: [IssueStatus] {
+        var cases = IssueStatus.allCases
+        if !store.filter.showCanceled {
+            cases = cases.filter { $0 != .canceled }
+        }
+        return cases
     }
 
     private var subtitle: String {

@@ -189,9 +189,9 @@ enum SeedData {
                  summary: "Product set \(ship.identifier) to in_progress — overnight ship is the focus.",
                  commentBody: nil, targetActor: nil, kind: .system),
             Beat(offset: 90, actor: "Product", action: ActivityAction.commented.rawValue, issue: ship,
-                 summary: "Product → Ops on \(ship.identifier): Need MCP bind confirmation before we call it shippable.",
-                 commentBody: "@Ops can you confirm MCP binds to 127.0.0.1:7420 only? Portfolio + Activity are ready for the morning demo — need your green light.",
-                 targetActor: "Ops", kind: .mention),
+                 summary: "Product → Ops, Comms on \(ship.identifier): Need MCP bind confirmation before we call it shippable.",
+                 commentBody: "@Ops @Comms can you confirm MCP binds to 127.0.0.1:7420 only? Portfolio + Activity are ready for the morning demo — need your green light.",
+                 targetActor: "Ops, Comms", kind: .mention),
             Beat(offset: 210, actor: "Ops", action: ActivityAction.commented.rawValue, issue: ship,
                  summary: "Ops → Product on \(ship.identifier): Confirmed loopback bind; smoke next.",
                  commentBody: "@Product confirmed — listener is loopback-only on :7420. I'll run smoke.sh after the next create_issue with actor. Handing off health check to myself once UI lands.",
@@ -260,6 +260,7 @@ enum SeedData {
 
         for (idx, seed) in seeds.enumerated() {
             project.issueCounter += 1
+            let stamp = now.addingTimeInterval(Double(-idx) * 1800)
             let issue = Issue(
                 id: UUID().uuidString,
                 identifier: "\(project.key)-\(project.issueCounter)",
@@ -271,7 +272,8 @@ enum SeedData {
                 assigneeName: nil,
                 estimatePoints: nil,
                 createdAt: now.addingTimeInterval(Double(-idx) * 3600),
-                updatedAt: now.addingTimeInterval(Double(-idx) * 1800),
+                updatedAt: stamp,
+                completedAt: seed.status == .done ? stamp : nil,
                 orderInStatus: Double(idx)
             )
             try issue.insert(db)

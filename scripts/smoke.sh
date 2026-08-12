@@ -185,7 +185,7 @@ if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
   check_json "update_issue duplicate labels succeed" "$DUP" '(.error | not) and ((.result.structuredContent.labels // []) | map(ascii_downcase) | unique | sort == ["bug","feature"] or (.result.content[0].text | test("feature") and test("bug")))'
 fi
 
-# Multi-mention comments emit one activity per distinct target.
+# Multi-mention comments emit ONE activity row with multi-target avatars.
 if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
   info "MCP add_comment multi-mention @Ops @Comms"
   if [[ -n "$ISSUE_ID" ]]; then
@@ -203,7 +203,41 @@ if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
   MM_ACT="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
     -H 'Content-Type: application/json' \
     -d '{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"list_activity","arguments":{"limit":30,"projectKey":"ARK"}}}')"
-  check_json "activity has Ops target from multi-mention" "$MM_ACT" '([(.result.structuredContent.activities // [])[] | select(.summary|test("multi-mention"))] | map(.targetActor) | unique | sort) | (index("Ops") != null and index("Comms") != null) or (.result.content[0].text | test("→ Ops") and test("→ Comms"))'
+  if [[ -n "$IDENT" ]]; then
+    check_json "multi-mention is one activity row" "$MM_ACT" "([(.result.structuredContent.activities // [])[] | select((.summary|test(\"multi-mention\")) and (.issueIdentifier == \"$IDENT\"))] | length) == 1"
+    check_json "multi-mention targetActors include Ops+Comms" "$MM_ACT" "([(.result.structuredContent.activities // [])[] | select((.summary|test(\"multi-mention\")) and (.issueIdentifier == \"$IDENT\"))][0] | ((.targetActors // []) | unique | sort == [\"Comms\",\"Ops\"]) or ((.targetActor // \"\") | test(\"Ops\") and test(\"Comms\")))"
+  else
+    check_json "multi-mention targets present" "$MM_ACT" '([(.result.structuredContent.activities // [])[] | select(.summary|test("multi-mention"))] | length) >= 1'
+  fi
+fi
+
+# Mark done sets completedAt; leaving done clears it.
+if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
+  info "MCP update_issue status done sets completedAt"
+  if [[ -n "$ISSUE_ID" ]]; then
+    DONE_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, status:"done", actor:"Product"}')"
+  else
+    DONE_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, status:"done", actor:"Product"}')"
+  fi
+  DONE="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson args "$DONE_ARGS" '{
+      jsonrpc:"2.0", id:18, method:"tools/call",
+      params:{ name:"update_issue", arguments:$args }
+    }')")"
+  check_json "done sets completedAt" "$DONE" '.result.structuredContent.completedAt != null and (.result.structuredContent.completedAt | type == "string")'
+  if [[ -n "$ISSUE_ID" ]]; then
+    REOPEN_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, status:"todo", actor:"Product"}')"
+  else
+    REOPEN_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, status:"todo", actor:"Product"}')"
+  fi
+  REOPEN="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson args "$REOPEN_ARGS" '{
+      jsonrpc:"2.0", id:19, method:"tools/call",
+      params:{ name:"update_issue", arguments:$args }
+    }')")"
+  check_json "leaving done clears completedAt" "$REOPEN" '.result.structuredContent.completedAt == null'
 fi
 
 info "MCP add_comment empty body must error"

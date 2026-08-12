@@ -27,16 +27,27 @@ struct EmptyIssuesView: View {
 
     var body: some View {
         if hasActiveSearch {
-            ContentUnavailableView(
-                "No matching issues",
-                systemImage: "magnifyingglass",
-                description: Text("Try a different search, clear the query, or create a new issue with ⌘N.")
-            )
+            ContentUnavailableView {
+                Label("No matching issues", systemImage: "magnifyingglass")
+            } description: {
+                Text("Try a different search, clear filters, or create a new issue.")
+            } actions: {
+                Button("New Issue") {
+                    NotificationCenter.default.post(name: .arkboardQuickAdd, object: nil)
+                }
+                .buttonStyle(.borderedProminent)
+            }
         } else {
             ContentUnavailableView {
                 Label("No issues", systemImage: "tray")
             } description: {
-                Text("Press ⌘N to create your first issue, or ask an agent to create one via MCP.")
+                Text("Create your first issue, or ask an agent to create one via MCP.")
+            } actions: {
+                Button("New Issue") {
+                    NotificationCenter.default.post(name: .arkboardQuickAdd, object: nil)
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut("n", modifiers: .command)
             }
         }
     }

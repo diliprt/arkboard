@@ -2,11 +2,13 @@ import SwiftUI
 
 struct IssueListView: View {
     @Environment(AppStore.self) private var store
+    @State private var pendingDeleteId: String?
 
     var body: some View {
         if store.filteredIssues.isEmpty {
             EmptyIssuesView(
                 hasActiveSearch: !store.filter.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || store.filter.status != nil
             )
         } else {
             List(selection: Bindable(store).selectedIssueId) {
@@ -17,13 +19,40 @@ struct IssueListView: View {
                             statusMenu(for: issue)
                             Divider()
                             Button("Delete", role: .destructive) {
-                                Task { try? await store.deleteIssue(issue.id) }
+                                pendingDeleteId = issue.id
                             }
                         }
                 }
             }
             .listStyle(.inset)
             .accessibilityLabel(store.isInbox ? "Inbox issue list" : "Project issue list")
+            .confirmationDialog(
+                "Delete this issue?",
+                isPresented: Binding(
+                    get: { pendingDeleteId != nil },
+                    set: { if !$0 { pendingDeleteId = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    guard let id = pendingDeleteId else { return }
+                    pendingDeleteId = nil
+                    Task {
+                        do {
+                            try await store.deleteIssue(id)
+                        } catch {
+                            store.lastError = error.localizedDescription
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) { pendingDeleteId = nil }
+            } message: {
+                if let id = pendingDeleteId, let issue = store.issues.first(where: { $0.id == id }) {
+                    Text("\(issue.identifier) — \(issue.title) will be permanently removed.")
+                } else {
+                    Text("This cannot be undone.")
+                }
+            }
         }
     }
 
@@ -32,14 +61,26 @@ struct IssueListView: View {
         Menu("Status") {
             ForEach(IssueStatus.allCases) { status in
                 Button(status.displayName) {
-                    Task { try? await store.updateIssue(id: issue.id, status: status) }
+                    Task {
+                        do {
+                            try await store.updateIssue(id: issue.id, status: status)
+                        } catch {
+                            store.lastError = error.localizedDescription
+                        }
+                    }
                 }
             }
         }
         Menu("Priority") {
             ForEach(IssuePriority.allCases) { priority in
                 Button(priority.displayName) {
-                    Task { try? await store.updateIssue(id: issue.id, priority: priority) }
+                    Task {
+                        do {
+                            try await store.updateIssue(id: issue.id, priority: priority)
+                        } catch {
+                            store.lastError = error.localizedDescription
+                        }
+                    }
                 }
             }
         }

@@ -34,7 +34,19 @@ struct PortfolioView: View {
             case .overview:
                 overviewScroll
             case .timeline:
-                PortfolioTimelineView(events: store.timelineEvents)
+                PortfolioTimelineView(
+                    onSelectIssue: { issueId in
+                        if let issue = store.issues.first(where: { $0.id == issueId }) {
+                            store.selection = .project(issue.projectId)
+                            store.selectedIssueId = issue.id
+                        }
+                    },
+                    onSelectMilestone: { milestoneId in
+                        if let ms = store.milestones.first(where: { $0.id == milestoneId }) {
+                            editingMilestone = ms
+                        }
+                    }
+                )
             case .milestones:
                 MilestonesPane(
                     onCreate: { showingCreate = true },
@@ -95,7 +107,9 @@ struct PortfolioView: View {
                         }
                     }
                 }
-                seedBar
+                if !store.hasRichBotDialogue {
+                    seedBar
+                }
             }
             .padding(20)
         }
@@ -255,33 +269,61 @@ struct StatusChip: View {
 
 struct PortfolioTimelineView: View {
     @Environment(AppStore.self) private var store
-    let events: [TimelineEvent]
+    var onSelectIssue: (String) -> Void = { _ in }
+    var onSelectMilestone: (String) -> Void = { _ in }
+    @State private var mode: AppStore.TimelineMode = .plan
+
+    private var events: [TimelineEvent] {
+        store.timelineEvents(mode: mode)
+    }
 
     private var weeks: [TimelineWeekBucket] {
         TimelineWeekBucket.bucket(events: events)
     }
 
     var body: some View {
-        if events.isEmpty {
-            ContentUnavailableView(
-                "Timeline is empty",
-                systemImage: "calendar",
-                description: Text("Milestones and issue create/done events show up here.")
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    legend
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 12)
-
-                    ForEach(weeks) { week in
-                        TimelineWeekSection(week: week)
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                ForEach(AppStore.TimelineMode.allCases) { m in
+                    FilterChip(title: m.title, selected: mode == m) {
+                        mode = m
                     }
                 }
-                .padding(.vertical, 8)
-                .padding(.bottom, 24)
+                Spacer()
+                Text(mode == .plan ? "Milestones + done" : "Milestones, created, done")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
+
+            if events.isEmpty {
+                ContentUnavailableView(
+                    "Timeline is empty",
+                    systemImage: "calendar",
+                    description: Text(mode == .plan
+                        ? "Milestones and completed issues show up in Plan."
+                        : "Milestones and issue create/done events show up here.")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        legend
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 12)
+
+                        ForEach(weeks) { week in
+                            TimelineWeekSection(
+                                week: week,
+                                onSelectIssue: onSelectIssue,
+                                onSelectMilestone: onSelectMilestone
+                            )
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.bottom, 24)
+                }
             }
         }
     }
@@ -289,7 +331,9 @@ struct PortfolioTimelineView: View {
     private var legend: some View {
         HStack(spacing: 14) {
             legendDot(color: Color(hex: "#5E6AD2"), label: "Milestone")
-            legendDot(color: Color.secondary.opacity(0.55), label: "Created")
+            if mode == .all {
+                legendDot(color: Color.secondary.opacity(0.55), label: "Created")
+            }
             legendDot(color: Color(hex: "#27AE60"), label: "Done")
             Spacer()
             ForEach(store.projects) { p in
@@ -320,10 +364,7 @@ struct TimelineWeekBucket: Identifiable {
         var map: [Date: [TimelineEvent]] = [:]
         for e in events {
             let day = cal.startOfDay(for: e.date)
-            let weekday = cal.component(.weekday, from: day)
-            // Start week on Monday-ish: shift so weekOfYear grouping is stable
             let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: day)) ?? day
-            _ = weekday
             map[weekStart, default: []].append(e)
         }
         let formatter = DateIntervalFormatter()
@@ -340,6 +381,8 @@ struct TimelineWeekBucket: Identifiable {
 
 private struct TimelineWeekSection: View {
     let week: TimelineWeekBucket
+    var onSelectIssue: (String) -> Void
+    var onSelectMilestone: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -350,7 +393,11 @@ private struct TimelineWeekSection: View {
                 .padding(.vertical, 8)
 
             ForEach(week.events) { event in
-                TimelineEventRow(event: event)
+                TimelineEventRow(
+                    event: event,
+                    onSelectIssue: onSelectIssue,
+                    onSelectMilestone: onSelectMilestone
+                )
             }
         }
     }
@@ -358,57 +405,70 @@ private struct TimelineWeekSection: View {
 
 private struct TimelineEventRow: View {
     let event: TimelineEvent
+    var onSelectIssue: (String) -> Void
+    var onSelectMilestone: (String) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            // Axis
-            VStack(spacing: 0) {
-                Circle()
-                    .fill(dotColor)
-                    .frame(width: 10, height: 10)
-                    .overlay(Circle().stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 2))
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.2))
-                    .frame(width: 2)
-                    .frame(maxHeight: .infinity)
+        Button {
+            if let milestoneId = event.milestoneId {
+                onSelectMilestone(milestoneId)
+            } else if let issueId = event.issueId {
+                onSelectIssue(issueId)
             }
-            .frame(width: 20)
-            .padding(.leading, 20)
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text(event.date.formatted(date: .abbreviated, time: event.kind == .milestone ? .omitted : .shortened))
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.tertiary)
-                    kindBadge
-                    if let key = event.projectKey {
-                        HStack(spacing: 4) {
-                            Circle().fill(Color(hex: event.projectColor)).frame(width: 6, height: 6)
-                            Text(key).font(.caption2.monospaced()).foregroundStyle(.secondary)
-                        }
-                    } else if event.kind == .milestone {
-                        Text("Studio")
-                            .font(.caption2.monospaced())
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if let status = event.statusLabel {
-                        StatusChip(text: status, hex: statusTint)
-                    }
+        } label: {
+            HStack(alignment: .top, spacing: 0) {
+                VStack(spacing: 0) {
+                    Circle()
+                        .fill(dotColor)
+                        .frame(width: 10, height: 10)
+                        .overlay(Circle().stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 2))
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
                 }
-                Text(event.title)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
-                Text(event.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                .frame(width: 20)
+                .padding(.leading, 20)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(event.date.formatted(date: .abbreviated, time: event.kind == .milestone ? .omitted : .shortened))
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                        kindBadge
+                        if let key = event.projectKey {
+                            HStack(spacing: 4) {
+                                Circle().fill(Color(hex: event.projectColor)).frame(width: 6, height: 6)
+                                Text(key).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                            }
+                        } else if event.kind == .milestone {
+                            Text("Studio")
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if let status = event.statusLabel {
+                            StatusChip(text: status, hex: statusTint)
+                        }
+                    }
+                    Text(event.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                    Text(event.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                .padding(.leading, 10)
+                .padding(.trailing, 20)
+                .padding(.bottom, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.leading, 10)
-            .padding(.trailing, 20)
-            .padding(.bottom, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .help(event.kind == .milestone ? "Open milestone" : "Open issue")
     }
 
     private var dotColor: Color {

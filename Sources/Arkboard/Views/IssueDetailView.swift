@@ -14,6 +14,11 @@ struct IssueDetailView: View {
     @State private var saveTask: Task<Void, Never>?
     @State private var lastSyncedUpdatedAt: Date?
     @State private var isDirty = false
+    @State private var saveState: SaveState = .idle
+
+    private enum SaveState: Equatable {
+        case idle, saving, saved, failed
+    }
 
     var body: some View {
         ScrollView {
@@ -31,13 +36,13 @@ struct IssueDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
+                    saveStatusLabel
                 }
 
                 TextField("Issue title", text: $title, axis: .vertical)
                     .font(.title2.weight(.semibold))
                     .textFieldStyle(.plain)
                     .onChange(of: title) { _, newValue in
-                        // Ignore programmatic sync from issue — avoid write-on-open loops.
                         guard newValue != issue.title else { return }
                         isDirty = true
                         scheduleSave()
@@ -52,7 +57,7 @@ struct IssueDetailView: View {
                     .frame(minWidth: 140, idealWidth: 160, maxWidth: 180)
                     .onChange(of: status) { _, newValue in
                         guard newValue != issue.status else { return }
-                        Task { try? await store.updateIssue(id: issue.id, status: newValue) }
+                        Task { await mutate { try await store.updateIssue(id: issue.id, status: newValue) } }
                     }
 
                     Picker("Priority", selection: $priority) {
@@ -63,7 +68,7 @@ struct IssueDetailView: View {
                     .frame(minWidth: 140, idealWidth: 160, maxWidth: 180)
                     .onChange(of: priority) { _, newValue in
                         guard newValue != issue.priority else { return }
-                        Task { try? await store.updateIssue(id: issue.id, priority: newValue) }
+                        Task { await mutate { try await store.updateIssue(id: issue.id, priority: newValue) } }
                     }
                 }
 
@@ -71,10 +76,11 @@ struct IssueDetailView: View {
                     TextField("Optional", text: $assignee)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 220)
-                        .onSubmit {
-                            Task {
-                                try? await store.updateIssue(id: issue.id, assigneeName: .some(assignee.isEmpty ? nil : assignee))
-                            }
+                        .onChange(of: assignee) { _, newValue in
+                            let current = issue.assigneeName ?? ""
+                            guard newValue != current else { return }
+                            isDirty = true
+                            scheduleSave()
                         }
                 }
 
@@ -83,7 +89,7 @@ struct IssueDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     LabelTokensField(tokens: $labelTokens, placeholder: "Add label, Return or comma") {
-                        Task { try? await store.setIssueLabels(issueId: issue.id, labelNames: labelTokens) }
+                        Task { await mutate { try await store.setIssueLabels(issueId: issue.id, labelNames: labelTokens) } }
                     }
                     .frame(maxWidth: 360)
                 }
@@ -148,8 +154,13 @@ struct IssueDetailView: View {
                             .textFieldStyle(.roundedBorder)
                         Button("Comment") {
                             Task {
-                                try? await store.addComment(issueId: issue.id, body: commentDraft)
-                                commentDraft = ""
+                                let body = commentDraft
+                                await mutate {
+                                    try await store.addComment(issueId: issue.id, body: body)
+                                }
+                                if store.lastError == nil {
+                                    commentDraft = ""
+                                }
                             }
                         }
                         .disabled(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -162,7 +173,6 @@ struct IssueDetailView: View {
         .onAppear { syncFromIssue(force: true) }
         .onChange(of: issue.id) { _, _ in syncFromIssue(force: true) }
         .onChange(of: issue.updatedAt) { _, _ in
-            // External MCP/UI mutation — refresh unless the user has unsaved local edits
             syncFromIssue(force: false)
         }
         .onChange(of: store.dataRevision) { _, _ in
@@ -170,16 +180,33 @@ struct IssueDetailView: View {
         }
     }
 
+    @ViewBuilder
+    private var saveStatusLabel: some View {
+        switch saveState {
+        case .idle:
+            EmptyView()
+        case .saving:
+            Text("Saving…")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .saved:
+            Text("Saved")
+                .font(.caption)
+                .foregroundStyle(.green)
+        case .failed:
+            Text("Failed")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.red)
+        }
+    }
+
     private func syncFromIssue(force: Bool) {
         if !force, isDirty, lastSyncedUpdatedAt == issue.updatedAt {
             return
         }
-        // If dirty and updatedAt changed (external write), prefer remote unless title/desc still matching draft intent
         if !force, isDirty {
-            // Keep in-progress title/description drafts; still refresh discrete fields
             status = issue.status
             priority = issue.priority
-            assignee = issue.assigneeName ?? ""
             labelTokens = store.labels(for: issue).map(\.name)
             lastSyncedUpdatedAt = issue.updatedAt
             return
@@ -199,14 +226,41 @@ struct IssueDetailView: View {
         let id = issue.id
         let t = title
         let d = description
+        let a = assignee
+        saveState = .saving
         saveTask = Task {
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard !Task.isCancelled else { return }
-            try? await store.updateIssue(id: id, title: t, description: d)
-            await MainActor.run {
-                isDirty = false
-                lastSyncedUpdatedAt = store.issues.first(where: { $0.id == id })?.updatedAt
+            do {
+                try await store.updateIssue(
+                    id: id,
+                    title: t,
+                    description: d,
+                    assigneeName: .some(a.isEmpty ? nil : a)
+                )
+                await MainActor.run {
+                    isDirty = false
+                    lastSyncedUpdatedAt = store.issues.first(where: { $0.id == id })?.updatedAt
+                    saveState = .saved
+                }
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                await MainActor.run {
+                    if saveState == .saved { saveState = .idle }
+                }
+            } catch {
+                await MainActor.run {
+                    store.lastError = error.localizedDescription
+                    saveState = .failed
+                }
             }
+        }
+    }
+
+    private func mutate(_ body: () async throws -> Void) async {
+        do {
+            try await body()
+        } catch {
+            store.lastError = error.localizedDescription
         }
     }
 }

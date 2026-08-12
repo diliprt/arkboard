@@ -6,7 +6,8 @@ Built for Origin Ark Studio so product direction lives in a real tracker, not ch
 
 ## Features (v1)
 
-- **Portfolio** — Overview cards, shared **Timeline**, and **Milestones** (project or studio-wide)
+- **Portfolio** — Overview cards, shared **Timeline** (Plan = milestones+done; All adds creates), and **Milestones**
+- Issue `completedAt` when status → done (cleared when leaving done); timeline Done uses it
 - **Activity** feed — multi-agent collaboration with bot↔bot visibility (`Product → Ops`), mention/handoff chips
 - Projects + Issues (status, priority, labels, comments)
 - **List** and **Board** (kanban by status) views for project/Inbox detail work
@@ -26,11 +27,12 @@ Built for Origin Ark Studio so product direction lives in a real tracker, not ch
 
 ### Labels
 - An issue may carry **both** `feature` and `bug` (and any other distinct labels) at once.
+- Portfolio feature/bug counts are **independent** (an issue labeled both increments both).
 - Create/update label arrays are **deduped** (trim + case-insensitive) before insert; replace-labels deletes old links then inserts the unique set.
 - Duplicate entries like `["feature","feature","bug"]` succeed and become `feature` + `bug`.
 
 ### Validation (MCP / REST)
-- Comments with multiple `@mentions` (e.g. `@Ops @Comms`) emit **one activity event per distinct** mentioned actor.
+- Comments with multiple `@mentions` (e.g. `@Ops @Comms`) emit **one activity row** with multi-avatar targets (not N rows).
 - Empty comment body → error `"Comment cannot be empty"` (not the title error).
 - Unknown `status` / `priority` on create or update → rejected with a clear error (update does not partially apply other fields when status/priority is invalid).
 - Milestone `targetDate`: ISO8601 kept as-is; date-only `yyyy-MM-dd` stored as **noon UTC**; unparseable values (e.g. `not-a-date`) are rejected.
@@ -55,7 +57,7 @@ cd "/Users/dilipreddy/Origin Ark Studio/arkboard"
 
 On first launch the app seeds demo projects (**ARK**, **OPS**), sample issues, milestones across the next couple weeks, and a Product ↔ Ops ↔ Comms conversation (with `@mentions`) in Activity, then starts MCP on port **7420**. Existing DBs get milestones/activity auto-seeded when empty or thin; use **Seed demo agent activity** on Portfolio/Activity to re-seed the bot dialogue.
 
-**Click-through:** Portfolio → Overview / Timeline / Milestones · Activity → filter **Mentions/handoffs** to see dual-avatar Product → Ops rows.
+**Click-through:** Portfolio → Overview / Timeline (Plan default) / Milestones · Activity → filter **Mentions** (default) to see multi-avatar Product → Ops rows.
 
 ### Smoke test
 
@@ -112,7 +114,7 @@ curl -s -X POST http://127.0.0.1:7420/mcp \
 
 Tools: `list_projects`, `create_project`, `list_issues`, `search_issues`, `get_issue`, `create_issue`, `update_issue`, `add_comment`, `list_activity`, `list_milestones`, `create_milestone`, `update_milestone`, `list_bot_thread`.
 
-Mutating tools accept optional **`actor`** (string; default `"Agent"`). `add_comment` parses `@Ops` / `@Product` / `@Comms` mentions into Activity `targetActor` (shown as **Product → Ops**).
+Mutating tools accept optional **`actor`** (string; default `"Agent"`). `add_comment` parses `@Ops` / `@Product` / `@Comms` mentions into Activity `targetActors` (shown as **Product → Ops, Comms** with multi-avatar).
 
 ### Option B — Cursor stdio bridge
 

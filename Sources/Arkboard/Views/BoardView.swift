@@ -91,8 +91,12 @@ struct BoardColumnView: View {
                                 guard let id = items.first, id != issue.id else { return false }
                                 guard looksLikeIssueID(id) else { return false }
                                 Task {
-                                    try? await store.moveIssue(id, to: status, before: issue.id)
-                                    store.selectedIssueId = id
+                                    do {
+                                        try await store.moveIssue(id, to: status, before: issue.id)
+                                        store.selectedIssueId = id
+                                    } catch {
+                                        store.lastError = error.localizedDescription
+                                    }
                                 }
                                 return true
                             }
@@ -150,8 +154,12 @@ struct BoardColumnView: View {
         .dropDestination(for: String.self) { items, _ in
             guard let id = items.first, looksLikeIssueID(id) else { return false }
             Task {
-                try? await store.moveIssue(id, to: status, before: nil)
-                store.selectedIssueId = id
+                do {
+                    try await store.moveIssue(id, to: status, before: nil)
+                    store.selectedIssueId = id
+                } catch {
+                    store.lastError = error.localizedDescription
+                }
             }
             return true
         } isTargeted: { targeted in

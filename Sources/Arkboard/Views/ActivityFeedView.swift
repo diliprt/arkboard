@@ -14,10 +14,12 @@ struct ActivityFeedView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Seed demo agent activity") {
-                    Task { await store.seedDemoAgentActivity() }
+                if !store.hasRichBotDialogue {
+                    Button("Seed demo agent activity") {
+                        Task { await store.seedDemoAgentActivity() }
+                    }
+                    .controlSize(.small)
                 }
-                .controlSize(.small)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -46,10 +48,12 @@ struct ActivityFeedView: View {
                 } description: {
                     Text(emptyDescription)
                 } actions: {
-                    Button("Seed demo agent activity") {
-                        Task { await store.seedDemoAgentActivity() }
+                    if !store.hasRichBotDialogue {
+                        Button("Seed demo agent activity") {
+                            Task { await store.seedDemoAgentActivity() }
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                    .buttonStyle(.borderedProminent)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -84,7 +88,7 @@ struct ActivityFeedView: View {
     }
 }
 
-private struct FilterChip: View {
+struct FilterChip: View {
     let title: String
     let selected: Bool
     let action: () -> Void
@@ -100,6 +104,7 @@ private struct FilterChip: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -112,6 +117,8 @@ private struct ActivityRow: View {
         return kind == .comment || kind == .mention || kind == .handoff
             || activity.action == ActivityAction.commented.rawValue
     }
+
+    private var targets: [String] { activity.targetActors }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -142,7 +149,7 @@ private struct ActivityRow: View {
                     } else {
                         Text(activity.summary)
                             .font(.body)
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -166,31 +173,38 @@ private struct ActivityRow: View {
             }
         }
         .padding(.vertical, 4)
+        .opacity(ActivityKind(rawValue: activity.kind) == .system ? 0.72 : 1)
     }
 
     @ViewBuilder
     private var avatarCluster: some View {
-        if let target = activity.targetActor, !target.isEmpty {
-            HStack(spacing: -6) {
-                ActorAvatar(name: activity.actor, size: 30)
+        if targets.isEmpty {
+            ActorAvatar(name: activity.actor, size: 32)
+                .frame(width: 88, alignment: .leading)
+        } else {
+            HStack(spacing: -4) {
+                ActorAvatar(name: activity.actor, size: 28)
                 Image(systemName: "arrow.right")
                     .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 2)
-                ActorAvatar(name: target, size: 30)
+                ForEach(Array(targets.prefix(3).enumerated()), id: \.offset) { _, name in
+                    ActorAvatar(name: name, size: 28)
+                }
+                if targets.count > 3 {
+                    Text("+\(targets.count - 3)")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
+                }
             }
-            .frame(width: 72, alignment: .leading)
-        } else {
-            ActorAvatar(name: activity.actor, size: 32)
-                .frame(width: 72, alignment: .leading)
+            .frame(width: 88 + CGFloat(min(targets.count, 3) - 1) * 18, alignment: .leading)
         }
     }
 
     private var actorLabel: String {
-        if let target = activity.targetActor, !target.isEmpty {
-            return "\(activity.actor) → \(target)"
-        }
-        return activity.actor
+        if targets.isEmpty { return activity.actor }
+        return "\(activity.actor) → \(targets.joined(separator: ", "))"
     }
 
     private var actionLabel: String {

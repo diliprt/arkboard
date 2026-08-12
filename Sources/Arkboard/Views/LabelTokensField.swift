@@ -82,11 +82,14 @@ private struct FlexibleChipWrap: View {
                         onRemove(name)
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
+                            .frame(minWidth: 22, minHeight: 22)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help("Remove \(name)")
+                    .accessibilityLabel("Remove \(name)")
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)

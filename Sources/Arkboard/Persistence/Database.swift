@@ -136,6 +136,18 @@ enum AppDatabase {
             }
         }
 
+        migrator.registerMigration("v4_issue_completed_at") { db in
+            // Idempotent: SQLite DDL may persist even if a prior migration attempt failed.
+            let columns = try Set(db.columns(in: "issue").map(\.name))
+            if !columns.contains("completedAt") {
+                try db.alter(table: "issue") { t in
+                    t.add(column: "completedAt", .datetime)
+                }
+            }
+            try db.execute(
+                sql: "UPDATE issue SET completedAt = updatedAt WHERE status = 'done' AND completedAt IS NULL"
+            )
+        }
         return migrator
     }
 }
