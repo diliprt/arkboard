@@ -36,7 +36,9 @@ struct IssueDetailView: View {
                 TextField("Issue title", text: $title, axis: .vertical)
                     .font(.title2.weight(.semibold))
                     .textFieldStyle(.plain)
-                    .onChange(of: title) { _, _ in
+                    .onChange(of: title) { _, newValue in
+                        // Ignore programmatic sync from issue — avoid write-on-open loops.
+                        guard newValue != issue.title else { return }
                         isDirty = true
                         scheduleSave()
                     }
@@ -49,6 +51,7 @@ struct IssueDetailView: View {
                     }
                     .frame(minWidth: 140, idealWidth: 160, maxWidth: 180)
                     .onChange(of: status) { _, newValue in
+                        guard newValue != issue.status else { return }
                         Task { try? await store.updateIssue(id: issue.id, status: newValue) }
                     }
 
@@ -59,6 +62,7 @@ struct IssueDetailView: View {
                     }
                     .frame(minWidth: 140, idealWidth: 160, maxWidth: 180)
                     .onChange(of: priority) { _, newValue in
+                        guard newValue != issue.priority else { return }
                         Task { try? await store.updateIssue(id: issue.id, priority: newValue) }
                     }
                 }
@@ -97,7 +101,8 @@ struct IssueDetailView: View {
                             RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color.secondary.opacity(0.2))
                         )
-                        .onChange(of: description) { _, _ in
+                        .onChange(of: description) { _, newValue in
+                            guard newValue != issue.descriptionMarkdown else { return }
                             isDirty = true
                             scheduleSave()
                         }

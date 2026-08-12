@@ -106,6 +106,24 @@ info "REST GET /api/issues"
 REST="$(curl -sfS --max-time 5 "$BASE/api/issues?projectKey=ARK")"
 check_json "REST list issues" "$REST" '.issues | type == "array"'
 
+# Cancel the issue this run created so overnight smokes do not clutter forever.
+# Historical smoke issues (e.g. ARK-8..10) are left alone.
+if [[ "$FAIL" -eq 0 && ( -n "$IDENT" || -n "$ISSUE_ID" ) ]]; then
+  info "MCP update_issue (cancel smoke issue)"
+  if [[ -n "$ISSUE_ID" ]]; then
+    CANCEL_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, status:"canceled"}')"
+  else
+    CANCEL_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, status:"canceled"}')"
+  fi
+  CANCEL="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson args "$CANCEL_ARGS" '{
+      jsonrpc:"2.0", id:6, method:"tools/call",
+      params:{ name:"update_issue", arguments:$args }
+    }')")"
+  check_json "cancel smoke issue" "$CANCEL" '.result.structuredContent.status == "canceled" or (.result.content[0].text | contains("canceled"))'
+fi
+
 echo
 if [[ "$FAIL" -eq 0 ]]; then
   green "All $PASS checks passed."
