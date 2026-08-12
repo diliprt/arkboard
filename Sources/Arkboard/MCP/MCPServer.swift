@@ -1,0 +1,584 @@
+import Foundation
+import Network
+
+/// Minimal localhost HTTP server exposing REST `/api/*` and MCP-shaped JSON-RPC at `/mcp`.
+final class MCPServer: @unchecked Sendable {
+    private let port: NWEndpoint.Port
+    private weak var store: AppStore?
+    private var listener: NWListener?
+    private let queue = DispatchQueue(label: "studio.originark.arkboard.mcp")
+
+    init(port: UInt16, store: AppStore) {
+        self.port = NWEndpoint.Port(rawValue: port) ?? 7420
+        self.store = store
+    }
+
+    func start() throws {
+        let params = NWParameters.tcp
+        params.allowLocalEndpointReuse = true
+        params.requiredInterfaceType = .loopback
+        if let ipv4 = IPv4Address("127.0.0.1") {
+            params.requiredLocalEndpoint = NWEndpoint.hostPort(host: .ipv4(ipv4), port: port)
+        }
+
+        let listener = try NWListener(using: params)
+        listener.newConnectionHandler = { [weak self] connection in
+            self?.handle(connection)
+        }
+        listener.stateUpdateHandler = { state in
+            switch state {
+            case .ready:
+                NSLog("Arkboard MCP listening on http://127.0.0.1:\(self.port.rawValue)")
+            case .failed(let error):
+                NSLog("Arkboard MCP listener failed: \(error)")
+            default:
+                break
+            }
+        }
+        listener.start(queue: queue)
+        self.listener = listener
+    }
+
+    func stop() {
+        listener?.cancel()
+        listener = nil
+    }
+
+    private func handle(_ connection: NWConnection) {
+        connection.start(queue: queue)
+        receive(on: connection, buffer: Data())
+    }
+
+    private func receive(on connection: NWConnection, buffer: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
+            guard let self else { return }
+            var buf = buffer
+            if let data { buf.append(data) }
+
+            if let request = HTTPRequest.parse(buf) {
+                self.respond(to: request, on: connection)
+                return
+            }
+
+            if isComplete || error != nil {
+                connection.cancel()
+                return
+            }
+            // Keep reading until we can parse headers + body
+            if buf.count > 1_000_000 {
+                connection.cancel()
+                return
+            }
+            self.receive(on: connection, buffer: buf)
+        }
+    }
+
+    private func respond(to request: HTTPRequest, on connection: NWConnection) {
+        Task { @MainActor in
+            let response = await self.route(request)
+            let data = response.serialize()
+            connection.send(content: data, completion: .contentProcessed { _ in
+                connection.cancel()
+            })
+        }
+    }
+
+    @MainActor
+    private func route(_ request: HTTPRequest) async -> HTTPResponse {
+        let path = request.path
+        let method = request.method.uppercased()
+
+        // CORS / health
+        if method == "OPTIONS" {
+            return .json(200, ["ok": true])
+        }
+        if path == "/" || path == "/health" {
+            return .json(200, [
+                "name": "Arkboard",
+                "version": "1.0.0",
+                "mcp": "/mcp",
+                "api": "/api",
+            ])
+        }
+
+        // REST API
+        if path.hasPrefix("/api/") {
+            return await handleREST(method: method, path: path, query: request.query, body: request.body)
+        }
+
+        // MCP JSON-RPC (streamable-ish HTTP: single POST request/response)
+        if path == "/mcp" || path == "/mcp/" {
+            if method == "GET" {
+                return .json(200, [
+                    "protocol": "mcp-jsonrpc-http",
+                    "tools": MCPToolCatalog.toolNames,
+                    "note": "POST JSON-RPC 2.0 messages (initialize, tools/list, tools/call)",
+                ])
+            }
+            if method == "POST" {
+                return await handleMCP(body: request.body)
+            }
+        }
+
+        return .json(404, ["error": "not found"])
+    }
+
+    // MARK: - REST
+
+    @MainActor
+    private func handleREST(method: String, path: String, query: [String: String], body: Data?) async -> HTTPResponse {
+        guard let store else { return .json(503, ["error": "store unavailable"]) }
+        let json = body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+
+        do {
+            switch (method, path) {
+            case ("GET", "/api/projects"):
+                return .json(200, ["projects": store.projects.map { store.projectDictionary($0) }])
+
+            case ("POST", "/api/projects"):
+                let key = json["key"] as? String ?? ""
+                let name = json["name"] as? String ?? key
+                let color = json["color"] as? String ?? "#5E6AD2"
+                let project = try await store.createProject(key: key, name: name, color: color)
+                return .json(201, store.projectDictionary(project))
+
+            case ("GET", "/api/issues"):
+                var issues = store.issues
+                if let projectKey = query["projectKey"] ?? (json["projectKey"] as? String) {
+                    if let p = store.projects.first(where: { $0.key.caseInsensitiveCompare(projectKey) == .orderedSame }) {
+                        issues = issues.filter { $0.projectId == p.id }
+                    }
+                }
+                if let status = query["status"] ?? (json["status"] as? String),
+                   let s = IssueStatus(rawValue: status) {
+                    issues = issues.filter { $0.status == s }
+                }
+                if let q = query["query"], !q.isEmpty {
+                    let lq = q.lowercased()
+                    issues = issues.filter {
+                        ($0.title + " " + $0.identifier + " " + $0.descriptionMarkdown).lowercased().contains(lq)
+                    }
+                }
+                return .json(200, ["issues": issues.map { store.issueDictionary($0) }])
+
+            case ("POST", "/api/issues"):
+                let title = json["title"] as? String ?? ""
+                let projectKey = json["projectKey"] as? String
+                let projectId: String?
+                if let projectKey, let p = store.projects.first(where: { $0.key.caseInsensitiveCompare(projectKey) == .orderedSame }) {
+                    projectId = p.id
+                } else {
+                    projectId = json["projectId"] as? String
+                }
+                let status = (json["status"] as? String).flatMap(IssueStatus.init(rawValue:)) ?? .backlog
+                let priority = (json["priority"] as? String).flatMap(IssuePriority.init(rawValue:)) ?? .none
+                let description = json["description"] as? String ?? ""
+                let labels = json["labels"] as? [String] ?? []
+                let issue = try await store.createIssue(
+                    projectId: projectId,
+                    title: title,
+                    description: description,
+                    status: status,
+                    priority: priority,
+                    assigneeName: json["assigneeName"] as? String,
+                    labelNames: labels
+                )
+                return .json(201, store.issueDictionary(issue))
+
+            case ("GET", _) where path.hasPrefix("/api/issues/"):
+                let key = String(path.dropFirst("/api/issues/".count))
+                guard let issue = store.issues.first(where: { $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame }) else {
+                    return .json(404, ["error": "issue not found"])
+                }
+                var dict = store.issueDictionary(issue)
+                dict["comments"] = store.comments(for: issue).map { c in
+                    [
+                        "id": c.id,
+                        "body": c.bodyMarkdown,
+                        "authorName": c.authorName,
+                        "createdAt": ISO8601DateFormatter().string(from: c.createdAt),
+                    ] as [String: Any]
+                }
+                return .json(200, dict)
+
+            case ("PATCH", _) where path.hasPrefix("/api/issues/"),
+                 ("PUT", _) where path.hasPrefix("/api/issues/"):
+                let key = String(path.dropFirst("/api/issues/".count))
+                guard let issue = store.issues.first(where: { $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame }) else {
+                    return .json(404, ["error": "issue not found"])
+                }
+                let updated = try await store.updateIssue(
+                    id: issue.id,
+                    title: json["title"] as? String,
+                    description: json["description"] as? String,
+                    status: (json["status"] as? String).flatMap(IssueStatus.init(rawValue:)),
+                    priority: (json["priority"] as? String).flatMap(IssuePriority.init(rawValue:)),
+                    assigneeName: json.keys.contains("assigneeName") ? .some(json["assigneeName"] as? String) : nil
+                )
+                if let labels = json["labels"] as? [String] {
+                    try await store.setIssueLabels(issueId: updated.id, labelNames: labels)
+                }
+                return .json(200, store.issueDictionary(store.issues.first(where: { $0.id == updated.id }) ?? updated))
+
+            case ("POST", _) where path.hasSuffix("/comments") && path.hasPrefix("/api/issues/"):
+                let mid = path.dropFirst("/api/issues/".count).dropLast("/comments".count)
+                let key = String(mid)
+                guard let issue = store.issues.first(where: { $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame }) else {
+                    return .json(404, ["error": "issue not found"])
+                }
+                let bodyText = json["body"] as? String ?? ""
+                let author = json["authorName"] as? String ?? "Agent"
+                let comment = try await store.addComment(issueId: issue.id, body: bodyText, authorName: author)
+                return .json(201, [
+                    "id": comment.id,
+                    "body": comment.bodyMarkdown,
+                    "authorName": comment.authorName,
+                ])
+
+            default:
+                return .json(404, ["error": "unknown endpoint", "path": path])
+            }
+        } catch {
+            return .json(400, ["error": error.localizedDescription])
+        }
+    }
+
+    // MARK: - MCP JSON-RPC
+
+    @MainActor
+    private func handleMCP(body: Data?) async -> HTTPResponse {
+        guard let body,
+              let obj = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+              let method = obj["method"] as? String else {
+            return .json(400, jsonrpcError(id: nil, code: -32700, message: "Parse error"))
+        }
+        let id = obj["id"]
+        let params = obj["params"] as? [String: Any] ?? [:]
+
+        // Notifications (no id) — acknowledge
+        if id == nil && method.hasPrefix("notifications/") {
+            return HTTPResponse(status: 202, headers: ["Content-Type": "application/json"], body: Data())
+        }
+
+        do {
+            let result: Any
+            switch method {
+            case "initialize":
+                result = [
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": ["tools": [:] as [String: Any]],
+                    "serverInfo": ["name": "arkboard", "version": "1.0.0"],
+                ] as [String: Any]
+            case "ping":
+                result = [:] as [String: Any]
+            case "tools/list":
+                result = ["tools": MCPToolCatalog.tools]
+            case "tools/call":
+                result = try await callTool(params: params)
+            default:
+                return .json(200, jsonrpcError(id: id, code: -32601, message: "Method not found: \(method)"))
+            }
+            return .json(200, [
+                "jsonrpc": "2.0",
+                "id": id as Any,
+                "result": result,
+            ])
+        } catch {
+            return .json(200, jsonrpcError(id: id, code: -32000, message: error.localizedDescription))
+        }
+    }
+
+    @MainActor
+    private func callTool(params: [String: Any]) async throws -> [String: Any] {
+        guard let store else { throw StoreError.notFound }
+        let name = params["name"] as? String ?? ""
+        let args = params["arguments"] as? [String: Any] ?? [:]
+
+        func text(_ value: Any) throws -> [String: Any] {
+            let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
+            let str = String(data: data, encoding: .utf8) ?? "{}"
+            return [
+                "content": [["type": "text", "text": str]],
+                "structuredContent": value,
+            ]
+        }
+
+        switch name {
+        case "list_projects":
+            return try text(["projects": store.projects.map { store.projectDictionary($0) }])
+
+        case "create_project":
+            let project = try await store.createProject(
+                key: args["key"] as? String ?? "",
+                name: args["name"] as? String ?? (args["key"] as? String ?? "Project"),
+                color: args["color"] as? String ?? "#5E6AD2"
+            )
+            return try text(store.projectDictionary(project))
+
+        case "list_issues", "search_issues":
+            var issues = store.issues
+            if let key = args["projectKey"] as? String,
+               let p = store.projects.first(where: { $0.key.caseInsensitiveCompare(key) == .orderedSame }) {
+                issues = issues.filter { $0.projectId == p.id }
+            }
+            if let pid = args["projectId"] as? String {
+                issues = issues.filter { $0.projectId == pid }
+            }
+            if let status = args["status"] as? String, let s = IssueStatus(rawValue: status) {
+                issues = issues.filter { $0.status == s }
+            }
+            if let priority = args["priority"] as? String, let p = IssuePriority(rawValue: priority) {
+                issues = issues.filter { $0.priority == p }
+            }
+            if let q = args["query"] as? String, !q.isEmpty {
+                let lq = q.lowercased()
+                issues = issues.filter {
+                    ($0.title + " " + $0.identifier + " " + $0.descriptionMarkdown).lowercased().contains(lq)
+                }
+            }
+            return try text(["issues": issues.map { store.issueDictionary($0) }])
+
+        case "get_issue":
+            let key = (args["id"] as? String) ?? (args["identifier"] as? String) ?? ""
+            guard let issue = store.issues.first(where: {
+                $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame
+            }) else { throw StoreError.notFound }
+            var dict = store.issueDictionary(issue)
+            dict["comments"] = store.comments(for: issue).map {
+                ["id": $0.id, "body": $0.bodyMarkdown, "authorName": $0.authorName] as [String: Any]
+            }
+            return try text(dict)
+
+        case "create_issue":
+            let projectKey = args["projectKey"] as? String
+            let projectId: String?
+            if let projectKey, let p = store.projects.first(where: { $0.key.caseInsensitiveCompare(projectKey) == .orderedSame }) {
+                projectId = p.id
+            } else {
+                projectId = args["projectId"] as? String
+            }
+            let issue = try await store.createIssue(
+                projectId: projectId,
+                title: args["title"] as? String ?? "",
+                description: args["description"] as? String ?? "",
+                status: (args["status"] as? String).flatMap(IssueStatus.init(rawValue:)) ?? .backlog,
+                priority: (args["priority"] as? String).flatMap(IssuePriority.init(rawValue:)) ?? .none,
+                assigneeName: args["assigneeName"] as? String,
+                labelNames: args["labels"] as? [String] ?? []
+            )
+            return try text(store.issueDictionary(issue))
+
+        case "update_issue":
+            let key = (args["id"] as? String) ?? (args["identifier"] as? String) ?? ""
+            guard let issue = store.issues.first(where: {
+                $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame
+            }) else { throw StoreError.notFound }
+            let updated = try await store.updateIssue(
+                id: issue.id,
+                title: args["title"] as? String,
+                description: args["description"] as? String,
+                status: (args["status"] as? String).flatMap(IssueStatus.init(rawValue:)),
+                priority: (args["priority"] as? String).flatMap(IssuePriority.init(rawValue:)),
+                assigneeName: args.keys.contains("assigneeName") ? .some(args["assigneeName"] as? String) : nil
+            )
+            if let labels = args["labels"] as? [String] {
+                try await store.setIssueLabels(issueId: updated.id, labelNames: labels)
+            }
+            let fresh = store.issues.first(where: { $0.id == updated.id }) ?? updated
+            return try text(store.issueDictionary(fresh))
+
+        case "add_comment":
+            let key = (args["issueId"] as? String) ?? (args["identifier"] as? String) ?? ""
+            guard let issue = store.issues.first(where: {
+                $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame
+            }) else { throw StoreError.notFound }
+            let comment = try await store.addComment(
+                issueId: issue.id,
+                body: args["body"] as? String ?? "",
+                authorName: args["authorName"] as? String ?? "Agent"
+            )
+            return try text([
+                "id": comment.id,
+                "issueId": comment.issueId,
+                "body": comment.bodyMarkdown,
+                "authorName": comment.authorName,
+            ])
+
+        default:
+            throw NSError(domain: "MCP", code: -32601, userInfo: [NSLocalizedDescriptionKey: "Unknown tool: \(name)"])
+        }
+    }
+
+    private func jsonrpcError(id: Any?, code: Int, message: String) -> [String: Any] {
+        var resp: [String: Any] = [
+            "jsonrpc": "2.0",
+            "error": ["code": code, "message": message],
+        ]
+        resp["id"] = id ?? NSNull()
+        return resp
+    }
+}
+
+enum MCPToolCatalog {
+    static let toolNames = [
+        "list_projects", "create_project", "list_issues", "get_issue",
+        "create_issue", "update_issue", "add_comment", "search_issues",
+    ]
+
+    static var tools: [[String: Any]] {
+        [
+            tool("list_projects", "List all projects", [:]),
+            tool("create_project", "Create a project", [
+                "key": ["type": "string", "description": "Short key e.g. ARK"],
+                "name": ["type": "string", "description": "Display name"],
+                "color": ["type": "string", "description": "Hex color"],
+            ], required: ["key", "name"]),
+            tool("list_issues", "List issues with optional filters", [
+                "projectKey": ["type": "string"],
+                "projectId": ["type": "string"],
+                "status": ["type": "string", "description": "backlog|todo|in_progress|done|canceled"],
+                "priority": ["type": "string"],
+                "query": ["type": "string"],
+            ]),
+            tool("search_issues", "Search issues by text", [
+                "query": ["type": "string"],
+                "projectKey": ["type": "string"],
+            ], required: ["query"]),
+            tool("get_issue", "Get one issue by id or identifier", [
+                "id": ["type": "string"],
+                "identifier": ["type": "string"],
+            ]),
+            tool("create_issue", "Create an issue", [
+                "title": ["type": "string"],
+                "projectKey": ["type": "string"],
+                "projectId": ["type": "string"],
+                "description": ["type": "string"],
+                "status": ["type": "string"],
+                "priority": ["type": "string"],
+                "labels": ["type": "array", "items": ["type": "string"]],
+                "assigneeName": ["type": "string"],
+            ], required: ["title"]),
+            tool("update_issue", "Update an issue", [
+                "id": ["type": "string"],
+                "identifier": ["type": "string"],
+                "title": ["type": "string"],
+                "description": ["type": "string"],
+                "status": ["type": "string"],
+                "priority": ["type": "string"],
+                "labels": ["type": "array", "items": ["type": "string"]],
+                "assigneeName": ["type": "string"],
+            ]),
+            tool("add_comment", "Add a comment to an issue", [
+                "issueId": ["type": "string"],
+                "identifier": ["type": "string"],
+                "body": ["type": "string"],
+                "authorName": ["type": "string"],
+            ], required: ["body"]),
+        ]
+    }
+
+    private static func tool(_ name: String, _ description: String, _ properties: [String: Any], required: [String] = []) -> [String: Any] {
+        [
+            "name": name,
+            "description": description,
+            "inputSchema": [
+                "type": "object",
+                "properties": properties,
+                "required": required,
+            ] as [String: Any],
+        ]
+    }
+}
+
+// MARK: - Tiny HTTP helpers
+
+struct HTTPRequest {
+    var method: String
+    var path: String
+    var query: [String: String]
+    var headers: [String: String]
+    var body: Data?
+
+    static func parse(_ data: Data) -> HTTPRequest? {
+        guard let headerRange = data.range(of: Data("\r\n\r\n".utf8)) else { return nil }
+        let headerData = data.subdata(in: data.startIndex..<headerRange.lowerBound)
+        guard let headerText = String(data: headerData, encoding: .utf8) else { return nil }
+        let lines = headerText.split(separator: "\r\n", omittingEmptySubsequences: false)
+        guard let requestLine = lines.first else { return nil }
+        let parts = requestLine.split(separator: " ")
+        guard parts.count >= 2 else { return nil }
+        var headers: [String: String] = [:]
+        for line in lines.dropFirst() {
+            if let idx = line.firstIndex(of: ":") {
+                let key = String(line[..<idx]).trimmingCharacters(in: .whitespaces).lowercased()
+                let value = String(line[line.index(after: idx)...]).trimmingCharacters(in: .whitespaces)
+                headers[key] = value
+            }
+        }
+        let bodyStart = headerRange.upperBound
+        let contentLength = Int(headers["content-length"] ?? "0") ?? 0
+        let available = data.endIndex - bodyStart
+        if contentLength > available { return nil }
+        let body: Data? = contentLength > 0 ? data.subdata(in: bodyStart..<(bodyStart + contentLength)) : nil
+        let target = String(parts[1])
+        var path = target
+        var query: [String: String] = [:]
+        if let q = target.firstIndex(of: "?") {
+            path = String(target[..<q])
+            let qs = String(target[target.index(after: q)...])
+            for pair in qs.split(separator: "&") {
+                let kv = pair.split(separator: "=", maxSplits: 1).map(String.init)
+                if kv.count == 2 {
+                    query[kv[0]] = kv[1].removingPercentEncoding ?? kv[1]
+                } else if kv.count == 1 {
+                    query[kv[0]] = ""
+                }
+            }
+        }
+        return HTTPRequest(method: String(parts[0]), path: path, query: query, headers: headers, body: body)
+    }
+}
+
+struct HTTPResponse {
+    var status: Int
+    var headers: [String: String]
+    var body: Data
+
+    static func json(_ status: Int, _ object: [String: Any]) -> HTTPResponse {
+        let data = (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])) ?? Data("{}".utf8)
+        return HTTPResponse(
+            status: status,
+            headers: [
+                "Content-Type": "application/json; charset=utf-8",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Connection": "close",
+            ],
+            body: data
+        )
+    }
+
+    func serialize() -> Data {
+        let reason: String
+        switch status {
+        case 200: reason = "OK"
+        case 201: reason = "Created"
+        case 202: reason = "Accepted"
+        case 400: reason = "Bad Request"
+        case 404: reason = "Not Found"
+        case 503: reason = "Service Unavailable"
+        default: reason = "OK"
+        }
+        var header = "HTTP/1.1 \(status) \(reason)\r\n"
+        var hdrs = headers
+        hdrs["Content-Length"] = "\(body.count)"
+        for (k, v) in hdrs {
+            header += "\(k): \(v)\r\n"
+        }
+        header += "\r\n"
+        var data = Data(header.utf8)
+        data.append(body)
+        return data
+    }
+}

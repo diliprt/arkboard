@@ -1,0 +1,107 @@
+import Foundation
+import GRDB
+
+enum AppDatabase {
+    static let shared: DatabasePool = {
+        do {
+            return try makePool()
+        } catch {
+            fatalError("Unable to open Arkboard database: \(error)")
+        }
+    }()
+
+    static func makePool() throws -> DatabasePool {
+        let fm = FileManager.default
+        let appSupport = try fm.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let dir = appSupport.appendingPathComponent("Arkboard", isDirectory: true)
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dbURL = dir.appendingPathComponent("arkboard.sqlite")
+
+        var config = Configuration()
+        config.prepareDatabase { db in
+            try db.execute(sql: "PRAGMA foreign_keys = ON")
+        }
+
+        let pool = try DatabasePool(path: dbURL.path, configuration: config)
+        try migrator.migrate(pool)
+        return pool
+    }
+
+    static var databasePath: String {
+        let fm = FileManager.default
+        let appSupport = (try? fm.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )) ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        return appSupport.appendingPathComponent("Arkboard/arkboard.sqlite").path
+    }
+
+    static var migrator: DatabaseMigrator {
+        var migrator = DatabaseMigrator()
+
+        migrator.registerMigration("v1") { db in
+            try db.create(table: "workspace") { t in
+                t.column("id", .text).primaryKey()
+                t.column("name", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+            }
+
+            try db.create(table: "project") { t in
+                t.column("id", .text).primaryKey()
+                t.column("key", .text).notNull().unique()
+                t.column("name", .text).notNull()
+                t.column("color", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+                t.column("issueCounter", .integer).notNull().defaults(to: 0)
+            }
+
+            try db.create(table: "issue") { t in
+                t.column("id", .text).primaryKey()
+                t.column("identifier", .text).notNull().unique()
+                t.column("projectId", .text).notNull().indexed()
+                    .references("project", onDelete: .cascade)
+                t.column("title", .text).notNull()
+                t.column("descriptionMarkdown", .text).notNull().defaults(to: "")
+                t.column("status", .text).notNull().indexed()
+                t.column("priority", .text).notNull().indexed()
+                t.column("assigneeName", .text)
+                t.column("estimatePoints", .integer)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull().indexed()
+                t.column("orderInStatus", .double).notNull().defaults(to: 0)
+            }
+
+            try db.create(table: "label") { t in
+                t.column("id", .text).primaryKey()
+                t.column("name", .text).notNull().unique()
+                t.column("color", .text).notNull()
+            }
+
+            try db.create(table: "issue_label") { t in
+                t.column("issueId", .text).notNull()
+                    .references("issue", onDelete: .cascade)
+                t.column("labelId", .text).notNull()
+                    .references("label", onDelete: .cascade)
+                t.primaryKey(["issueId", "labelId"])
+            }
+
+            try db.create(table: "comment") { t in
+                t.column("id", .text).primaryKey()
+                t.column("issueId", .text).notNull().indexed()
+                    .references("issue", onDelete: .cascade)
+                t.column("bodyMarkdown", .text).notNull()
+                t.column("authorName", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+            }
+        }
+
+        return migrator
+    }
+}
