@@ -41,6 +41,16 @@ open build/DerivedData/Build/Products/Debug/Arkboard.app
 
 Or open the generated `Arkboard.xcodeproj` in Xcode and press Run.
 
+### Smoke test
+
+With the app running:
+
+```bash
+./scripts/smoke.sh
+```
+
+Verifies `/health`, MCP `tools/list`, MCP create/list issue, and REST list.
+
 On first launch the app seeds demo projects (**ARK**, **OPS**) and sample issues, then starts MCP on port **7420**.
 
 ## REST API (curl)

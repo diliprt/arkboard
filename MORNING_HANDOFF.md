@@ -1,50 +1,51 @@
-# Arkboard v1 — Morning Handoff (2026-08-12)
+# Arkboard v1 — Morning Handoff (2026-08-12 overnight polish)
 
-## Status: Working
+## Status: Working + polished
 
-Ship criteria met:
-- [x] App launches on Mac
-- [x] Create project/issue in UI (⌘N quick add + New Project)
-- [x] List + Board views; SQLite persists across relaunch
-- [x] Agent API/MCP list/create/update on `127.0.0.1:7420`
-- [x] Pushed to https://github.com/diliprt/arkboard
+Ship criteria met, plus overnight polish committed to `main`.
 
 ## Open the app
 
 ```bash
 cd "/Users/dilipreddy/Origin Ark Studio/arkboard"
 ./scripts/run.sh
-# or: open Arkboard.xcodeproj  → Run
+# or: open build/DerivedData/Build/Products/Debug/Arkboard.app
 ```
 
-Built app path (after build):
-`build/DerivedData/Build/Products/Debug/Arkboard.app`
+**Important:** Launch via `open …/Arkboard.app` (or Xcode Run), not the raw Mach-O binary.
 
-**Important:** Launch via `open …/Arkboard.app` (or Xcode Run), not by invoking the raw Mach-O binary — the GUI activation path is more stable for the embedded HTTP server.
+## Smoke test (app must be running)
+
+```bash
+./scripts/smoke.sh
+```
+
+Checks: `/health`, MCP `tools/list`, MCP `create_issue` + `list_issues`, REST list.
 
 ## MCP / API
-
-While the app is running:
 
 - Health: `http://127.0.0.1:7420/health`
 - REST: `http://127.0.0.1:7420/api/projects`, `/api/issues`
 - MCP JSON-RPC: `POST http://127.0.0.1:7420/mcp`
-- Cursor stdio bridge: `mcp/server.py` (see README)
+- Cursor stdio bridge: `mcp/server.py`
 
-## What's solid
-- GRDB schema + seed (ARK / OPS demo data)
-- Sidebar Inbox + projects, List/Board, detail editor, comments
-- Drag cards between board columns
-- Single write path through `AppStore` for UI + MCP
+## Overnight polish landed
 
-## What's rough / next
-- MCP is JSON-RPC over HTTP (tools/list + tools/call), not full Streamable HTTP/SSE MCP SDK
-- No board card reordering *within* a column beyond append-to-end drop
-- No rich markdown preview; description is plain TextEditor
-- Labels edited as comma-separated text (no picker)
+- Empty states for no projects / no issues / no search matches
+- Board: drop-on-card inserts before target (within-column reorder) without breaking column append drops
+- Labels: tokenized chip field (Return/comma) in detail + quick add
+- `AppStore.dataRevision` bumps on reload so MCP mutations refresh list/board reliably
+- Issue detail syncs status/priority/labels from external updates without always clobbering in-progress title/description drafts
+- `scripts/smoke.sh` for health + MCP create/list
+
+## Still rough / next
+
+- MCP is JSON-RPC over HTTP, not full Streamable HTTP/SSE MCP SDK
+- No rich markdown preview
 - No app icon / notarization / sandboxed distribution
-- Direct binary launch (without `open`) was flaky during overnight testing
-- UI observation refresh from MCP mutations works but is not polished under heavy agent write load
+- Inbox board mixes projects; per-project board ordering is cleaner
+- Direct binary launch (without `open`) can be flaky for the embedded HTTP server
 
 ## Data
+
 `~/Library/Application Support/Arkboard/arkboard.sqlite`
