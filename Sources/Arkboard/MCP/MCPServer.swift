@@ -253,6 +253,27 @@ final class MCPServer: @unchecked Sendable {
                 ])
 
 
+            case ("DELETE", _) where path.hasPrefix("/api/issues/"):
+                let key = String(path.dropFirst("/api/issues/".count))
+                guard let issue = store.issues.first(where: { $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame }) else {
+                    return .json(404, ["error": "issue not found"])
+                }
+                let actor = (json["actor"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                try await store.deleteIssue(issue.id, actor: (actor?.isEmpty == false ? actor! : "Agent"))
+                let fresh = store.issues.first(where: { $0.id == issue.id }) ?? issue
+                return .json(200, store.issueDictionary(fresh))
+
+            case ("POST", _) where path.hasSuffix("/restore") && path.hasPrefix("/api/issues/"):
+                let mid = path.dropFirst("/api/issues/".count).dropLast("/restore".count)
+                let key = String(mid)
+                guard let issue = store.issues.first(where: { $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame }) else {
+                    return .json(404, ["error": "issue not found"])
+                }
+                let actor = (json["actor"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                try await store.restoreIssue(issue.id, actor: (actor?.isEmpty == false ? actor! : "Agent"))
+                let fresh = store.issues.first(where: { $0.id == issue.id }) ?? issue
+                return .json(200, store.issueDictionary(fresh))
+
             case ("GET", "/api/milestones"):
                 let projectKey = query["projectKey"]
                 let status = (query["status"]).flatMap(MilestoneStatus.init(rawValue:))
@@ -364,7 +385,8 @@ final class MCPServer: @unchecked Sendable {
             return try text(store.projectDictionary(project))
 
         case "list_issues", "search_issues":
-            var issues = store.activeIssues
+            let includeDeleted = (args["includeDeleted"] as? Bool) ?? false
+            var issues = includeDeleted ? store.issues : store.activeIssues
             if let key = args["projectKey"] as? String,
                let p = store.projects.first(where: { $0.key.caseInsensitiveCompare(key) == .orderedSame }) {
                 issues = issues.filter { $0.projectId == p.id }
@@ -437,6 +459,26 @@ final class MCPServer: @unchecked Sendable {
                 try await store.setIssueLabels(issueId: updated.id, labelNames: labels, actor: actor)
             }
             let fresh = store.issues.first(where: { $0.id == updated.id }) ?? updated
+            return try text(store.issueDictionary(fresh))
+
+        case "delete_issue":
+            let key = (args["id"] as? String) ?? (args["identifier"] as? String) ?? ""
+            guard let issue = store.issues.first(where: {
+                $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame
+            }) else { throw StoreError.notFound }
+            let actor = Self.resolvedActor(args)
+            try await store.deleteIssue(issue.id, actor: actor)
+            let fresh = store.issues.first(where: { $0.id == issue.id }) ?? issue
+            return try text(store.issueDictionary(fresh))
+
+        case "restore_issue":
+            let key = (args["id"] as? String) ?? (args["identifier"] as? String) ?? ""
+            guard let issue = store.issues.first(where: {
+                $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame
+            }) else { throw StoreError.notFound }
+            let actor = Self.resolvedActor(args)
+            try await store.restoreIssue(issue.id, actor: actor)
+            let fresh = store.issues.first(where: { $0.id == issue.id }) ?? issue
             return try text(store.issueDictionary(fresh))
 
         case "add_comment":
@@ -632,7 +674,7 @@ final class MCPServer: @unchecked Sendable {
 enum MCPToolCatalog {
     static let toolNames = [
         "list_projects", "create_project", "list_issues", "get_issue",
-        "create_issue", "update_issue", "add_comment", "search_issues", "list_activity",
+        "create_issue", "update_issue", "delete_issue", "restore_issue", "add_comment", "search_issues", "list_activity",
         "list_milestones", "create_milestone", "update_milestone", "list_bot_thread",
     ]
 
@@ -645,12 +687,13 @@ enum MCPToolCatalog {
                 "color": ["type": "string", "description": "Hex color"],
                 "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
             ], required: ["key", "name"]),
-            tool("list_issues", "List issues with optional filters", [
+            tool("list_issues", "List issues with optional filters (hides soft-deleted unless includeDeleted)", [
                 "projectKey": ["type": "string"],
                 "projectId": ["type": "string"],
                 "status": ["type": "string", "description": "backlog|todo|in_progress|done|canceled"],
                 "priority": ["type": "string"],
                 "query": ["type": "string"],
+                "includeDeleted": ["type": "boolean", "description": "Include soft-deleted issues (default false)"],
             ]),
             tool("search_issues", "Search issues by text", [
                 "query": ["type": "string"],
@@ -680,6 +723,16 @@ enum MCPToolCatalog {
                 "priority": ["type": "string", "description": "none|low|medium|high|urgent"],
                 "labels": ["type": "array", "items": ["type": "string"], "description": "Full replace; duplicates trimmed case-insensitively"],
                 "assigneeName": ["type": "string"],
+                "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
+            ]),
+            tool("delete_issue", "Soft-delete (archive) an issue; activity keeps issueId/identifier; Undo/restore available", [
+                "id": ["type": "string"],
+                "identifier": ["type": "string"],
+                "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
+            ]),
+            tool("restore_issue", "Restore a soft-deleted issue", [
+                "id": ["type": "string"],
+                "identifier": ["type": "string"],
                 "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
             ]),
             tool("add_comment", "Add a comment to an issue", [

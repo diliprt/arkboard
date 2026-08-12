@@ -117,7 +117,7 @@ curl -s -X POST http://127.0.0.1:7420/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq
 ```
 
-Tools: `list_projects`, `create_project`, `list_issues`, `search_issues`, `get_issue`, `create_issue`, `update_issue`, `add_comment`, `list_activity`, `list_milestones`, `create_milestone`, `update_milestone`, `list_bot_thread`.
+Tools: `list_projects`, `create_project`, `list_issues`, `search_issues`, `get_issue`, `create_issue`, `update_issue`, `delete_issue`, `restore_issue`, `add_comment`, `list_activity`, `list_milestones`, `create_milestone`, `update_milestone`, `list_bot_thread`.
 
 Mutating tools accept optional **`actor`** (string; default `"Agent"`). `add_comment` parses `@Ops` / `@Product` / `@Comms` mentions into Activity `targetActors` (shown as **Product → Ops, Comms** with multi-avatar).
 

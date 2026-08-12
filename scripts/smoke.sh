@@ -297,6 +297,63 @@ if [[ -n "$IDENT" ]]; then
   check_json "create_milestone with related issue" "$GOOD_REL" '(.error | not) and ((.result.structuredContent.relatedIssueIdentifiers // []) | index("'"$IDENT"'") != null or (.result.content[0].text | contains("'"$IDENT"'")))'
 fi
 
+# Soft-delete: hide from default list, keep activity issueIdentifier, restore.
+if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
+  info "MCP delete_issue (soft-delete)"
+  if [[ -n "$ISSUE_ID" ]]; then
+    DEL_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, actor:"Ops"}')"
+  else
+    DEL_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, actor:"Ops"}')"
+  fi
+  DEL="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson args "$DEL_ARGS" '{
+      jsonrpc:"2.0", id:22, method:"tools/call",
+      params:{ name:"delete_issue", arguments:$args }
+    }')")"
+  check_json "delete_issue sets deletedAt" "$DEL" '.result.structuredContent.deletedAt != null and (.result.structuredContent.deletedAt | type == "string")'
+
+  info "MCP list_issues hides soft-deleted by default"
+  HIDDEN="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d '{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"list_issues","arguments":{"projectKey":"ARK","query":"Smoke"}}}')"
+  if [[ -n "$IDENT" ]]; then
+    check_json "list_issues excludes deleted" "$HIDDEN" "([(.result.structuredContent.issues // [])[] | select(.identifier == \"$IDENT\")] | length) == 0"
+  else
+    check_json "list_issues still array" "$HIDDEN" '.result.structuredContent.issues | type == "array"'
+  fi
+
+  info "MCP list_issues includeDeleted=true"
+  SHOWN="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d '{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"list_issues","arguments":{"projectKey":"ARK","includeDeleted":true,"query":"Smoke"}}}')"
+  if [[ -n "$IDENT" ]]; then
+    check_json "includeDeleted returns issue" "$SHOWN" "([(.result.structuredContent.issues // [])[] | select(.identifier == \"$IDENT\")] | length) == 1"
+  fi
+
+  info "Activity keeps issueIdentifier after soft-delete"
+  DEL_ACT="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d '{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"list_activity","arguments":{"limit":40,"projectKey":"ARK"}}}')"
+  if [[ -n "$IDENT" ]]; then
+    check_json "deleted activity retains identifier" "$DEL_ACT" "([(.result.structuredContent.activities // [])[] | select((.action == \"deleted_issue\") and (.issueIdentifier == \"$IDENT\"))] | length) >= 1"
+  fi
+
+  info "MCP restore_issue"
+  if [[ -n "$ISSUE_ID" ]]; then
+    RES_ARGS="$(jq -n --arg id "$ISSUE_ID" '{id:$id, actor:"Product"}')"
+  else
+    RES_ARGS="$(jq -n --arg ident "$IDENT" '{identifier:$ident, actor:"Product"}')"
+  fi
+  RES="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson args "$RES_ARGS" '{
+      jsonrpc:"2.0", id:26, method:"tools/call",
+      params:{ name:"restore_issue", arguments:$args }
+    }')")"
+  check_json "restore_issue clears deletedAt" "$RES" '.result.structuredContent.deletedAt == null'
+fi
+
 # Cancel the issue this run created so overnight smokes do not clutter forever.
 if [[ "$FAIL" -eq 0 && ( -n "$IDENT" || -n "$ISSUE_ID" ) ]]; then
   info "MCP update_issue (cancel smoke issue)"
