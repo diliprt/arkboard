@@ -80,6 +80,17 @@ struct BoardColumnView: View {
                             .onTapGesture {
                                 store.selectedIssueId = issue.id
                             }
+                            .contextMenu {
+                                Button("Archive", role: .destructive) {
+                                    Task {
+                                        do {
+                                            try await store.deleteIssue(issue.id)
+                                        } catch {
+                                            store.lastError = error.localizedDescription
+                                        }
+                                    }
+                                }
+                            }
                             .draggable(issue.id) {
                                 BoardCardView(issue: issue)
                                     .frame(width: 240)

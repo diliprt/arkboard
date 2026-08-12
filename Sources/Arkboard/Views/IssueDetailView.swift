@@ -170,6 +170,23 @@ struct IssueDetailView: View {
             .padding(20)
         }
         .navigationTitle(issue.identifier)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if issue.deletedAt != nil {
+                    Button("Restore") {
+                        Task {
+                            await mutate { try await store.restoreIssue(issue.id) }
+                        }
+                    }
+                } else {
+                    Button("Archive", role: .destructive) {
+                        Task {
+                            await mutate { try await store.deleteIssue(issue.id) }
+                        }
+                    }
+                }
+            }
+        }
         .onAppear { syncFromIssue(force: true) }
         .onChange(of: issue.id) { _, _ in syncFromIssue(force: true) }
         .onChange(of: issue.updatedAt) { _, _ in

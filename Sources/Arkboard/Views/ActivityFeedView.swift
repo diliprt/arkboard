@@ -116,31 +116,29 @@ struct ActivityFeedView: View {
         }
     }
 
-    /// Collapse consecutive system activities into one disclosure when viewing All.
+    /// Collapse *all* system activities into one disclosure when viewing All
+    /// (not only consecutive runs — bots stay interleaved in feed order).
     private static func displayRows(_ items: [Activity], collapseSystem: Bool) -> [DisplayRow] {
         guard collapseSystem else { return items.map { .single($0) } }
+        let system = items.filter { ActivityKind(rawValue: $0.kind) == .system }
+        guard !system.isEmpty else { return items.map { .single($0) } }
+
         var rows: [DisplayRow] = []
-        var buffer: [Activity] = []
-
-        func flush() {
-            guard !buffer.isEmpty else { return }
-            if buffer.count == 1 {
-                rows.append(.single(buffer[0]))
-            } else {
-                rows.append(.systemGroup(buffer))
-            }
-            buffer = []
-        }
-
+        var insertedSystem = false
         for item in items {
             if ActivityKind(rawValue: item.kind) == .system {
-                buffer.append(item)
+                if !insertedSystem {
+                    if system.count == 1 {
+                        rows.append(.single(system[0]))
+                    } else {
+                        rows.append(.systemGroup(system))
+                    }
+                    insertedSystem = true
+                }
             } else {
-                flush()
                 rows.append(.single(item))
             }
         }
-        flush()
         return rows
     }
 

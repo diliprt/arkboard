@@ -119,7 +119,7 @@ struct PortfolioView: View {
         let t = store.portfolioTotals
         return HStack(spacing: 12) {
             PortfolioStatChip(title: "Open work", value: t.openWork, tint: Color(hex: "#5E6AD2"))
-            PortfolioStatChip(title: "In progress", value: t.inProgress, tint: Color(hex: "#F2C94C"))
+            PortfolioStatChip(title: "In progress", value: t.inProgress, tint: Color(hex: "#C49200"))
             PortfolioStatChip(title: "Features", value: t.features, tint: Color(hex: "#4EA7FC"))
             PortfolioStatChip(title: "Bugs", value: t.bugs, tint: Color(hex: "#EB5757"))
             Spacer(minLength: 0)
@@ -499,7 +499,7 @@ private struct TimelineEventRow: View {
     private var statusTint: String {
         switch event.statusLabel?.lowercased() {
         case "planned": return "#4EA7FC"
-        case "in progress": return "#F2C94C"
+        case "in progress": return "#C49200"
         case "done": return "#27AE60"
         case "missed": return "#EB5757"
         default: return event.projectColor

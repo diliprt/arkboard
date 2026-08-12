@@ -53,7 +53,7 @@ enum IssuePriority: String, Codable, CaseIterable, Identifiable, DatabaseValueCo
     /// Compact label for filter chips.
     var chipName: String {
         switch self {
-        case .none: return "None"
+        case .none: return "No priority"
         case .low: return "Low"
         case .medium: return "Medium"
         case .high: return "High"
@@ -99,7 +99,7 @@ enum MilestoneStatus: String, Codable, CaseIterable, Identifiable, DatabaseValue
     var tintHex: String {
         switch self {
         case .planned: return "#4EA7FC"
-        case .in_progress: return "#F2C94C"
+        case .in_progress: return "#C49200"
         case .done: return "#27AE60"
         case .missed: return "#EB5757"
         }
@@ -306,6 +306,22 @@ struct IssueFilter: Equatable {
     var showCanceled: Bool = false
     /// When true, list soft-deleted (Archived) issues instead of active ones.
     var showDeleted: Bool = false
+
+    var hasActiveFilters: Bool {
+        status != nil
+            || priority != nil
+            || !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || showCanceled
+            || showDeleted
+    }
+
+    mutating func clearActiveFilters() {
+        status = nil
+        priority = nil
+        query = ""
+        showCanceled = false
+        showDeleted = false
+    }
 }
 
 /// Aggregates for the Portfolio bird's-eye view.

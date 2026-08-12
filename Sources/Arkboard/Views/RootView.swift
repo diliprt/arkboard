@@ -53,7 +53,7 @@ struct RootView: View {
         .overlay(alignment: .bottom) {
             if let banner = store.undoDelete {
                 HStack(spacing: 12) {
-                    Text("Archived \(banner.identifier)")
+                    Text("Archived \(banner.identifier) · Undo available for ~10s")
                         .font(.subheadline.weight(.medium))
                     Spacer(minLength: 8)
                     Button("Undo") {
@@ -142,9 +142,10 @@ struct ContentColumn: View {
         }
     }
 
-    /// Board only when a single project is selected.
+    /// Board only when a single project is selected and not viewing Archived.
     private var effectiveViewMode: AppStore.ViewMode {
-        store.boardAvailable ? store.viewMode : .list
+        if store.filter.showDeleted { return .list }
+        return store.boardAvailable ? store.viewMode : .list
     }
 
     private var header: some View {
@@ -158,8 +159,8 @@ struct ContentColumn: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
-            // Inbox: hide Board segment entirely (list-only).
-            if store.boardAvailable {
+            // Inbox / Archived: hide Board segment (list-only).
+            if store.boardAvailable && !store.filter.showDeleted {
                 Picker("View", selection: Bindable(store).viewMode) {
                     ForEach(AppStore.ViewMode.allCases) { mode in
                         Text(mode.title).tag(mode)
@@ -214,6 +215,29 @@ struct ContentColumn: View {
                     .help("Clear search")
                     .accessibilityLabel("Clear search")
                 }
+
+                Menu {
+                    Button("All") { store.filter.priority = nil }
+                    Divider()
+                    ForEach(IssuePriority.allCases) { priority in
+                        Button {
+                            store.filter.priority = store.filter.priority == priority ? nil : priority
+                        } label: {
+                            if store.filter.priority == priority {
+                                Label(priority.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(priority.displayName)
+                            }
+                        }
+                    }
+                } label: {
+                    Label(store.filter.priority?.displayName ?? "Priority", systemImage: "flag")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .disabled(store.projects.isEmpty)
+                .help("Filter by priority")
+
                 Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
                     .toggleStyle(.checkbox)
                     .font(.caption)
@@ -223,6 +247,20 @@ struct ContentColumn: View {
                     .font(.caption)
                     .disabled(store.projects.isEmpty)
                     .help("Show soft-deleted issues")
+                    .onChange(of: store.filter.showDeleted) { _, show in
+                        if show { store.viewMode = .list }
+                    }
+
+                if store.filter.hasActiveFilters {
+                    Button("Clear filters") {
+                        store.filter.clearActiveFilters()
+                    }
+                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                    .help("Reset search, status, priority, and archive filters")
+                    .accessibilityLabel("Clear filters")
+                }
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -236,23 +274,6 @@ struct ContentColumn: View {
                     ForEach(statusChipCases) { status in
                         FilterChip(title: status.displayName, selected: store.filter.status == status) {
                             store.filter.status = store.filter.status == status ? nil : status
-                        }
-                    }
-                }
-            }
-            .disabled(store.projects.isEmpty)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    Text("Priority")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                    FilterChip(title: "All", selected: store.filter.priority == nil) {
-                        store.filter.priority = nil
-                    }
-                    ForEach(IssuePriority.allCases) { priority in
-                        FilterChip(title: priority.chipName, selected: store.filter.priority == priority) {
-                            store.filter.priority = store.filter.priority == priority ? nil : priority
                         }
                     }
                 }

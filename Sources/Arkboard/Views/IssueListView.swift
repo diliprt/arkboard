@@ -31,7 +31,7 @@ struct IssueListView: View {
                             } else {
                                 statusMenu(for: issue)
                                 Divider()
-                                Button("Delete", role: .destructive) {
+                                Button("Archive", role: .destructive) {
                                     pendingDeleteId = issue.id
                                 }
                             }
@@ -194,7 +194,7 @@ struct IssueRowView: View {
         switch issue.status {
         case .backlog: return .secondary
         case .todo: return .gray
-        case .in_progress: return .yellow
+        case .in_progress: return Color(hex: "#C49200")
         case .done: return .green
         case .canceled: return .secondary
         }
@@ -204,7 +204,7 @@ struct IssueRowView: View {
         switch issue.priority {
         case .urgent: return .red
         case .high: return .orange
-        case .medium: return .yellow
+        case .medium: return Color(hex: "#B8860B")
         case .low: return .blue
         case .none: return .secondary
         }
