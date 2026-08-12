@@ -240,6 +240,30 @@ struct ContentColumn: View {
                 .accessibilityLabel("Priority filter")
                 .accessibilityValue(store.filter.priority?.displayName ?? "All")
 
+                Menu {
+                    Button("All") { store.filter.status = nil }
+                    Divider()
+                    ForEach(statusChipCases) { status in
+                        Button {
+                            store.filter.status = store.filter.status == status ? nil : status
+                        } label: {
+                            if store.filter.status == status {
+                                Label(status.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(status.displayName)
+                            }
+                        }
+                    }
+                } label: {
+                    Label(store.filter.status?.displayName ?? "Status", systemImage: "line.3.horizontal.decrease.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .disabled(store.projects.isEmpty)
+                .help("Filter by status")
+                .accessibilityLabel("Status filter")
+                .accessibilityValue(store.filter.status?.displayName ?? "All")
+
                 Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
                     .toggleStyle(.checkbox)
                     .font(.caption)
@@ -265,22 +289,6 @@ struct ContentColumn: View {
                 }
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    Text("Status")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                    FilterChip(title: "All", selected: store.filter.status == nil) {
-                        store.filter.status = nil
-                    }
-                    ForEach(statusChipCases) { status in
-                        FilterChip(title: status.displayName, selected: store.filter.status == status) {
-                            store.filter.status = store.filter.status == status ? nil : status
-                        }
-                    }
-                }
-            }
-            .disabled(store.projects.isEmpty)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
