@@ -6,14 +6,26 @@ struct RootView: View {
     @State private var showNewProject = false
 
     var body: some View {
-        NavigationSplitView {
-            SidebarView(showNewProject: $showNewProject)
-                .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
-        } content: {
-            ContentColumn(showQuickAdd: $showQuickAdd, showNewProject: $showNewProject)
-                .navigationSplitViewColumnWidth(min: 340, ideal: 460, max: 740)
-        } detail: {
-            detailColumn
+        Group {
+            if store.isPortfolio || store.isActivity {
+                // Full-width main pane — no empty detail column
+                NavigationSplitView {
+                    SidebarView(showNewProject: $showNewProject)
+                        .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+                } detail: {
+                    ContentColumn(showQuickAdd: $showQuickAdd, showNewProject: $showNewProject)
+                }
+            } else {
+                NavigationSplitView {
+                    SidebarView(showNewProject: $showNewProject)
+                        .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+                } content: {
+                    ContentColumn(showQuickAdd: $showQuickAdd, showNewProject: $showNewProject)
+                        .navigationSplitViewColumnWidth(min: 340, ideal: 460, max: 740)
+                } detail: {
+                    issueDetailColumn
+                }
+            }
         }
         .sheet(isPresented: $showQuickAdd) {
             QuickAddSheet()
@@ -41,20 +53,8 @@ struct RootView: View {
     }
 
     @ViewBuilder
-    private var detailColumn: some View {
-        if store.isPortfolio {
-            ContentUnavailableView(
-                "Portfolio overview",
-                systemImage: "square.grid.2x2",
-                description: Text("Select a project card to open its issue list, or pick Inbox / a project in the sidebar.")
-            )
-        } else if store.isActivity {
-            ContentUnavailableView(
-                "Agent activity",
-                systemImage: "bubble.left.and.bubble.right",
-                description: Text("Tap a feed item to jump to the related issue. Comments from agents appear here and on the issue.")
-            )
-        } else if store.projects.isEmpty {
+    private var issueDetailColumn: some View {
+        if store.projects.isEmpty {
             EmptyProjectsView()
         } else if let issue = store.selectedIssue {
             IssueDetailView(issue: issue)
