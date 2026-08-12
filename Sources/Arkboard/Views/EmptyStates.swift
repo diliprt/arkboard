@@ -24,9 +24,16 @@ struct EmptyProjectsView: View {
 
 struct EmptyIssuesView: View {
     var hasActiveSearch: Bool = false
+    var showingArchived: Bool = false
 
     var body: some View {
-        if hasActiveSearch {
+        if showingArchived {
+            ContentUnavailableView {
+                Label("No archived issues", systemImage: "trash")
+            } description: {
+                Text("Deleted issues land here for a bit. Restore one from the undo toast or this Archived filter.")
+            }
+        } else if hasActiveSearch {
             ContentUnavailableView {
                 Label("No matching issues", systemImage: "magnifyingglass")
             } description: {
@@ -55,10 +62,16 @@ struct EmptyIssuesView: View {
 
 struct SelectIssuePlaceholder: View {
     var body: some View {
-        ContentUnavailableView(
-            "Select an issue",
-            systemImage: "checkmark.circle",
-            description: Text("Choose an issue from the list (or a project board), or press ⌘N to create one.")
-        )
+        ContentUnavailableView {
+            Label("Select an issue", systemImage: "checkmark.circle")
+        } description: {
+            Text("Choose an issue from the list (or a project board), or press ⌘N to create one.")
+        } actions: {
+            Button("New Issue") {
+                NotificationCenter.default.post(name: .arkboardQuickAdd, object: nil)
+            }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut("n", modifiers: .command)
+        }
     }
 }

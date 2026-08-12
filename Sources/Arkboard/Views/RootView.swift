@@ -50,6 +50,34 @@ struct RootView: View {
         } message: {
             Text(store.lastError ?? "")
         }
+        .overlay(alignment: .bottom) {
+            if let banner = store.undoDelete {
+                HStack(spacing: 12) {
+                    Text("Archived \(banner.identifier)")
+                        .font(.subheadline.weight(.medium))
+                    Spacer(minLength: 8)
+                    Button("Undo") {
+                        Task { await store.undoLastDelete() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    Button {
+                        store.clearUndoDelete()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
+                .padding(16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: store.undoDelete?.issueId)
     }
 
     @ViewBuilder
@@ -189,17 +217,42 @@ struct ContentColumn: View {
                 Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
                     .toggleStyle(.checkbox)
                     .font(.caption)
+                    .disabled(store.projects.isEmpty || store.filter.showDeleted)
+                Toggle("Archived", isOn: Bindable(store).filter.showDeleted)
+                    .toggleStyle(.checkbox)
+                    .font(.caption)
                     .disabled(store.projects.isEmpty)
+                    .help("Show soft-deleted issues")
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
+                    Text("Status")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
                     FilterChip(title: "All", selected: store.filter.status == nil) {
                         store.filter.status = nil
                     }
                     ForEach(statusChipCases) { status in
                         FilterChip(title: status.displayName, selected: store.filter.status == status) {
                             store.filter.status = store.filter.status == status ? nil : status
+                        }
+                    }
+                }
+            }
+            .disabled(store.projects.isEmpty)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Text("Priority")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                    FilterChip(title: "All", selected: store.filter.priority == nil) {
+                        store.filter.priority = nil
+                    }
+                    ForEach(IssuePriority.allCases) { priority in
+                        FilterChip(title: priority.chipName, selected: store.filter.priority == priority) {
+                            store.filter.priority = store.filter.priority == priority ? nil : priority
                         }
                     }
                 }
@@ -222,6 +275,9 @@ struct ContentColumn: View {
         if store.projects.isEmpty { return "Create a project to get started" }
         let n = store.filteredIssues.count
         let count = n == 1 ? "1 issue" : "\(n) issues"
+        if store.filter.showDeleted {
+            return "\(count) · archived"
+        }
         if store.isInbox {
             return "\(count) · list across projects"
         }

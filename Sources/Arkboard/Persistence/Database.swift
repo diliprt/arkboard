@@ -148,6 +148,15 @@ enum AppDatabase {
                 sql: "UPDATE issue SET completedAt = updatedAt WHERE status = 'done' AND completedAt IS NULL"
             )
         }
+
+        migrator.registerMigration("v5_issue_deleted_at") { db in
+            let columns = try Set(db.columns(in: "issue").map(\.name))
+            if !columns.contains("deletedAt") {
+                try db.alter(table: "issue") { t in
+                    t.add(column: "deletedAt", .datetime)
+                }
+            }
+        }
         return migrator
     }
 }

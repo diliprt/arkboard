@@ -22,8 +22,20 @@ final class AppStore {
     var mcpRunning = false
     var mcpPort: UInt16 = 7420
     var lastError: String?
+    /// Soft-delete undo banner (~10s).
+    var undoDelete: UndoDeleteBanner?
     /// Bumped on every successful reload so SwiftUI views refresh after MCP mutations.
     var dataRevision: UInt64 = 0
+
+    private var undoDeleteTask: Task<Void, Never>?
+
+    struct UndoDeleteBanner: Equatable, Identifiable {
+        var id: String { issueId }
+        var issueId: String
+        var identifier: String
+        var title: String
+        var expiresAt: Date
+    }
 
     enum ViewMode: String, CaseIterable, Identifiable {
         case list, board
@@ -146,6 +158,15 @@ final class AppStore {
         return issues.first { $0.id == selectedIssueId }
     }
 
+    /// Non-deleted issues (default working set for portfolio / MCP / timeline).
+    var activeIssues: [Issue] {
+        issues.filter { $0.deletedAt == nil }
+    }
+
+    var archivedIssues: [Issue] {
+        issues.filter { $0.deletedAt != nil }
+    }
+
     var filteredIssues: [Issue] {
         issues.filter { issue in
             if let pid = selectedProjectId ?? filter.projectId, issue.projectId != pid {
@@ -154,6 +175,11 @@ final class AppStore {
             // Inbox / project browser only — portfolio/activity ignore filter project
             if case .portfolio = selection { return false }
             if case .activity = selection { return false }
+            if filter.showDeleted {
+                if issue.deletedAt == nil { return false }
+            } else if issue.deletedAt != nil {
+                return false
+            }
             if let status = filter.status, issue.status != status { return false }
             if let priority = filter.priority, issue.priority != priority { return false }
             if !filter.showCanceled && issue.status == .canceled { return false }
@@ -280,7 +306,7 @@ final class AppStore {
 
     var portfolioCards: [ProjectPortfolioCard] {
         projects.map { project in
-            let projectIssues = issues.filter { $0.projectId == project.id }
+            let projectIssues = activeIssues.filter { $0.projectId == project.id }
             var byStatus: [IssueStatus: Int] = [:]
             for status in IssueStatus.allCases {
                 byStatus[status] = projectIssues.filter { $0.status == status }.count
@@ -352,7 +378,7 @@ final class AppStore {
                 milestoneId: ms.id
             ))
         }
-        for issue in issues {
+        for issue in activeIssues {
             let p = project(for: issue)
             let color = p?.color ?? "#8E8E93"
             events.append(TimelineEvent(
@@ -450,7 +476,7 @@ final class AppStore {
         if showsIssueBrowser {
             if selectedIssueId == nil {
                 selectedIssueId = filteredIssues.first?.id
-            } else if !issues.contains(where: { $0.id == selectedIssueId }) {
+            } else if !filteredIssues.contains(where: { $0.id == selectedIssueId }) {
                 selectedIssueId = filteredIssues.first?.id
             }
         }
@@ -529,6 +555,7 @@ final class AppStore {
                 createdAt: now,
                 updatedAt: now,
                 completedAt: status == .done ? now : nil,
+                deletedAt: nil,
                 orderInStatus: maxOrder + 1
             )
             try project.update(db)
@@ -571,6 +598,7 @@ final class AppStore {
             guard var issue = try Issue.fetchOne(db, key: id) else {
                 throw StoreError.notFound
             }
+            if issue.deletedAt != nil { throw StoreError.notFound }
             var changes: [String] = []
             if let title {
                 let t = Self.normalizeTitle(title)
@@ -636,13 +664,14 @@ final class AppStore {
     func moveIssue(_ issueId: String, to status: IssueStatus, before beforeId: String?, actor: String = "Riyu") async throws {
         try await db.write { db in
             guard let moving = try Issue.fetchOne(db, key: issueId) else { return }
+            if moving.deletedAt != nil { throw StoreError.notFound }
             let fromStatus = moving.status
             var siblings = try Issue
                 .filter(Column("status") == status.rawValue)
                 .filter(Column("projectId") == moving.projectId)
                 .order(Column("orderInStatus"))
                 .fetchAll(db)
-                .filter { $0.id != issueId }
+                .filter { $0.id != issueId && $0.deletedAt == nil }
 
             if let beforeId, let idx = siblings.firstIndex(where: { $0.id == beforeId }) {
                 siblings.insert(moving, at: idx)
@@ -681,21 +710,82 @@ final class AppStore {
     }
 
     func deleteIssue(_ id: String, actor: String = "Riyu") async throws {
-        try await db.write { db in
-            guard let issue = try Issue.fetchOne(db, key: id) else { throw StoreError.notFound }
+        let banner: UndoDeleteBanner = try await db.write { db in
+            guard var issue = try Issue.fetchOne(db, key: id) else { throw StoreError.notFound }
+            if issue.deletedAt != nil { throw StoreError.notFound }
+            let now = Date()
+            issue.deletedAt = now
+            issue.updatedAt = now
+            try issue.update(db)
             try ActivityLogger.insert(
                 db,
                 actor: actor,
                 action: ActivityAction.deleted_issue.rawValue,
-                summary: "\(actor) deleted \(issue.identifier): \(issue.title)",
-                issueId: nil,
+                summary: "\(actor) archived \(issue.identifier): \(issue.title)",
+                issueId: issue.id,
                 projectId: issue.projectId,
                 kind: .system
             )
-            _ = try Issue.deleteOne(db, key: id)
+            return UndoDeleteBanner(
+                issueId: issue.id,
+                identifier: issue.identifier,
+                title: issue.title,
+                expiresAt: now.addingTimeInterval(10)
+            )
         }
         if selectedIssueId == id { selectedIssueId = nil }
         try await reloadAll()
+        presentUndoDelete(banner)
+    }
+
+    func restoreIssue(_ id: String, actor: String = "Riyu") async throws {
+        try await db.write { db in
+            guard var issue = try Issue.fetchOne(db, key: id) else { throw StoreError.notFound }
+            guard issue.deletedAt != nil else { return }
+            issue.deletedAt = nil
+            issue.updatedAt = Date()
+            try issue.update(db)
+            try ActivityLogger.insert(
+                db,
+                actor: actor,
+                action: ActivityAction.restored_issue.rawValue,
+                summary: "\(actor) restored \(issue.identifier): \(issue.title)",
+                issueId: issue.id,
+                projectId: issue.projectId,
+                kind: .system
+            )
+        }
+        if undoDelete?.issueId == id { clearUndoDelete() }
+        try await reloadAll()
+        selectedIssueId = id
+    }
+
+    func undoLastDelete() async {
+        guard let banner = undoDelete else { return }
+        do {
+            try await restoreIssue(banner.issueId)
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    private func presentUndoDelete(_ banner: UndoDeleteBanner) {
+        undoDeleteTask?.cancel()
+        undoDelete = banner
+        undoDeleteTask = Task { @MainActor in
+            let nanos = UInt64(max(0, banner.expiresAt.timeIntervalSinceNow) * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: nanos)
+            guard !Task.isCancelled else { return }
+            if undoDelete?.issueId == banner.issueId {
+                undoDelete = nil
+            }
+        }
+    }
+
+    func clearUndoDelete() {
+        undoDeleteTask?.cancel()
+        undoDeleteTask = nil
+        undoDelete = nil
     }
 
     @discardableResult
@@ -714,6 +804,7 @@ final class AppStore {
         )
         try await db.write { db in
             guard let issue = try Issue.fetchOne(db, key: issueId) else { throw StoreError.notFound }
+            if issue.deletedAt != nil { throw StoreError.notFound }
             try comment.insert(db)
             if var issue = try Issue.fetchOne(db, key: issueId) {
                 issue.updatedAt = Date()
@@ -778,7 +869,7 @@ final class AppStore {
     ) async throws -> Milestone {
         let trimmed = Self.normalizeTitle(title)
         guard !trimmed.isEmpty else { throw StoreError.emptyTitle }
-        try Self.validateRelatedIdentifiers(relatedIssueIdentifiers)
+        try ensureRelatedIssuesExist(relatedIssueIdentifiers)
 
         var resolvedProjectId = projectId
         if resolvedProjectId == nil, let projectKey,
@@ -829,6 +920,9 @@ final class AppStore {
         relatedIssueIdentifiers: [String]? = nil,
         actor: String = "Riyu"
     ) async throws -> Milestone {
+        if let relatedIssueIdentifiers {
+            try ensureRelatedIssuesExist(relatedIssueIdentifiers)
+        }
         let updated = try await db.write { db -> Milestone in
             guard var ms = try Milestone.fetchOne(db, key: id) else { throw StoreError.notFound }
             var changes: [String] = []
@@ -857,7 +951,15 @@ final class AppStore {
                 changes.append("project")
             }
             if let relatedIssueIdentifiers {
-                try Self.validateRelatedIdentifiers(relatedIssueIdentifiers)
+                // Existence checked on MainActor before write when possible; format always.
+                try Self.validateRelatedIdentifierFormat(relatedIssueIdentifiers)
+                let known = try Set(Issue.filter(sql: "deletedAt IS NULL").fetchAll(db).map { $0.identifier.uppercased() })
+                let unknown = relatedIssueIdentifiers
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty && !known.contains($0.uppercased()) }
+                if !unknown.isEmpty {
+                    throw StoreError.unknownRelatedIssue(unknown.joined(separator: ", "))
+                }
                 ms.relatedIssueIdentifiers = Milestone.encodeIdentifiers(relatedIssueIdentifiers)
                 changes.append("relatedIssues")
             }
@@ -968,6 +1070,7 @@ final class AppStore {
             "createdAt": ISO8601DateFormatter().string(from: issue.createdAt),
             "updatedAt": ISO8601DateFormatter().string(from: issue.updatedAt),
             "completedAt": issue.completedAt.map { ISO8601DateFormatter().string(from: $0) } ?? NSNull(),
+            "deletedAt": issue.deletedAt.map { ISO8601DateFormatter().string(from: $0) } ?? NSNull(),
         ]
     }
 
@@ -977,7 +1080,7 @@ final class AppStore {
             "key": project.key,
             "name": project.name,
             "color": project.color,
-            "issueCount": issues.filter { $0.projectId == project.id }.count,
+            "issueCount": activeIssues.filter { $0.projectId == project.id }.count,
             "createdAt": ISO8601DateFormatter().string(from: project.createdAt),
         ]
     }
@@ -1014,8 +1117,25 @@ final class AppStore {
         ]
     }
 
+    /// Format + existence check for milestone related issues (active identifiers only).
+    func ensureRelatedIssuesExist(_ ids: [String]) throws {
+        try Self.validateRelatedIdentifierFormat(ids)
+        let known = Set(activeIssues.map { $0.identifier.uppercased() })
+        var unknown: [String] = []
+        for raw in ids {
+            let id = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !id.isEmpty else { continue }
+            if !known.contains(id.uppercased()) {
+                unknown.append(id)
+            }
+        }
+        if !unknown.isEmpty {
+            throw StoreError.unknownRelatedIssue(unknown.joined(separator: ", "))
+        }
+    }
+
     /// Basic related-issue identifier check: KEY-123 (2–6 alnum key + digits).
-    nonisolated static func validateRelatedIdentifiers(_ ids: [String]) throws {
+    nonisolated static func validateRelatedIdentifierFormat(_ ids: [String]) throws {
         let pattern = #"^[A-Za-z][A-Za-z0-9]{1,5}-\d+$"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
         for raw in ids {
@@ -1026,6 +1146,11 @@ final class AppStore {
                 throw StoreError.invalidRelatedIssue(id)
             }
         }
+    }
+
+    /// Legacy name — format only. Prefer `ensureRelatedIssuesExist` for milestone writes.
+    nonisolated static func validateRelatedIdentifiers(_ ids: [String]) throws {
+        try validateRelatedIdentifierFormat(ids)
     }
 
     /// Collapse embedded/consecutive whitespace (including newlines) to single spaces for UI safety.
@@ -1077,6 +1202,7 @@ enum StoreError: LocalizedError {
     case invalidPriority(String)
     case invalidDate(String)
     case invalidRelatedIssue(String)
+    case unknownRelatedIssue(String)
 
     var errorDescription: String? {
         switch self {
@@ -1093,6 +1219,8 @@ enum StoreError: LocalizedError {
             return "Invalid date '\(value)'. Expected ISO8601 or yyyy-MM-dd"
         case .invalidRelatedIssue(let value):
             return "Invalid related issue id '\(value)'. Expected KEY-123 (e.g. ARK-1)"
+        case .unknownRelatedIssue(let value):
+            return "Unknown related issue '\(value)'. No issue exists with that identifier."
         }
     }
 }

@@ -554,6 +554,29 @@ struct MilestoneEditorSheet: View {
                     }
                 }
                 TextField("Related issues (comma-separated)", text: $relatedRaw)
+                    .help("Existing identifiers like ARK-1, OPS-2")
+                if !pickerIssues.isEmpty {
+                    Menu("Add from project…") {
+                        ForEach(pickerIssues) { issue in
+                            Button("\(issue.identifier) — \(issue.title)") {
+                                addRelated(issue.identifier)
+                            }
+                            .disabled(relatedSet.contains(issue.identifier.uppercased()))
+                        }
+                    }
+                }
+                if !relatedTokens.isEmpty {
+                    HStack {
+                        ForEach(relatedTokens, id: \.self) { token in
+                            Text(token)
+                                .font(.caption.monospaced())
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.secondary.opacity(0.12))
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
                 if let errorText {
                     Text(errorText).foregroundStyle(.red).font(.caption)
                 }
@@ -581,6 +604,38 @@ struct MilestoneEditorSheet: View {
             scopeKey = "studio"
         }
         relatedRaw = milestone.relatedIdentifiers.joined(separator: ", ")
+    }
+
+    private var relatedTokens: [String] {
+        relatedRaw
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private var relatedSet: Set<String> {
+        Set(relatedTokens.map { $0.uppercased() })
+    }
+
+    private var pickerIssues: [Issue] {
+        let base = store.activeIssues.sorted {
+            if $0.identifier != $1.identifier { return $0.identifier < $1.identifier }
+            return $0.title < $1.title
+        }
+        if scopeKey == "studio" { return Array(base.prefix(40)) }
+        guard let p = store.projects.first(where: { $0.key == scopeKey }) else {
+            return Array(base.prefix(40))
+        }
+        return Array(base.filter { $0.projectId == p.id }.prefix(40))
+    }
+
+    private func addRelated(_ identifier: String) {
+        var tokens = relatedTokens
+        if !tokens.map({ $0.uppercased() }).contains(identifier.uppercased()) {
+            tokens.append(identifier)
+        }
+        relatedRaw = tokens.joined(separator: ", ")
+        errorText = nil
     }
 
     private func save() async {

@@ -155,7 +155,7 @@ final class MCPServer: @unchecked Sendable {
                 return .json(200, ["activities": items.map { store.activityDictionary($0) }])
 
             case ("GET", "/api/issues"):
-                var issues = store.issues
+                var issues = store.activeIssues
                 if let projectKey = query["projectKey"] ?? (json["projectKey"] as? String) {
                     if let p = store.projects.first(where: { $0.key.caseInsensitiveCompare(projectKey) == .orderedSame }) {
                         issues = issues.filter { $0.projectId == p.id }
@@ -364,7 +364,7 @@ final class MCPServer: @unchecked Sendable {
             return try text(store.projectDictionary(project))
 
         case "list_issues", "search_issues":
-            var issues = store.issues
+            var issues = store.activeIssues
             if let key = args["projectKey"] as? String,
                let p = store.projects.first(where: { $0.key.caseInsensitiveCompare(key) == .orderedSame }) {
                 issues = issues.filter { $0.projectId == p.id }

@@ -273,6 +273,30 @@ BAD_DATE="$(curl -sS --max-time 5 -X POST "$BASE/mcp" \
   }')"
 check_json "invalid milestone date error" "$BAD_DATE" '.error.message | test("Invalid date")'
 
+# Related-issue identifiers must exist (format alone is not enough).
+info "MCP create_milestone unknown related issue must error"
+BAD_REL="$(curl -sS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0","id":20,"method":"tools/call",
+    "params":{"name":"create_milestone","arguments":{"title":"Bad related smoke","targetDate":"2030-01-01","relatedIssueIdentifiers":["ARK-99999"],"actor":"Ops"}}
+  }')"
+check_json "unknown related issue error" "$BAD_REL" '.error.message | test("Unknown related issue")'
+
+if [[ -n "$IDENT" ]]; then
+  info "MCP create_milestone with valid related issue ($IDENT)"
+  GOOD_REL="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg t "Related smoke $(date +%Y%m%d-%H%M%S)" --arg ident "$IDENT" '{
+      jsonrpc:"2.0", id:21, method:"tools/call",
+      params:{
+        name:"create_milestone",
+        arguments:{ title:$t, projectKey:"ARK", status:"planned", targetDate:(now | strftime("%Y-%m-%d")), relatedIssueIdentifiers:[$ident], actor:"Product" }
+      }
+    }')")"
+  check_json "create_milestone with related issue" "$GOOD_REL" '(.error | not) and ((.result.structuredContent.relatedIssueIdentifiers // []) | index("'"$IDENT"'") != null or (.result.content[0].text | contains("'"$IDENT"'")))'
+fi
+
 # Cancel the issue this run created so overnight smokes do not clutter forever.
 if [[ "$FAIL" -eq 0 && ( -n "$IDENT" || -n "$ISSUE_ID" ) ]]; then
   info "MCP update_issue (cancel smoke issue)"

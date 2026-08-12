@@ -50,6 +50,17 @@ enum IssuePriority: String, Codable, CaseIterable, Identifiable, DatabaseValueCo
         }
     }
 
+    /// Compact label for filter chips.
+    var chipName: String {
+        switch self {
+        case .none: return "None"
+        case .low: return "Low"
+        case .medium: return "Medium"
+        case .high: return "High"
+        case .urgent: return "Urgent"
+        }
+    }
+
     var sortOrder: Int {
         switch self {
         case .urgent: return 0
@@ -103,6 +114,7 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
     case created_milestone
     case updated_milestone
     case deleted_issue
+    case restored_issue
 
     var displayName: String {
         switch self {
@@ -113,6 +125,7 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
         case .created_milestone: return "created milestone"
         case .updated_milestone: return "updated milestone"
         case .deleted_issue: return "deleted issue"
+        case .restored_issue: return "restored issue"
         }
     }
 }
@@ -183,7 +196,11 @@ struct Issue: Codable, FetchableRecord, PersistableRecord, Identifiable, Hashabl
     var updatedAt: Date
     /// Set when status becomes `.done`; cleared when leaving done.
     var completedAt: Date?
+    /// Soft-delete timestamp; nil means active.
+    var deletedAt: Date?
     var orderInStatus: Double
+
+    var isDeleted: Bool { deletedAt != nil }
 
     static let project = belongsTo(Project.self)
     static let comments = hasMany(Comment.self)
@@ -287,6 +304,8 @@ struct IssueFilter: Equatable {
     var priority: IssuePriority? = nil
     var query: String = ""
     var showCanceled: Bool = false
+    /// When true, list soft-deleted (Archived) issues instead of active ones.
+    var showDeleted: Bool = false
 }
 
 /// Aggregates for the Portfolio bird's-eye view.

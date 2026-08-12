@@ -37,6 +37,11 @@ Built for Origin Ark Studio so product direction lives in a real tracker, not ch
 - Unknown `status` / `priority` on create or update → rejected with a clear error (update does not partially apply other fields when status/priority is invalid).
 - Milestone `targetDate`: ISO8601 kept as-is; date-only `yyyy-MM-dd` stored as **noon UTC**; unparseable values (e.g. `not-a-date`) are rejected.
 - Titles collapse embedded/consecutive whitespace (including newlines) to single spaces.
+- Milestone `relatedIssueIdentifiers` must match **existing** issue identifiers (unknown IDs rejected).
+- Issue delete is **soft** (`deletedAt`); lists hide archived by default; ~10s Undo toast + Archived filter to restore.
+
+### List filters
+Status + priority chips; Canceled / Archived toggles.
 
 ## Requirements
 

@@ -274,6 +274,7 @@ enum SeedData {
                 createdAt: now.addingTimeInterval(Double(-idx) * 3600),
                 updatedAt: stamp,
                 completedAt: seed.status == .done ? stamp : nil,
+                deletedAt: nil,
                 orderInStatus: Double(idx)
             )
             try issue.insert(db)

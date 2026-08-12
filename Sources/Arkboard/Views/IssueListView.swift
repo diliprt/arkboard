@@ -9,6 +9,8 @@ struct IssueListView: View {
             EmptyIssuesView(
                 hasActiveSearch: !store.filter.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     || store.filter.status != nil
+                    || store.filter.priority != nil,
+                showingArchived: store.filter.showDeleted
             )
         } else {
             List(selection: Bindable(store).selectedIssueId) {
@@ -16,10 +18,22 @@ struct IssueListView: View {
                     IssueRowView(issue: issue, showProject: store.isInbox)
                         .tag(Optional(issue.id))
                         .contextMenu {
-                            statusMenu(for: issue)
-                            Divider()
-                            Button("Delete", role: .destructive) {
-                                pendingDeleteId = issue.id
+                            if store.filter.showDeleted {
+                                Button("Restore") {
+                                    Task {
+                                        do {
+                                            try await store.restoreIssue(issue.id)
+                                        } catch {
+                                            store.lastError = error.localizedDescription
+                                        }
+                                    }
+                                }
+                            } else {
+                                statusMenu(for: issue)
+                                Divider()
+                                Button("Delete", role: .destructive) {
+                                    pendingDeleteId = issue.id
+                                }
                             }
                         }
                 }
@@ -27,14 +41,14 @@ struct IssueListView: View {
             .listStyle(.inset)
             .accessibilityLabel(store.isInbox ? "Inbox issue list" : "Project issue list")
             .confirmationDialog(
-                "Delete this issue?",
+                "Archive this issue?",
                 isPresented: Binding(
                     get: { pendingDeleteId != nil },
                     set: { if !$0 { pendingDeleteId = nil } }
                 ),
                 titleVisibility: .visible
             ) {
-                Button("Delete", role: .destructive) {
+                Button("Archive", role: .destructive) {
                     guard let id = pendingDeleteId else { return }
                     pendingDeleteId = nil
                     Task {
@@ -48,9 +62,9 @@ struct IssueListView: View {
                 Button("Cancel", role: .cancel) { pendingDeleteId = nil }
             } message: {
                 if let id = pendingDeleteId, let issue = store.issues.first(where: { $0.id == id }) {
-                    Text("\(issue.identifier) — \(issue.title) will be permanently removed.")
+                    Text("\(issue.identifier) — \(issue.title) will be archived. You can undo for ~10s or restore from Archived.")
                 } else {
-                    Text("This cannot be undone.")
+                    Text("The issue will be archived (soft-deleted). Undo is available briefly.")
                 }
             }
         }

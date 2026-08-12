@@ -57,23 +57,91 @@ struct ActivityFeedView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(items) { activity in
-                    ActivityRow(activity: activity)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if let issue = store.issue(forActivity: activity) {
-                                store.selection = .project(issue.projectId)
-                                store.selectedIssueId = issue.id
-                            } else if let project = store.project(forActivity: activity) {
-                                store.selectProject(project.id)
+                let rows = Self.displayRows(items, collapseSystem: store.activityFilter == .all)
+                List {
+                    ForEach(rows) { row in
+                        switch row {
+                        case .single(let activity):
+                            ActivityRow(activity: activity)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                                .contentShape(Rectangle())
+                                .onTapGesture { open(activity) }
+                        case .systemGroup(let group):
+                            DisclosureGroup {
+                                ForEach(group) { activity in
+                                    ActivityRow(activity: activity)
+                                        .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { open(activity) }
+                                }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "gearshape.2")
+                                        .foregroundStyle(.secondary)
+                                    Text("\(group.count) system updates")
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 4)
                             }
+                            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                         }
+                    }
                 }
                 .listStyle(.plain)
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private func open(_ activity: Activity) {
+        if let issue = store.issue(forActivity: activity) {
+            store.selection = .project(issue.projectId)
+            store.selectedIssueId = issue.id
+        } else if let project = store.project(forActivity: activity) {
+            store.selectProject(project.id)
+        }
+    }
+
+    private enum DisplayRow: Identifiable {
+        case single(Activity)
+        case systemGroup([Activity])
+
+        var id: String {
+            switch self {
+            case .single(let a): return a.id
+            case .systemGroup(let g): return "sys-" + g.map(\.id).joined(separator: ",")
+            }
+        }
+    }
+
+    /// Collapse consecutive system activities into one disclosure when viewing All.
+    private static func displayRows(_ items: [Activity], collapseSystem: Bool) -> [DisplayRow] {
+        guard collapseSystem else { return items.map { .single($0) } }
+        var rows: [DisplayRow] = []
+        var buffer: [Activity] = []
+
+        func flush() {
+            guard !buffer.isEmpty else { return }
+            if buffer.count == 1 {
+                rows.append(.single(buffer[0]))
+            } else {
+                rows.append(.systemGroup(buffer))
+            }
+            buffer = []
+        }
+
+        for item in items {
+            if ActivityKind(rawValue: item.kind) == .system {
+                buffer.append(item)
+            } else {
+                flush()
+                rows.append(.single(item))
+            }
+        }
+        flush()
+        return rows
     }
 
     private var emptyDescription: String {
