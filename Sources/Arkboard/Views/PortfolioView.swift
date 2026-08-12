@@ -27,6 +27,8 @@ struct PortfolioView: View {
                 }
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityLabel("Portfolio section")
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
 
@@ -99,13 +101,17 @@ struct PortfolioView: View {
                     )
                     .frame(maxWidth: .infinity, minHeight: 240)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 16)], spacing: 16) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 420), spacing: 16)], spacing: 16) {
                         ForEach(store.portfolioCards) { card in
                             ProjectPortfolioCardView(card: card) {
                                 store.selectProject(card.project.id)
                             }
                         }
                     }
+                    .frame(maxWidth: 920, alignment: .leading)
+                    Text("Feature / bug / other can overlap — an issue may carry multiple labels.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
                 if !store.hasRichBotDialogue {
                     seedBar
@@ -728,16 +734,21 @@ private struct ProjectPortfolioCardView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                HStack(spacing: 6) {
-                    ForEach(IssueStatus.allCases) { status in
-                        let count = card.byStatus[status] ?? 0
-                        if count > 0 {
-                            Text("\(status.displayName) \(count)")
-                                .font(.caption2)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(Color.secondary.opacity(0.12))
-                                .clipShape(Capsule())
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(IssueStatus.allCases) { status in
+                            let count = card.byStatus[status] ?? 0
+                            if count > 0 {
+                                Text("\(status.shortName) \(count)")
+                                    .font(.caption2.monospacedDigit())
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
+                                    .background(Color.secondary.opacity(0.12))
+                                    .clipShape(Capsule())
+                                    .accessibilityLabel("\(status.displayName): \(count)")
+                            }
                         }
                     }
                 }

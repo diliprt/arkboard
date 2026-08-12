@@ -16,6 +16,17 @@ enum IssueStatus: String, Codable, CaseIterable, Identifiable, DatabaseValueConv
         }
     }
 
+    /// Compact chip label for dense Portfolio cards.
+    var shortName: String {
+        switch self {
+        case .backlog: return "Backlog"
+        case .todo: return "Todo"
+        case .in_progress: return "In prog"
+        case .done: return "Done"
+        case .canceled: return "Canceled"
+        }
+    }
+
     var sortOrder: Int {
         switch self {
         case .backlog: return 0
