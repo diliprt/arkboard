@@ -1138,13 +1138,18 @@ final class AppStore {
             if finalURL == nil, let num = finalNumber {
                 if let repo = GitHubIssueLink.normalizeRepo(project.githubRepo) ?? initialUrlRepo {
                     finalURL = GitHubIssueLink.buildIssueURL(repo: repo, number: num)
+                } else {
+                    throw StoreError.missingGitHubRepo
                 }
             }
             if finalNumber == nil, let finalURL {
                 finalNumber = GitHubIssueLink.parseIssueURL(finalURL).number
             }
-            guard let number = finalNumber, let link = finalURL else {
+            guard let number = finalNumber else {
                 throw StoreError.invalidGitHubLink
+            }
+            guard let link = finalURL else {
+                throw StoreError.missingGitHubRepo
             }
 
             issue.githubIssueNumber = number
@@ -1481,11 +1486,11 @@ enum StoreError: LocalizedError {
         case .unknownRelatedIssue(let value):
             return "Unknown related issue '\(value)'. No issue exists with that identifier."
         case .invalidGitHubRepo(let value):
-            return "Invalid GitHub repo '\(value)'. Expected owner/name"
+            return "Invalid GitHub repository '\(value)'. Use owner/name (for example diliprt/arkboard)."
         case .missingGitHubRepo:
-            return "Project has no githubRepo. Call set_project_github_repo first."
+            return "This project has no GitHub repository set."
         case .invalidGitHubLink:
-            return "Provide githubIssueNumber and/or a githubIssueUrl like https://github.com/owner/repo/issues/1"
+            return "Provide a GitHub issue URL or number (for example https://github.com/owner/repo/issues/1 or #12)."
         case .githubCLIFailed(let value):
             return "GitHub CLI failed: \(value)"
         }
