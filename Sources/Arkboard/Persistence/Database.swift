@@ -157,6 +157,26 @@ enum AppDatabase {
                 }
             }
         }
+
+        migrator.registerMigration("v6_github_links") { db in
+            let projectColumns = try Set(db.columns(in: "project").map(\.name))
+            if !projectColumns.contains("githubRepo") {
+                try db.alter(table: "project") { t in
+                    t.add(column: "githubRepo", .text)
+                }
+            }
+            let issueColumns = try Set(db.columns(in: "issue").map(\.name))
+            if !issueColumns.contains("githubIssueNumber") {
+                try db.alter(table: "issue") { t in
+                    t.add(column: "githubIssueNumber", .integer)
+                }
+            }
+            if !issueColumns.contains("githubIssueUrl") {
+                try db.alter(table: "issue") { t in
+                    t.add(column: "githubIssueUrl", .text)
+                }
+            }
+        }
         return migrator
     }
 }

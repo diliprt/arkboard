@@ -16,6 +16,9 @@ struct IssueDetailView: View {
     @State private var isDirty = false
     @State private var saveState: SaveState = .idle
     @State private var confirmArchive = false
+    @State private var showLinkGitHub = false
+    @State private var githubLinkDraft = ""
+    @State private var githubBusy = false
 
     private enum SaveState: Equatable {
         case idle, saving, saved, failed
@@ -117,6 +120,10 @@ struct IssueDetailView: View {
 
                 Divider()
 
+                githubSection
+
+                Divider()
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Comments")
                         .font(.headline)
@@ -200,6 +207,36 @@ struct IssueDetailView: View {
         } message: {
             Text("\(issue.identifier) — \(issue.title) will be archived. You can undo for ~10s or restore from Archived.")
         }
+        .alert("Link GitHub issue", isPresented: $showLinkGitHub) {
+            TextField("https://github.com/owner/repo/issues/1", text: $githubLinkDraft)
+            Button("Link") {
+                Task {
+                    githubBusy = true
+                    let draft = githubLinkDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    var number: Int? = nil
+                    var url: String? = draft
+                    if draft.hasPrefix("#"), let n = Int(draft.dropFirst()) {
+                        number = n
+                        url = nil
+                    } else if let n = Int(draft) {
+                        number = n
+                        url = nil
+                    }
+                    await mutate {
+                        try await store.linkIssueGitHub(
+                            identifier: issue.identifier,
+                            number: number,
+                            url: url,
+                            actor: "Riyu"
+                        )
+                    }
+                    githubBusy = false
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Paste a GitHub issue URL, or #number if the project repo is set.")
+        }
         .onAppear { syncFromIssue(force: true) }
         .onChange(of: issue.id) { _, _ in syncFromIssue(force: true) }
         .onChange(of: issue.updatedAt) { _, _ in
@@ -282,6 +319,66 @@ struct IssueDetailView: View {
                     store.lastError = error.localizedDescription
                     saveState = .failed
                 }
+            }
+        }
+    }
+
+
+    @ViewBuilder
+    private var githubSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("GitHub")
+                .font(.headline)
+
+            if let url = issue.githubIssueUrl, !url.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "link")
+                        .foregroundStyle(.secondary)
+                    if let number = issue.githubIssueNumber {
+                        Text("#\(number)")
+                            .font(.subheadline.monospaced())
+                    }
+                    Link(destination: URL(string: url) ?? URL(string: "https://github.com")!) {
+                        Text(url)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    Spacer()
+                    Button("Unlink") {
+                        Task {
+                            githubBusy = true
+                            await mutate {
+                                try await store.unlinkIssueGitHub(identifier: issue.identifier, actor: "Riyu")
+                            }
+                            githubBusy = false
+                        }
+                    }
+                    .disabled(githubBusy)
+                }
+            } else {
+                Text("Not linked")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                Button("Link…") {
+                    githubLinkDraft = issue.githubIssueUrl ?? ""
+                    showLinkGitHub = true
+                }
+                .disabled(githubBusy || issue.deletedAt != nil)
+
+                Button("Create on GitHub") {
+                    Task {
+                        githubBusy = true
+                        await mutate {
+                            try await store.createGitHubIssue(identifier: issue.identifier, actor: "Riyu")
+                        }
+                        githubBusy = false
+                    }
+                }
+                .disabled(githubBusy || issue.deletedAt != nil || issue.githubIssueUrl != nil)
             }
         }
     }
