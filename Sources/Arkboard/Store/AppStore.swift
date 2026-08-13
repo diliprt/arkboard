@@ -1052,6 +1052,263 @@ final class AppStore {
         return (issue, threadComments, threadActivity)
     }
 
+
+    // MARK: - GitHub link / sync
+
+    @discardableResult
+    func setProjectGitHubRepo(projectKey: String? = nil, projectId: String? = nil, repo: String?, actor: String = "Riyu") async throws -> Project {
+        let keyOrId = (projectId?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+            ?? (projectKey?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+        guard let keyOrId else { throw StoreError.notFound }
+        let normalized: String?
+        if let repo, !repo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            guard let n = GitHubIssueLink.normalizeRepo(repo) else { throw StoreError.invalidGitHubRepo(repo) }
+            normalized = n
+        } else {
+            normalized = nil
+        }
+        let updated = try await db.write { db -> Project in
+            guard var project = try Self.projectsLookup(db, keyOrId: keyOrId) else {
+                throw StoreError.notFound
+            }
+            project.githubRepo = normalized
+            try project.update(db)
+            let summary: String
+            if let normalized {
+                summary = "\(actor) set \(project.key) GitHub repo to \(normalized)"
+            } else {
+                summary = "\(actor) cleared \(project.key) GitHub repo"
+            }
+            try ActivityLogger.insert(
+                db,
+                actor: actor,
+                action: ActivityAction.set_project_github_repo.rawValue,
+                summary: summary,
+                projectId: project.id,
+                kind: .system
+            )
+            return project
+        }
+        try await reloadAll()
+        return projects.first(where: { $0.id == updated.id }) ?? updated
+    }
+
+    @discardableResult
+    func linkIssueGitHub(
+        identifier: String? = nil,
+        id: String? = nil,
+        number: Int? = nil,
+        url: String? = nil,
+        actor: String = "Riyu"
+    ) async throws -> Issue {
+        let key = (id?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+            ?? (identifier?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+        guard let key else { throw StoreError.notFound }
+
+        let parsed = GitHubIssueLink.parseIssueURL(url)
+        var resolvedNumber = number ?? parsed.number
+        var resolvedURL = url?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let value = resolvedURL, value.isEmpty { resolvedURL = nil }
+        let urlRepo = parsed.repo
+
+        if resolvedNumber == nil, let resolvedURL {
+            resolvedNumber = GitHubIssueLink.parseIssueURL(resolvedURL).number
+        }
+
+        guard resolvedNumber != nil || resolvedURL != nil else {
+            throw StoreError.invalidGitHubLink
+        }
+
+        let initialNumber = resolvedNumber
+        let initialURL = resolvedURL
+        let initialUrlRepo = urlRepo
+
+        let updated = try await db.write { db -> Issue in
+            guard var issue = try Self.fetchIssue(db, key: key) else { throw StoreError.notFound }
+            if issue.deletedAt != nil { throw StoreError.notFound }
+            guard var project = try Project.fetchOne(db, key: issue.projectId) else { throw StoreError.noProject }
+
+            if (project.githubRepo == nil || project.githubRepo?.isEmpty == true), let initialUrlRepo {
+                project.githubRepo = initialUrlRepo
+                try project.update(db)
+            }
+
+            var finalNumber = initialNumber
+            var finalURL = initialURL
+            if finalURL == nil, let num = finalNumber {
+                if let repo = GitHubIssueLink.normalizeRepo(project.githubRepo) ?? initialUrlRepo {
+                    finalURL = GitHubIssueLink.buildIssueURL(repo: repo, number: num)
+                } else {
+                    throw StoreError.missingGitHubRepo
+                }
+            }
+            if finalNumber == nil, let finalURL {
+                finalNumber = GitHubIssueLink.parseIssueURL(finalURL).number
+            }
+            guard let number = finalNumber else {
+                throw StoreError.invalidGitHubLink
+            }
+            guard let link = finalURL else {
+                throw StoreError.missingGitHubRepo
+            }
+
+            issue.githubIssueNumber = number
+            issue.githubIssueUrl = link
+            issue.updatedAt = Date()
+            try issue.update(db)
+            try ActivityLogger.insert(
+                db,
+                actor: actor,
+                action: ActivityAction.linked_github_issue.rawValue,
+                summary: "\(actor) linked \(issue.identifier) to \(link)",
+                issueId: issue.id,
+                projectId: issue.projectId,
+                kind: .system
+            )
+            return issue
+        }
+        try await reloadAll()
+        return issues.first(where: { $0.id == updated.id }) ?? updated
+    }
+
+    @discardableResult
+    func unlinkIssueGitHub(identifier: String? = nil, id: String? = nil, actor: String = "Riyu") async throws -> Issue {
+        let key = (id?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+            ?? (identifier?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+        guard let key else { throw StoreError.notFound }
+        let updated = try await db.write { db -> Issue in
+            guard var issue = try Self.fetchIssue(db, key: key) else { throw StoreError.notFound }
+            if issue.deletedAt != nil { throw StoreError.notFound }
+            issue.githubIssueNumber = nil
+            issue.githubIssueUrl = nil
+            issue.updatedAt = Date()
+            try issue.update(db)
+            try ActivityLogger.insert(
+                db,
+                actor: actor,
+                action: ActivityAction.unlinked_github_issue.rawValue,
+                summary: "\(actor) unlinked GitHub from \(issue.identifier)",
+                issueId: issue.id,
+                projectId: issue.projectId,
+                kind: .system
+            )
+            return issue
+        }
+        try await reloadAll()
+        return issues.first(where: { $0.id == updated.id }) ?? updated
+    }
+
+    @discardableResult
+    func createGitHubIssue(identifier: String? = nil, id: String? = nil, actor: String = "Riyu") async throws -> Issue {
+        let key = (id?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+            ?? (identifier?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+        guard let key else { throw StoreError.notFound }
+        guard let issue = issues.first(where: {
+            $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame
+        }), issue.deletedAt == nil else { throw StoreError.notFound }
+        guard let project = project(for: issue) else { throw StoreError.noProject }
+        guard let repo = GitHubIssueLink.normalizeRepo(project.githubRepo) else {
+            throw StoreError.missingGitHubRepo
+        }
+
+        let body = """
+        \(issue.descriptionMarkdown)
+
+        ---
+        Arkboard: \(issue.identifier)
+        """
+        let createdURL = try await Self.runGhIssueCreate(repo: repo, title: issue.title, body: body)
+        let parsed = GitHubIssueLink.parseIssueURL(createdURL)
+        guard let number = parsed.number else {
+            throw StoreError.githubCLIFailed("Could not parse issue URL from gh: \(createdURL)")
+        }
+        let url = parsed.repo != nil ? createdURL.trimmingCharacters(in: .whitespacesAndNewlines) : GitHubIssueLink.buildIssueURL(repo: repo, number: number)
+
+        let updated = try await db.write { db -> Issue in
+            guard var fresh = try Issue.fetchOne(db, key: issue.id) else { throw StoreError.notFound }
+            fresh.githubIssueNumber = number
+            fresh.githubIssueUrl = url
+            fresh.updatedAt = Date()
+            try fresh.update(db)
+            try ActivityLogger.insert(
+                db,
+                actor: actor,
+                action: ActivityAction.created_github_issue.rawValue,
+                summary: "\(actor) created GitHub issue for \(fresh.identifier): \(url)",
+                issueId: fresh.id,
+                projectId: fresh.projectId,
+                kind: .system
+            )
+            return fresh
+        }
+        try await reloadAll()
+        return issues.first(where: { $0.id == updated.id }) ?? updated
+    }
+
+    nonisolated private static func fetchIssue(_ db: Database, key: String) throws -> Issue? {
+        if let byId = try Issue.fetchOne(db, key: key) { return byId }
+        return try Issue
+            .filter(sql: "LOWER(identifier) = LOWER(?)", arguments: [key])
+            .fetchOne(db)
+    }
+
+    nonisolated private static func projectsLookup(_ db: Database, keyOrId: String) throws -> Project? {
+        if let byId = try Project.fetchOne(db, key: keyOrId) { return byId }
+        return try Project
+            .filter(sql: "LOWER(key) = LOWER(?)", arguments: [keyOrId])
+            .fetchOne(db)
+    }
+
+    nonisolated private static func runGhIssueCreate(repo: String, title: String, body: String) async throws -> String {
+        try await withCheckedThrowingContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let gh = Self.resolveGhPath()
+                    let process = Process()
+                    process.executableURL = URL(fileURLWithPath: gh)
+                    process.arguments = ["issue", "create", "-R", repo, "--title", title, "--body", body]
+                    let out = Pipe()
+                    let err = Pipe()
+                    process.standardOutput = out
+                    process.standardError = err
+                    try process.run()
+                    process.waitUntilExit()
+                    let stdout = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                    let stderr = String(data: err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                    guard process.terminationStatus == 0 else {
+                        let msg = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+                        cont.resume(throwing: StoreError.githubCLIFailed(msg.isEmpty ? "gh exited \(process.terminationStatus)" : msg))
+                        return
+                    }
+                    let trimmed = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                    // gh prints the URL on its own line
+                    if let line = trimmed.split(whereSeparator: { $0.isNewline }).map(String.init).first(where: { $0.contains("github.com/") }) {
+                        cont.resume(returning: line.trimmingCharacters(in: .whitespacesAndNewlines))
+                    } else if trimmed.contains("github.com/") {
+                        cont.resume(returning: trimmed)
+                    } else {
+                        cont.resume(throwing: StoreError.githubCLIFailed("Unexpected gh output: \(trimmed)"))
+                    }
+                } catch {
+                    cont.resume(throwing: StoreError.githubCLIFailed(error.localizedDescription))
+                }
+            }
+        }
+    }
+
+    nonisolated private static func resolveGhPath() -> String {
+        let candidates = [
+            "/opt/homebrew/bin/gh",
+            "/usr/local/bin/gh",
+            "/usr/bin/gh",
+        ]
+        for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
+            return path
+        }
+        return "/opt/homebrew/bin/gh"
+    }
+
+
     // MARK: - Export for MCP / API
 
     func issueDictionary(_ issue: Issue) -> [String: Any] {
@@ -1071,6 +1328,8 @@ final class AppStore {
             "updatedAt": ISO8601DateFormatter().string(from: issue.updatedAt),
             "completedAt": issue.completedAt.map { ISO8601DateFormatter().string(from: $0) } ?? NSNull(),
             "deletedAt": issue.deletedAt.map { ISO8601DateFormatter().string(from: $0) } ?? NSNull(),
+            "githubIssueNumber": issue.githubIssueNumber ?? NSNull(),
+            "githubIssueUrl": issue.githubIssueUrl ?? NSNull(),
         ]
     }
 
@@ -1081,6 +1340,7 @@ final class AppStore {
             "name": project.name,
             "color": project.color,
             "issueCount": activeIssues.filter { $0.projectId == project.id }.count,
+            "githubRepo": project.githubRepo ?? NSNull(),
             "createdAt": ISO8601DateFormatter().string(from: project.createdAt),
         ]
     }
@@ -1203,6 +1463,10 @@ enum StoreError: LocalizedError {
     case invalidDate(String)
     case invalidRelatedIssue(String)
     case unknownRelatedIssue(String)
+    case invalidGitHubRepo(String)
+    case missingGitHubRepo
+    case invalidGitHubLink
+    case githubCLIFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -1221,6 +1485,14 @@ enum StoreError: LocalizedError {
             return "Invalid related issue id '\(value)'. Expected KEY-123 (e.g. ARK-1)"
         case .unknownRelatedIssue(let value):
             return "Unknown related issue '\(value)'. No issue exists with that identifier."
+        case .invalidGitHubRepo(let value):
+            return "Invalid GitHub repository '\(value)'. Use owner/name (for example diliprt/arkboard)."
+        case .missingGitHubRepo:
+            return "This project has no GitHub repository set."
+        case .invalidGitHubLink:
+            return "Provide a GitHub issue URL or number (for example https://github.com/owner/repo/issues/1 or #12)."
+        case .githubCLIFailed(let value):
+            return "GitHub CLI failed: \(value)"
         }
     }
 }

@@ -126,6 +126,10 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
     case updated_milestone
     case deleted_issue
     case restored_issue
+    case linked_github_issue
+    case unlinked_github_issue
+    case created_github_issue
+    case set_project_github_repo
 
     var displayName: String {
         switch self {
@@ -137,6 +141,10 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
         case .updated_milestone: return "updated milestone"
         case .deleted_issue: return "deleted issue"
         case .restored_issue: return "restored issue"
+        case .linked_github_issue: return "linked GitHub issue"
+        case .unlinked_github_issue: return "unlinked GitHub issue"
+        case .created_github_issue: return "created GitHub issue"
+        case .set_project_github_repo: return "set project GitHub repo"
         }
     }
 }
@@ -188,6 +196,8 @@ struct Project: Codable, FetchableRecord, PersistableRecord, Identifiable, Hasha
     var color: String
     var createdAt: Date
     var issueCounter: Int
+    /// Optional default GitHub repo `owner/name` for issue link/create.
+    var githubRepo: String? = nil
 
     static let issues = hasMany(Issue.self)
 }
@@ -210,6 +220,10 @@ struct Issue: Codable, FetchableRecord, PersistableRecord, Identifiable, Hashabl
     /// Soft-delete timestamp; nil means active.
     var deletedAt: Date?
     var orderInStatus: Double
+    /// Linked GitHub issue number (within project.githubRepo or URL repo).
+    var githubIssueNumber: Int? = nil
+    /// Canonical GitHub issue URL when linked.
+    var githubIssueUrl: String? = nil
 
     var isDeleted: Bool { deletedAt != nil }
 

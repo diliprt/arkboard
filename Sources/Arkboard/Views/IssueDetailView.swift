@@ -16,9 +16,44 @@ struct IssueDetailView: View {
     @State private var isDirty = false
     @State private var saveState: SaveState = .idle
     @State private var confirmArchive = false
+    @State private var showLinkGitHub = false
+    @State private var showSetGitHubRepo = false
+    @State private var confirmUnlinkGitHub = false
+    @State private var githubLinkDraft = ""
+    @State private var githubRepoDraft = ""
+    @State private var githubBusy = false
+    @State private var githubBusyLabel: String?
 
     private enum SaveState: Equatable {
         case idle, saving, saved, failed
+    }
+
+    private var project: Project? {
+        store.project(for: issue)
+    }
+
+    private var projectGitHubRepo: String? {
+        GitHubIssueLink.normalizeRepo(project?.githubRepo)
+    }
+
+    private var linkedGitHubPrimaryLabel: String {
+        let parsed = GitHubIssueLink.parseIssueURL(issue.githubIssueUrl)
+        let repo = parsed.repo ?? projectGitHubRepo
+        let number = issue.githubIssueNumber ?? parsed.number
+        if let repo, let number {
+            return "\(repo)#\(number)"
+        }
+        if let number {
+            return "#\(number)"
+        }
+        return issue.githubIssueUrl ?? "Linked"
+    }
+
+    private var unlinkConfirmTitle: String {
+        if let number = issue.githubIssueNumber {
+            return "Unlink #\(number) from \(issue.identifier)?"
+        }
+        return "Unlink GitHub from \(issue.identifier)?"
     }
 
     var body: some View {
@@ -28,7 +63,7 @@ struct IssueDetailView: View {
                     Text(issue.identifier)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
-                    if let project = store.project(for: issue) {
+                    if let project {
                         Text("·")
                             .foregroundStyle(.secondary)
                         Circle().fill(Color(hex: project.color)).frame(width: 8, height: 8)
@@ -117,6 +152,10 @@ struct IssueDetailView: View {
 
                 Divider()
 
+                githubSection
+
+                Divider()
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Comments")
                         .font(.headline)
@@ -199,6 +238,79 @@ struct IssueDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("\(issue.identifier) — \(issue.title) will be archived. You can undo for ~10s or restore from Archived.")
+        }
+        .confirmationDialog(
+            unlinkConfirmTitle,
+            isPresented: $confirmUnlinkGitHub,
+            titleVisibility: .visible
+        ) {
+            Button("Unlink", role: .destructive) {
+                Task {
+                    await runGitHubBusy("Unlinking…") {
+                        try await store.unlinkIssueGitHub(identifier: issue.identifier, actor: "Riyu")
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Link GitHub issue", isPresented: $showLinkGitHub) {
+            TextField(
+                projectGitHubRepo == nil
+                    ? "https://github.com/owner/repo/issues/1"
+                    : "URL or #number",
+                text: $githubLinkDraft
+            )
+            Button("Link") {
+                Task {
+                    await runGitHubBusy("Linking…") {
+                        let draft = githubLinkDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                        var number: Int? = nil
+                        var url: String? = draft
+                        if draft.hasPrefix("#"), let n = Int(draft.dropFirst()) {
+                            number = n
+                            url = nil
+                        } else if let n = Int(draft) {
+                            number = n
+                            url = nil
+                        }
+                        try await store.linkIssueGitHub(
+                            identifier: issue.identifier,
+                            number: number,
+                            url: url,
+                            actor: "Riyu"
+                        )
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let repo = projectGitHubRepo {
+                Text("Paste a GitHub issue URL, or a number like #12 for \(repo).")
+            } else {
+                Text("Paste a full GitHub issue URL, or set a project GitHub repo first to link by number.")
+            }
+        }
+        .alert(
+            projectGitHubRepo == nil ? "Set project GitHub repo" : "Edit project GitHub repo",
+            isPresented: $showSetGitHubRepo
+        ) {
+            TextField("owner/repo", text: $githubRepoDraft)
+            Button("Save") {
+                Task {
+                    guard let project else { return }
+                    await runGitHubBusy("Saving…") {
+                        let draft = githubRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                        try await store.setProjectGitHubRepo(
+                            projectId: project.id,
+                            repo: draft.isEmpty ? nil : draft,
+                            actor: "Riyu"
+                        )
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Example: diliprt/arkboard. Leave blank and Save to clear.")
         }
         .onAppear { syncFromIssue(force: true) }
         .onChange(of: issue.id) { _, _ in syncFromIssue(force: true) }
@@ -284,6 +396,127 @@ struct IssueDetailView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var githubSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("GitHub")
+                    .font(.headline)
+                Spacer()
+                if githubBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                    if let githubBusyLabel {
+                        Text(githubBusyLabel)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "folder")
+                    .foregroundStyle(.secondary)
+                if let repo = projectGitHubRepo {
+                    Text(repo)
+                        .font(.subheadline.monospaced())
+                    Button("Edit…") {
+                        githubRepoDraft = repo
+                        showSetGitHubRepo = true
+                    }
+                    .disabled(githubBusy || issue.deletedAt != nil)
+                    Button("Clear", role: .destructive) {
+                        Task {
+                            guard let project else { return }
+                            await runGitHubBusy("Saving…") {
+                                try await store.setProjectGitHubRepo(
+                                    projectId: project.id,
+                                    repo: nil,
+                                    actor: "Riyu"
+                                )
+                            }
+                        }
+                    }
+                    .disabled(githubBusy || issue.deletedAt != nil)
+                } else {
+                    Text("No project repo set")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Set…") {
+                        githubRepoDraft = ""
+                        showSetGitHubRepo = true
+                    }
+                    .disabled(githubBusy || issue.deletedAt != nil || project == nil)
+                }
+            }
+
+            if let url = issue.githubIssueUrl, !url.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "link")
+                        .foregroundStyle(.secondary)
+                    Link(destination: URL(string: url) ?? URL(string: "https://github.com")!) {
+                        Text(linkedGitHubPrimaryLabel)
+                            .font(.subheadline.monospaced())
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .help(url)
+                    Text(url)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(url)
+                    Spacer()
+                    Button("Unlink") {
+                        confirmUnlinkGitHub = true
+                    }
+                    .disabled(githubBusy)
+                }
+            } else {
+                Text("Not linked")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                Button(issue.githubIssueUrl == nil ? "Link…" : "Change link…") {
+                    githubLinkDraft = issue.githubIssueUrl ?? ""
+                    showLinkGitHub = true
+                }
+                .disabled(githubBusy || issue.deletedAt != nil)
+
+                Button("Create on GitHub") {
+                    Task {
+                        await runGitHubBusy("Creating…") {
+                            try await store.createGitHubIssue(identifier: issue.identifier, actor: "Riyu")
+                        }
+                    }
+                }
+                .disabled(
+                    githubBusy
+                        || issue.deletedAt != nil
+                        || issue.githubIssueUrl != nil
+                        || projectGitHubRepo == nil
+                )
+            }
+
+            if projectGitHubRepo == nil, issue.githubIssueUrl == nil, issue.deletedAt == nil {
+                Text("Set a GitHub repo for this project first")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func runGitHubBusy(_ label: String, _ body: () async throws -> Void) async {
+        githubBusy = true
+        githubBusyLabel = label
+        await mutate(body)
+        githubBusy = false
+        githubBusyLabel = nil
     }
 
     private func mutate(_ body: () async throws -> Void) async {

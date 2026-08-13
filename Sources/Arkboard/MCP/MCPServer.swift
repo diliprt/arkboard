@@ -458,6 +458,23 @@ final class MCPServer: @unchecked Sendable {
             if let labels = args["labels"] as? [String] {
                 try await store.setIssueLabels(issueId: updated.id, labelNames: labels, actor: actor)
             }
+            if args.keys.contains("githubIssueNumber") || args.keys.contains("githubIssueUrl") {
+                let num: Int?
+                if let i = args["githubIssueNumber"] as? Int {
+                    num = i
+                } else if let n = args["githubIssueNumber"] as? NSNumber {
+                    num = n.intValue
+                } else {
+                    num = nil
+                }
+                _ = try await store.linkIssueGitHub(
+                    identifier: nil,
+                    id: updated.id,
+                    number: num,
+                    url: args["githubIssueUrl"] as? String,
+                    actor: actor
+                )
+            }
             let fresh = store.issues.first(where: { $0.id == updated.id }) ?? updated
             return try text(store.issueDictionary(fresh))
 
@@ -573,6 +590,59 @@ final class MCPServer: @unchecked Sendable {
                 "activities": thread.activities.map { store.activityDictionary($0) },
             ])
 
+        case "set_project_github_repo":
+            let actor = Self.resolvedActor(args)
+            let repo = (args["githubRepo"] as? String) ?? (args["repo"] as? String)
+            let project = try await store.setProjectGitHubRepo(
+                projectKey: args["projectKey"] as? String,
+                projectId: args["projectId"] as? String,
+                repo: repo,
+                actor: actor
+            )
+            return try text(store.projectDictionary(project))
+
+        case "link_github_issue":
+            let actor = Self.resolvedActor(args)
+            let num: Int?
+            if let i = args["number"] as? Int {
+                num = i
+            } else if let n = args["number"] as? NSNumber {
+                num = n.intValue
+            } else if let i = args["githubIssueNumber"] as? Int {
+                num = i
+            } else if let n = args["githubIssueNumber"] as? NSNumber {
+                num = n.intValue
+            } else {
+                num = nil
+            }
+            let url = (args["url"] as? String) ?? (args["githubIssueUrl"] as? String)
+            let issue = try await store.linkIssueGitHub(
+                identifier: args["identifier"] as? String,
+                id: (args["id"] as? String) ?? (args["issueId"] as? String),
+                number: num,
+                url: url,
+                actor: actor
+            )
+            return try text(store.issueDictionary(issue))
+
+        case "create_github_issue":
+            let actor = Self.resolvedActor(args)
+            let issue = try await store.createGitHubIssue(
+                identifier: args["identifier"] as? String,
+                id: (args["id"] as? String) ?? (args["issueId"] as? String),
+                actor: actor
+            )
+            return try text(store.issueDictionary(issue))
+
+        case "unlink_github_issue":
+            let actor = Self.resolvedActor(args)
+            let issue = try await store.unlinkIssueGitHub(
+                identifier: args["identifier"] as? String,
+                id: (args["id"] as? String) ?? (args["issueId"] as? String),
+                actor: actor
+            )
+            return try text(store.issueDictionary(issue))
+
         default:
             throw NSError(domain: "MCP", code: -32601, userInfo: [NSLocalizedDescriptionKey: "Unknown tool: \(name)"])
         }
@@ -676,6 +746,7 @@ enum MCPToolCatalog {
         "list_projects", "create_project", "list_issues", "get_issue",
         "create_issue", "update_issue", "delete_issue", "restore_issue", "add_comment", "search_issues", "list_activity",
         "list_milestones", "create_milestone", "update_milestone", "list_bot_thread",
+        "set_project_github_repo", "link_github_issue", "create_github_issue", "unlink_github_issue",
     ]
 
     static var tools: [[String: Any]] {
@@ -723,6 +794,8 @@ enum MCPToolCatalog {
                 "priority": ["type": "string", "description": "none|low|medium|high|urgent"],
                 "labels": ["type": "array", "items": ["type": "string"], "description": "Full replace; duplicates trimmed case-insensitively"],
                 "assigneeName": ["type": "string"],
+                "githubIssueNumber": ["type": "integer", "description": "Link existing GitHub issue number"],
+                "githubIssueUrl": ["type": "string", "description": "Link existing GitHub issue URL"],
                 "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
             ]),
             tool("delete_issue", "Soft-delete (archive) an issue; activity keeps issueId/identifier; Undo/restore available", [
@@ -774,6 +847,32 @@ enum MCPToolCatalog {
             tool("list_bot_thread", "Comments + activity for one issue in chronological order", [
                 "issueId": ["type": "string"],
                 "identifier": ["type": "string", "description": "e.g. ARK-1"],
+            ]),
+            tool("set_project_github_repo", "Set or clear a project's default GitHub repo (owner/name)", [
+                "projectKey": ["type": "string", "description": "e.g. DRY"],
+                "projectId": ["type": "string"],
+                "githubRepo": ["type": "string", "description": "owner/name; omit or empty to clear"],
+                "repo": ["type": "string", "description": "Alias for githubRepo"],
+                "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
+            ]),
+            tool("link_github_issue", "Link an Arkboard issue to an existing GitHub issue number/URL", [
+                "id": ["type": "string"],
+                "identifier": ["type": "string", "description": "e.g. DRY-1"],
+                "number": ["type": "integer", "description": "GitHub issue number"],
+                "url": ["type": "string", "description": "https://github.com/owner/repo/issues/N"],
+                "githubIssueNumber": ["type": "integer"],
+                "githubIssueUrl": ["type": "string"],
+                "actor": ["type": "string"],
+            ]),
+            tool("create_github_issue", "Create a GitHub issue via gh CLI and store the link (requires project.githubRepo)", [
+                "id": ["type": "string"],
+                "identifier": ["type": "string"],
+                "actor": ["type": "string"],
+            ]),
+            tool("unlink_github_issue", "Clear GitHub link fields on an Arkboard issue", [
+                "id": ["type": "string"],
+                "identifier": ["type": "string"],
+                "actor": ["type": "string"],
             ]),
         ]
     }

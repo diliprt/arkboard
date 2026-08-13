@@ -44,6 +44,9 @@ TOOLS="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
 check_json "tools/list" "$TOOLS" '.result.tools | length >= 6'
 check_json "tools include update_issue" "$TOOLS" '[.result.tools[].name] | index("update_issue") != null'
 check_json "tools include list_activity" "$TOOLS" '[.result.tools[].name] | index("list_activity") != null'
+check_json "tools include set_project_github_repo" "$TOOLS" '[.result.tools[].name] | index("set_project_github_repo") != null'
+check_json "tools include link_github_issue" "$TOOLS" '[.result.tools[].name] | index("link_github_issue") != null'
+check_json "tools include create_github_issue" "$TOOLS" '[.result.tools[].name] | index("create_github_issue") != null'
 
 TITLE="Smoke $(date +%Y%m%d-%H%M%S)"
 info "MCP create_issue with actor ($TITLE)"
