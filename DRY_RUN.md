@@ -35,7 +35,9 @@ All bots can access Arkboard via MCP to add comments/updates, raise requests, fe
 - [x] Issue detail shows GitHub link
 - [x] smoke.sh green (40/40)
 - [x] Multi-bot retest: Product set/link/create GH; Ops comment + in_progress; Comms done (DRY-9) — GitHub fields retained
-- [ ] Delete routine arkboard-dry-run-loop when all pass
+- [x] Delete routine arkboard-dry-run-loop when all pass
 
 ## Status
+Critique PASS on a7048bb (GitHub row). Dry-run complete; routine deleted.
+
 SHIPPED MVP — GitHub link/sync verified end-to-end; remaining: delete dry-run loop routine + optional comment mirror
