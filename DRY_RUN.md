@@ -1,6 +1,6 @@
 # Arkboard multi-bot dry-run
 
-Updated: 2026-08-12 (PT)
+Updated: 2026-08-12 6:31 PM PT
 
 ## Goal
 All bots can access Arkboard via MCP to add comments/updates, raise requests, features, bugs. Linear-like flow with GitHub link/sync against private test repo. Retest until smooth.
@@ -9,6 +9,7 @@ All bots can access Arkboard via MCP to add comments/updates, raise requests, fe
 - Private repo: https://github.com/diliprt/arkboard-dry-run (private)
 - Arkboard project: DRY / Dry Run Mini (`githubRepo=diliprt/arkboard-dry-run`)
 - GH mirrors linked: issues/1 ↔ DRY-1, issues/2 ↔ DRY-2
+- Probe create: DRY-9 ↔ https://github.com/diliprt/arkboard-dry-run/issues/6
 
 ## Bot access (PASS)
 - [x] create_project (Product → DRY)
@@ -29,12 +30,12 @@ All bots can access Arkboard via MCP to add comments/updates, raise requests, fe
 ## Success checklist
 - [x] Project DRY has githubRepo = diliprt/arkboard-dry-run
 - [x] DRY-1 linked to GH #1; DRY-2 to GH #2
-- [x] MCP create_github_issue creates GH issue + stores link (DRY-5 → GH #5; also DRY-6/#4, DRY-7/#3)
+- [x] MCP create_github_issue creates GH issue + stores link (DRY-9 → GH #6; also DRY-5/#5, DRY-6/#4, DRY-7/#3)
 - [x] MCP link_github_issue attaches existing number/URL
 - [x] Issue detail shows GitHub link
 - [x] smoke.sh green (40/40)
-- [ ] Multi-bot retest: create → link/create GH → comment → status update still works
+- [x] Multi-bot retest: Product set/link/create GH; Ops comment + in_progress; Comms done (DRY-9) — GitHub fields retained
 - [ ] Delete routine arkboard-dry-run-loop when all pass
 
 ## Status
-SHIPPED MVP — GitHub link/sync working; remaining: multi-bot retest + cleanup routine
+SHIPPED MVP — GitHub link/sync verified end-to-end; remaining: delete dry-run loop routine + optional comment mirror
