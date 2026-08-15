@@ -277,8 +277,10 @@ enum ToolCatalogue {
         guard let key = HTTPJSON.string(arguments, "projectKey"), let project = store.project(key: key) else {
             throw ValidationError.missingProject
         }
-        let bundle = await store.documents.bundle(for: project)
-        store.documentBundles[project.id] = bundle
+        await store.ensureDocuments(projectId: project.id)
+        guard let bundle = store.documentBundles[project.id] else {
+            throw ValidationError.missingDocument
+        }
         var docs = bundle.documents
         if let tab = HTTPJSON.string(arguments, "tab"), let parsed = DocumentTab(rawValue: tab) {
             docs = docs.filter { $0.tab == parsed }

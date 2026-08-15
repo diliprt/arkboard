@@ -40,9 +40,7 @@ final class AppStore {
     var fontFamily: FontFamilyID {
         didSet { UserDefaults.standard.set(fontFamily.rawValue, forKey: SettingsKey.fontFamily) }
     }
-    var contentsVisible: Bool {
-        didSet { UserDefaults.standard.set(contentsVisible, forKey: SettingsKey.contentsVisible) }
-    }
+    var contentsVisible: Bool = true
 
     let pool: DatabasePool
     let documents = DocumentLibrary()
@@ -57,11 +55,15 @@ final class AppStore {
         fontFamily = FontFamilyID(rawValue: defaults.string(forKey: SettingsKey.fontFamily) ?? "system") ?? .system
         appearance = AppearancePreference(rawValue: defaults.string(forKey: SettingsKey.appearance) ?? "light") ?? .light
         sidebarSelection = SidebarItem.from(persistence: defaults.string(forKey: SettingsKey.sidebarSelection) ?? "")
-        if defaults.object(forKey: SettingsKey.contentsVisible) == nil {
-            contentsVisible = true
-        } else {
-            contentsVisible = defaults.bool(forKey: SettingsKey.contentsVisible)
-        }
+        defaults.register(defaults: [SettingsKey.contentsVisible: true])
+        contentsVisible = defaults.bool(forKey: SettingsKey.contentsVisible)
+    }
+
+    func setContentsVisible(_ visible: Bool) {
+        contentsVisible = visible
+        let defaults = UserDefaults.standard
+        defaults.set(visible, forKey: SettingsKey.contentsVisible)
+        defaults.synchronize()
     }
 
     func start() async {
@@ -221,21 +223,29 @@ final class AppStore {
         guard !projects.isEmpty else { return }
         for project in projects {
             let loaded = await documents.refresh(project: project)
-            applyIncomingBundle(projectId: project.id, incoming: loaded)
+            publishBundle(loaded, for: project.id)
         }
     }
 
     func refreshDocuments(projectId: String) async {
         guard let project = project(id: projectId) else { return }
         let loaded = await documents.refresh(project: project)
-        applyIncomingBundle(projectId: projectId, incoming: loaded)
+        publishBundle(loaded, for: projectId)
     }
 
-    private func applyIncomingBundle(projectId: String, incoming: DocumentBundle) {
-        if DocumentBundleMerge.shouldReplace(current: documentBundles[projectId], incoming: incoming) {
-            documentBundles[projectId] = incoming
-            persistResolvedRootIfNeeded(projectId: projectId, bundle: incoming)
-        }
+    /// Same path as `list_documents`: read DocumentLibrary, then publish so the project home observes it.
+    func ensureDocuments(projectId: String) async {
+        guard let project = project(id: projectId) else { return }
+        let loaded = await documents.bundle(for: project)
+        publishBundle(loaded, for: projectId)
+    }
+
+    func publishBundle(_ incoming: DocumentBundle, for projectId: String) {
+        guard DocumentBundleMerge.shouldReplace(current: documentBundles[projectId], incoming: incoming) else { return }
+        var next = documentBundles
+        next[projectId] = incoming
+        documentBundles = next
+        persistResolvedRootIfNeeded(projectId: projectId, bundle: incoming)
     }
 
     private func persistResolvedRootIfNeeded(projectId: String, bundle: DocumentBundle) {

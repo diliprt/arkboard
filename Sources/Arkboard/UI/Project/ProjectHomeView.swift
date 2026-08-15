@@ -91,6 +91,9 @@ struct ProjectHomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .arkboardTabNext)) { _ in
             cycleTab(1)
         }
+        .task(id: project.id) {
+            await store.ensureDocuments(projectId: project.id)
+        }
         .onAppear {
             if let id = store.selectedIssueID, let issue = store.issue(idOrIdentifier: id), issue.projectId != project.id {
                 store.selectedIssueID = nil

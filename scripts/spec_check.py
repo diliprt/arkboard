@@ -313,6 +313,13 @@ def check_document_bundle(swift: str) -> None:
     ok("merge policy lives in Swift", "shouldReplace" in swift)
     ok("refresh does not nil the cache first", "cache[project.id] = nil" not in library)
     ok("empty project list does not assign empty bundles", "guard !projects.isEmpty" in store)
+    home = (SOURCES / "UI/Project/ProjectHomeView.swift").read_text()
+    tools = (SOURCES / "Server/ToolCatalogue.swift").read_text()
+    root = (SOURCES / "UI/Shell/RootView.swift").read_text()
+    ok("project home binds via ensureDocuments", "ensureDocuments" in home)
+    ok("API and home share ensureDocuments", "ensureDocuments" in tools)
+    ok("publish replaces the bundle dictionary", "documentBundles = next" in store)
+    ok("contentsVisible writes UserDefaults explicitly", "setContentsVisible" in store and "setContentsVisible" in root)
 
 
 def main() -> int:
