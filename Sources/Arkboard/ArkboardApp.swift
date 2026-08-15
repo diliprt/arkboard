@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 @main
@@ -8,36 +9,66 @@ struct ArkboardApp: App {
         WindowGroup {
             RootView()
                 .environment(store)
-                .task {
-                    await store.start()
+                .modifier(StudioRoot(
+                    typography: Typography(bodySize: CGFloat(store.fontSize), family: store.fontFamily),
+                    appearance: store.appearance
+                ))
+                .task { await store.start() }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    Task { await store.becomeActive() }
                 }
-                .frame(minWidth: 1100, minHeight: 680)
-                .appTypography(size: store.fontSize, family: store.fontFamily)
+                .frame(minWidth: Metrics.windowMin.width, minHeight: Metrics.windowMin.height)
         }
         .windowStyle(.automatic)
-        .defaultSize(width: 1280, height: 800)
+        .defaultSize(width: Metrics.windowDefault.width, height: Metrics.windowDefault.height)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Tell the team…") {
-                    NotificationCenter.default.post(name: .arkboardComposer, object: nil)
+                    store.goToMonitorComposer()
                 }
                 .keyboardShortcut("n", modifiers: .command)
-                Button("New Issue") {
-                    NotificationCenter.default.post(name: .arkboardQuickAdd, object: nil)
+            }
+            CommandMenu("Studio") {
+                Button("Monitor") { store.sidebarSelection = .monitor }
+                    .keyboardShortcut("1", modifiers: .command)
+                Button("Issues") { store.sidebarSelection = .issues }
+                    .keyboardShortcut("2", modifiers: .command)
+                Button("Activity") { store.sidebarSelection = .activity }
+                    .keyboardShortcut("3", modifiers: .command)
+                Button("Portfolio") { store.sidebarSelection = .portfolio }
+                    .keyboardShortcut("4", modifiers: .command)
+                Divider()
+                Button("Find Issues") { store.goToIssuesSearch() }
+                    .keyboardShortcut("f", modifiers: .command)
+                Button("Reload Documents") {
+                    if case let .project(id) = store.sidebarSelection {
+                        Task { await store.refreshDocuments(projectId: id) }
+                    }
                 }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .keyboardShortcut("r", modifiers: .command)
+                Button("Previous Tab") {
+                    NotificationCenter.default.post(name: .arkboardTabPrev, object: nil)
+                }
+                .keyboardShortcut("[", modifiers: .command)
+                Button("Next Tab") {
+                    NotificationCenter.default.post(name: .arkboardTabNext, object: nil)
+                }
+                .keyboardShortcut("]", modifiers: .command)
             }
         }
 
         Settings {
             SettingsView()
                 .environment(store)
-                .appTypography(size: store.fontSize, family: store.fontFamily)
+                .modifier(StudioRoot(
+                    typography: Typography(bodySize: CGFloat(store.fontSize), family: store.fontFamily),
+                    appearance: store.appearance
+                ))
         }
     }
 }
 
 extension Notification.Name {
-    static let arkboardQuickAdd = Notification.Name("arkboardQuickAdd")
-    static let arkboardComposer = Notification.Name("arkboardComposer")
+    static let arkboardTabPrev = Notification.Name("arkboardTabPrev")
+    static let arkboardTabNext = Notification.Name("arkboardTabNext")
 }
