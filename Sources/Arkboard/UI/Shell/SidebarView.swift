@@ -37,32 +37,39 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .navigationSplitViewColumnWidth(min: Metrics.sidebarMin, ideal: Metrics.sidebarIdeal, max: Metrics.sidebarMax)
         .safeAreaInset(edge: .bottom) {
-            Button {
-                NotificationCenter.default.post(name: .arkboardOpenSettings, object: nil)
-            } label: {
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill((store.serverState.isListening ? Hue.moss : Hue.crimson).color(for: scheme))
-                        .frame(width: 7, height: 7)
-                    Text(store.serverState.isListening ? "Agents · :7420" : "Agents offline")
-                        .font(type.caption)
-                        .foregroundStyle(StudioColor.secondary)
-                    Spacer()
-                }
-                .padding(12)
-            }
-            .buttonStyle(.plain)
-            .background(.bar)
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            VStack(spacing: 0) {
                 Button {
                     NotificationCenter.default.post(name: .arkboardNewProject, object: nil)
                 } label: {
-                    Image(systemName: "folder.badge.plus")
+                    HStack(spacing: 8) {
+                        Image(systemName: "folder.badge.plus")
+                        Text("New Project")
+                            .font(type.body)
+                        Spacer()
+                    }
+                    .padding(12)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .help("New Project")
+                Button {
+                    NotificationCenter.default.post(name: .arkboardOpenSettings, object: nil)
+                } label: {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill((store.serverState.isListening ? Hue.moss : Hue.crimson).color(for: scheme))
+                            .frame(width: 7, height: 7)
+                        Text(store.serverState.isListening ? "Agents · :7420" : "Agents offline")
+                            .font(type.caption)
+                            .foregroundStyle(StudioColor.secondary)
+                        Spacer()
+                    }
+                    .padding(12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
+            .background(.bar)
         }
     }
 }
