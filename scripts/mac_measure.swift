@@ -65,7 +65,7 @@ enum Contract {
 // MARK: - Reporting
 
 struct Report {
-    var samples: [(tab: String, railY: CGFloat, bodyY: CGFloat)] = []
+    var samples: [(tab: String, railY: CGFloat, bodyY: CGFloat, leaf: String)] = []
     var selectionSaturation: CGFloat?
     var markSaturation: CGFloat?
     var selectionOK: Bool?
@@ -80,7 +80,7 @@ struct Report {
     func emit() {
         var lines: [String] = []
         for (index, sample) in samples.enumerated() {
-            lines.append("  \"step_\(index + 1)\": { \"tab\": \"\(sample.tab)\", \"rail_y\": \(round(sample.railY)), \"body_y\": \(round(sample.bodyY)) }")
+            lines.append("  \"step_\(index + 1)\": { \"tab\": \"\(sample.tab)\", \"rail_y\": \(round(sample.railY)), \"body_y\": \(round(sample.bodyY)), \"body_leaf\": \"\(sample.leaf)\" }")
         }
         lines.append("  \"rail_y\": [\(samples.map { String(format: "%.0f", $0.railY) }.joined(separator: ", "))]")
         lines.append("  \"body_y\": [\(samples.map { String(format: "%.0f", $0.bodyY) }.joined(separator: ", "))]")
@@ -308,7 +308,11 @@ func railBounds(in nodes: [Node]) -> (y: CGFloat, bottom: CGFloat)? {
 /// The first line of the tab body: the topmost piece of content below the rail,
 /// in the left part of the document column. Leaves only — a container's frame is
 /// the section's top, which is exactly what hides an origin shift.
-func bodyTop(in nodes: [Node], railBottom: CGFloat, window: CGRect) -> CGFloat? {
+///
+/// Returns the leaf itself, not just its Y, so the report can say *what* it
+/// scored. Two rounds were spent arguing about whether a number came from a
+/// heading, a symbol or a sentence; the run should answer that itself.
+func bodyLeaf(in nodes: [Node], railBottom: CGFloat, window: CGRect) -> Node? {
     let textual: Set<String> = ["AXStaticText", "AXTextArea", "AXLink"]
     let visual: Set<String> = ["AXImage", "AXButton", "AXCheckBox"]
     let rightLimit = min(
@@ -323,7 +327,7 @@ func bodyTop(in nodes: [Node], railBottom: CGFloat, window: CGRect) -> CGFloat? 
         // A filled gallery opens on a thumbnail, which carries no label.
         return visual.contains(node.role)
     }
-    return candidates.map(\.frame.minY).min()
+    return candidates.min { $0.frame.minY < $1.frame.minY }
 }
 
 /// A pane must not print the window's own title again below the title bar.
@@ -420,10 +424,13 @@ for name in Contract.measuredTabs {
     guard let rail = railBounds(in: after) else {
         bail("Could not find the tab rail after pressing \(name).")
     }
-    guard let body = bodyTop(in: after, railBottom: rail.bottom, window: windowFrame) else {
+    guard let body = bodyLeaf(in: after, railBottom: rail.bottom, window: windowFrame) else {
         bail("Could not find any content under the rail on \(name).")
     }
-    report.samples.append((tab: name, railY: rail.y, bodyY: body))
+    // Role and label, trimmed: enough to say whether the number came from a
+    // title, a sentence, a symbol or a thumbnail.
+    let leaf = "\(body.role) \(body.label.prefix(48))".trimmingCharacters(in: .whitespaces)
+    report.samples.append((tab: name, railY: rail.y, bodyY: body.frame.minY, leaf: leaf))
 }
 
 if let railFirst = report.samples.first?.railY {

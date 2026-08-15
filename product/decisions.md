@@ -159,12 +159,14 @@ The 52pt was the Mockups empty state opening with a 28pt section symbol above it
 
 Two things have broken this, and both were invisible in a still:
 
-1. **A decoration row above the first line.** The Mockups empty state opened with a 28pt section symbol; the symbol now rides inline on the title's own line.
+1. **A decoration row above the first line.** The Mockups empty state opened with a 28pt section symbol. Moving that symbol inline onto the title's line closed the 52pt, but left about ten, because a baseline-aligned row containing a symbol sizes itself to share a text baseline and lifts the row's top above where a plain line of prose starts. A document empty state now opens on one top-aligned `Text`, laid out the way a paragraph is laid out — no symbol beside it, same line spacing. The pane already carries the section's hue; the title does not need to repeat it.
 2. **Air the first block should never have bought.** A heading buys air above itself, which is right in the middle of a document and wrong at the top, where the pane's padding is already that air. It bit hardest where a repeated opener was skipped and left the next block sitting low. The first rendered block now carries no top air, whatever it is.
 
 3. **A rail that only one tab has.** `ui-spec.md` routes to the Design tab and `mcp.md` to Architecture, so those two are the only tabs where more than one document lands and a rail of document capsules renders above the prose. A horizontal scroll view takes more height than the capsules inside it, seating that rail roughly 10pt below the first line of every tab without one — which is what the second measure caught, comparing Design against Mockups. The rail is now sized to its content.
 
-That third one is worth remembering when reading a measure: **the tabs are not symmetrical.** Design and Architecture carry a document rail; Mockups, Decisions, Issues and Timeline do not. A gate that compares a rail tab against a rail-less one is comparing the right thing — they must still share an origin — but the cause will live in whichever part only one of them has.
+That third one is worth remembering when reading a measure: **the tabs are not symmetrical.** Design and Architecture can carry a document rail; Mockups, Decisions, Issues and Timeline cannot. A gate that compares a rail tab against a rail-less one is comparing the right thing — they must still share an origin — but the cause will live in whichever part only one of them has.
+
+It is also worth remembering how long that took. The origin was diagnosed three times from stills and fixed three times, and twice the fix moved nothing: the 28pt symbol was real and not the whole of it, and the chip rail's scroll-view slack was reasoned from code that the running app never rendered. **A measure that reports only a number invites another guess.** The script now names the view it scored — role and label, per tab — so the next disagreement is settled by the run rather than by argument.
 
 > An empty tab may be empty. It may not shove the pane down. If a tab needs something above its first line, the something is wrong, not the origin.
 

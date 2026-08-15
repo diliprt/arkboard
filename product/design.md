@@ -268,7 +268,7 @@ This is the only outline. Do not also pin an `On this page` menu or a chip rail 
 
 ### When a document is not there
 
-Every empty document state is the same shape: the section symbol on the title's own line, a short title, one sentence of explanation, and nothing else. No buttons. No tool names. No instructions to run anything. The symbol rides inline at the title's size rather than as a row above it, because a row above the title would push the whole pane down and break the origin every tab shares. A centred full-pane poster — no projects at all — is the one place the symbol still leads at 28pt, because it has no rail to line up under. The exact copy is in [ui-spec.md](ui-spec.md).
+An empty document state is a short title and one sentence of explanation, and nothing else. No buttons. No tool names. No instructions to run anything. **No symbol** — not above the title and not beside it: both are things above the tab's first line, and both move the pane. The two lines are top-aligned and laid out exactly the way a paragraph is, so an empty tab starts where a written one starts. Identity is already on screen, because the pane carries the section's hue. A centred full-pane poster — no projects at all — is the one place a symbol still leads, at body + 15, because it has no rail to line up under. The exact copy is in [ui-spec.md](ui-spec.md).
 
 > A director pass writes the documents. The app's job when a document is missing is to be quiet about it.
 
