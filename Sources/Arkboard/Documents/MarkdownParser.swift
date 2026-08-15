@@ -130,12 +130,55 @@ enum MarkdownParser {
     }
 
     static func headings(in markdown: String) -> [HeadingRef] {
-        parse(markdown).compactMap { block in
+        headings(in: markdown, suppressingTitle: nil)
+    }
+
+    /// Headings for the Contents outline. When the document opens with an H1
+    /// that only repeats the title the reader can already see, that heading is
+    /// not rendered, so it must not be listed either — an outline row that
+    /// jumps to nothing is worse than a missing row.
+    static func headings(in markdown: String, suppressingTitle title: String?) -> [HeadingRef] {
+        let blocks = parse(markdown)
+        let drop = repeatsTitle(blocks, title: title) ? 1 : 0
+        return blocks.dropFirst(drop).compactMap { block in
             if case let .heading(level, text, _, anchor) = block {
                 return HeadingRef(level: level, title: text, anchor: anchor)
             }
             return nil
         }
+    }
+
+    static func repeatsTitle(_ markdown: String, title: String?) -> Bool {
+        repeatsTitle(parse(markdown), title: title)
+    }
+
+    /// True when the first block is a level-1 heading saying the same thing as
+    /// `title`. The window title bar and the tab rail already name the page;
+    /// printing it a third time at the top of the prose is a second headline.
+    static func repeatsTitle(_ blocks: [MarkdownBlock], title: String?) -> Bool {
+        guard let title, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        guard case let .heading(level, text, _, _) = blocks.first, level == 1 else { return false }
+        return matchesTitle(text, title)
+    }
+
+    /// `Decisions & questions` and a document titled `Decisions` are the same
+    /// page as far as a reader is concerned, so compare on words, not glyphs.
+    static func matchesTitle(_ heading: String, _ title: String) -> Bool {
+        let left = comparableTitle(heading)
+        let right = comparableTitle(title)
+        guard !left.isEmpty, !right.isEmpty else { return false }
+        return left == right || left.hasPrefix(right) || right.hasPrefix(left)
+    }
+
+    private static func comparableTitle(_ text: String) -> String {
+        let lowered = text.lowercased()
+        let kept = lowered.unicodeScalars.map { scalar -> Character in
+            CharacterSet.alphanumerics.contains(scalar) ? Character(scalar) : Character(" ")
+        }
+        return String(kept)
+            .split(separator: " ")
+            .filter { $0 != "and" }
+            .joined(separator: " ")
     }
 
     static func lead(beforeFirstH2 markdown: String) -> String {
@@ -168,8 +211,23 @@ enum MarkdownParser {
         } else {
             raw = fallback
         }
-        let stripped = withoutNamePrefix(raw, name: name)
-        return stripped.isEmpty ? withoutNamePrefix(fallback, name: name) : stripped
+        let stripped = asSentence(withoutNamePrefix(raw, name: name))
+        return stripped.isEmpty ? asSentence(withoutNamePrefix(fallback, name: name)) : stripped
+    }
+
+    /// Dropping the project name off `Arkboard is Origin Ark Studio's board`
+    /// leaves `is Origin Ark Studio's board`, which starts mid-sentence. Drop
+    /// the stranded copula too and open on a capital, so the card reads as a
+    /// line someone wrote rather than the tail of one.
+    static func asSentence(_ text: String) -> String {
+        var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !result.isEmpty else { return result }
+        for copula in ["is ", "are ", "was ", "were "] where result.lowercased().hasPrefix(copula) {
+            result = String(result.dropFirst(copula.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+            break
+        }
+        guard let first = result.first, first.isLowercase else { return result }
+        return result.replacingCharacters(in: ...result.startIndex, with: String(first).uppercased())
     }
 
     static func withoutNamePrefix(_ text: String, name: String) -> String {

@@ -1,6 +1,12 @@
 import AppKit
 import SwiftUI
 
+enum ProjectHomeAnchor {
+    /// The top of the tab body. Not the rail: the rail is a pinned header, and
+    /// a pinned view is not a stable scroll target.
+    static let tabTop = "tab-top"
+}
+
 enum ProjectHomeTab: String, CaseIterable, Identifiable {
     case design, architecture, mockups, decisions, issues, timeline
     var id: String { rawValue }
@@ -49,20 +55,25 @@ struct ProjectHomeView: View {
     var bundle: DocumentBundle? { store.documentBundles[project.id] }
 
     var body: some View {
+        // The tab rail is the first thing in the scroll, so it is pinned from
+        // the moment the page paints and there is nothing above it that can
+        // push it around. Nothing here animates geometry on a tab change: an
+        // eased height change plus a programmatic scroll is what made the pane
+        // bounce when the gallery measured itself a frame late.
         GeometryReader { geo in
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
-                        projectHeader
                         Section {
                             ZStack(alignment: .topLeading) {
                                 StudioColor.wash(tab.section.hue, scheme: scheme)
                                 tabBody
                                     .padding(.horizontal, Metrics.paneX)
+                                    .padding(.trailing, readingGutter)
                                     .padding(.vertical, Metrics.paneY)
                             }
                             .frame(maxWidth: .infinity, minHeight: Metrics.emptyPaneMin, alignment: .topLeading)
-                            .id("tab-top")
+                            .id(ProjectHomeAnchor.tabTop)
                         } header: {
                             tabBar
                                 .id("tab-bar")
@@ -78,23 +89,17 @@ struct ProjectHomeView: View {
                         }
                     }
                 }
-                .onChange(of: tab) { _, newTab in
+                .onChange(of: tab) { _, _ in
                     publishOutline()
                     publishFocus()
-                    if newTab == .mockups {
-                        proxy.scrollTo("tab-bar", anchor: .top)
-                    }
+                    restTop(proxy)
                 }
-                .onAppear {
-                    if tab == .mockups {
-                        proxy.scrollTo("tab-bar", anchor: .top)
-                    }
-                }
+                .onAppear { restTop(proxy) }
             }
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: tab)
+        .toolbar { identityToolbar }
         .sheet(item: $viewer) { document in
             MockupViewer(documents: mockupImages, current: document)
         }
@@ -142,41 +147,57 @@ struct ProjectHomeView: View {
         )
     }
 
-    /// A compact identity strip, not a title band. The window title bar already
-    /// carries the project name, so this never repeats it: mark, key, where the
-    /// documents come from, and the two actions.
-    private var projectHeader: some View {
-        ProseColumn {
-            HStack(spacing: 10) {
-                ProjectIcon(project: project, imageData: store.markImage(for: project), size: Metrics.markHeader)
-                Chip(text: project.key, hue: .slate, mono: true)
-                Spacer(minLength: 12)
-                Text(sourceLabel)
+    /// Identity lives in the window title bar, beside the title that already
+    /// names the project. There is no second logo row under it, so the pane
+    /// starts at the tab rail.
+    @ToolbarContentBuilder
+    private var identityToolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            HStack(spacing: 8) {
+                ProjectIcon(project: project, imageData: store.markImage(for: project), size: Metrics.markSidebar)
+                Text(project.key)
                     .font(type.mono)
-                    .foregroundStyle(StudioColor.tertiary)
-                Button {
-                    Task { await store.refreshDocuments(projectId: project.id) }
-                } label: {
-                    SwiftUI.Label("Refresh", systemImage: "arrow.clockwise")
-                        .labelStyle(.iconOnly)
-                        .font(type.body)
-                }
-                .buttonStyle(.borderless)
-                .help("Refresh")
-                Button {
-                    store.goToComposer()
-                } label: {
-                    SwiftUI.Label("Note", systemImage: "bubble.left")
-                        .labelStyle(.iconOnly)
-                        .font(type.body)
-                }
-                .buttonStyle(.borderless)
-                .help("Note")
-                // RootView presents ProjectNoteSheet for this icon and for ⌘N.
+                    .foregroundStyle(StudioColor.secondary)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(project.name), \(project.key)")
         }
-        .padding(.horizontal, Metrics.paneX)
-        .padding(.vertical, 12)
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                Task { await store.refreshDocuments(projectId: project.id) }
+            } label: {
+                SwiftUI.Label("Refresh", systemImage: "arrow.clockwise")
+            }
+            .help("Reload \(sourceLabel)")
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                store.goToComposer()
+            } label: {
+                SwiftUI.Label("Note", systemImage: "bubble.left")
+            }
+            .help(ChiefOfStaffCopy.menuTitle)
+            // RootView presents ProjectNoteSheet for this action and for ⌘N.
+        }
+    }
+
+    /// Contents floats over the trailing edge, so the prose stops short of it.
+    /// The page still measures the whole pane; only the text is inset.
+    private var readingGutter: CGFloat {
+        store.readingGutter(showsContents: true)
+    }
+
+    /// One rule for every tab: the page returns to the top of the tab content.
+    /// The anchor is the section body, never the pinned rail — a pinned view is
+    /// being repositioned by the scroll view itself, so scrolling *to* it
+    /// chases a moving target, which is the jump. Animations are off so a late
+    /// layout pass cannot fight an in-flight scroll.
+    private func restTop(_ proxy: ScrollViewProxy) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            proxy.scrollTo(ProjectHomeAnchor.tabTop, anchor: .top)
+        }
     }
 
     private var sourceLabel: String {
@@ -205,6 +226,7 @@ struct ProjectHomeView: View {
                     }
                 }
                 .padding(.horizontal, Metrics.paneX)
+                .padding(.trailing, readingGutter)
                 .padding(.vertical, 8)
             }
             .onChange(of: tab) { _, newTab in
@@ -300,7 +322,12 @@ struct ProjectHomeView: View {
                         }
                     }
                     if let markdown = currentDocument?.markdown {
-                        MarkdownView(markdown: markdown, hue: tab.section.hue, onLink: handleLink)
+                        MarkdownView(
+                            markdown: markdown,
+                            hue: tab.section.hue,
+                            suppressedTitle: tab.section.title,
+                            onLink: handleLink
+                        )
                     }
                 }
             }
@@ -317,20 +344,28 @@ struct ProjectHomeView: View {
                 if !flow.nodes.isEmpty {
                     mockupFlowRail(flow, images: images)
                 }
+                // Every cell is the same known height, so the grid's height is
+                // settled at first layout instead of growing as thumbnails
+                // materialise. A gallery that resizes after paint is what
+                // shoves the pane around when you land on this tab.
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
                     ForEach(images) { image in
                         Button { viewer = image } label: {
                             VStack(alignment: .leading, spacing: 8) {
-                                RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous)
+                                Concentric.shape(Metrics.radiusCard)
                                     .fill(StudioColor.card)
-                                    .frame(height: 260)
+                                    .frame(height: Metrics.mockupThumb)
                                     .overlay {
                                         if let data = image.imageData, let ns = NSImage(data: data) {
                                             Image(nsImage: ns).resizable().scaledToFit()
                                         }
                                     }
-                                Text(image.title).font(type.caption).foregroundStyle(StudioColor.secondary)
+                                Text(image.title)
+                                    .font(type.caption)
+                                    .foregroundStyle(StudioColor.secondary)
+                                    .lineLimit(1)
                             }
+                            .frame(height: Metrics.mockupCell, alignment: .top)
                         }
                         .buttonStyle(.plain)
                     }
@@ -436,7 +471,10 @@ struct ProjectHomeView: View {
 
     private func publishOutline() {
         if let markdown = currentDocument?.markdown {
-            store.publishOutline(headings: MarkdownParser.headings(in: markdown), hue: tab.section.hue)
+            store.publishOutline(
+                headings: MarkdownParser.headings(in: markdown, suppressingTitle: tab.section.title),
+                hue: tab.section.hue
+            )
         } else {
             store.publishOutline(headings: [], hue: tab.section.hue)
         }

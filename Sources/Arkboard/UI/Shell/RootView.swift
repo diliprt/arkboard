@@ -5,8 +5,11 @@ struct RootView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showNewProject = false
-    @State private var outlineWidth = Metrics.outlineIdeal
     @State private var outlineDragStart: CGFloat?
+
+    /// The overlay's width lives in the store because the document needs it too:
+    /// it reserves exactly this much trailing gutter so prose is never clipped.
+    private var outlineWidth: CGFloat { store.contentsWidth }
 
     var body: some View {
         NavigationSplitView {
@@ -100,8 +103,7 @@ struct RootView: View {
                         if outlineDragStart == nil {
                             outlineDragStart = outlineWidth
                         }
-                        let next = (outlineDragStart ?? outlineWidth) - value.translation.width
-                        outlineWidth = min(Metrics.outlineMax, max(Metrics.outlineMin, next))
+                        store.setContentsWidth((outlineDragStart ?? outlineWidth) - value.translation.width)
                     }
                     .onEnded { _ in
                         outlineDragStart = nil

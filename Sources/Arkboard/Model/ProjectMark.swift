@@ -29,6 +29,12 @@ enum ProjectMark: Sendable {
         "tram.fill",
     ]
 
+    /// The Portfolio card face: a generated poster, one per project.
+    static let cardImageNames: [String] = [
+        "card.png", "card.webp", "card.jpg", "card.jpeg",
+    ]
+
+    /// The small mark: a tile that has to read at 22pt in the sidebar.
     static let productIconNames: [String] = [
         "icon.png", "icon.webp", "icon.jpg", "icon.jpeg",
         "mark.png", "mark.webp",
@@ -64,5 +70,16 @@ enum ProjectMark: Sendable {
     static func isProductIcon(path: String) -> Bool {
         let name = URL(fileURLWithPath: path).lastPathComponent.lowercased()
         return productIconNames.contains(name)
+    }
+
+    static func isCardImage(path: String) -> Bool {
+        let name = URL(fileURLWithPath: path).lastPathComponent.lowercased()
+        return cardImageNames.contains(name)
+    }
+
+    /// A poster or a mark is the project's own artwork. It is not a screen the
+    /// director drew, so it must not turn up in the Mockups gallery.
+    static func isBrandAsset(path: String) -> Bool {
+        isCardImage(path: path) || isProductIcon(path: path)
     }
 }

@@ -92,7 +92,14 @@ enum Metrics {
     static let markGlyphRatio: CGFloat = 0.52
     static let markSidebar: CGFloat = 22
     static let markHeader: CGFloat = 28
-    static let markHero: CGFloat = 88
+    /// The Portfolio card face. A poster fills the card's width at this ratio,
+    /// so every tile in the grid lines up whatever picture it is given.
+    static let cardPosterAspect: CGFloat = 1.5
+    static let posterGlyphInset: CGFloat = 48
+    /// Mockup cells are a known height so the gallery does not resize after it
+    /// has painted, which is what made landing on that tab jump.
+    static let mockupThumb: CGFloat = 260
+    static let mockupCell: CGFloat = 292
     static func markCorner(for tile: CGFloat) -> CGFloat { (tile * markCornerRatio).rounded() }
     static func markGlyph(for tile: CGFloat) -> CGFloat { (tile * markGlyphRatio).rounded() }
     static let proseMax: CGFloat = 720
@@ -116,7 +123,16 @@ enum Metrics {
 
 enum DocumentMeasure {
     /// Project-home page width. Fill the pane; never a 720 island or a 1000 grid.
+    /// Contents does not change this — the page keeps the pane.
     static func pageWidth(paneWidth: CGFloat) -> CGFloat {
         max(paneWidth, Metrics.documentMin)
+    }
+
+    /// Trailing gutter the prose leaves for the Contents overlay. The page still
+    /// measures the full pane; the text inside it stops short of the overlay so
+    /// no glyph is printed underneath it. An inset, not a third column.
+    static func readingGutter(contentsVisible: Bool, outlineWidth: CGFloat) -> CGFloat {
+        guard contentsVisible else { return 0 }
+        return min(Metrics.outlineMax, max(Metrics.outlineMin, outlineWidth))
     }
 }

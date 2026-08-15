@@ -8,8 +8,15 @@ struct ProjectNoteSheet: View {
     var initialDraft: String = ""
     var handoff: ChiefHandoff? = nil
 
+    /// What a human said, and only that. System rows are out, and so are the
+    /// pre-#23 handoffs whose body is a field dump rather than a note.
     private var history: [Activity] {
-        store.activities.filter { $0.kind != .system && $0.projectId == project?.id }
+        store.activities.filter { row in
+            row.kind != .system
+                && row.projectId == project?.id
+                && !LegacyHandoffBody.looksLikeDump(row.body)
+                && !row.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
 
     var body: some View {

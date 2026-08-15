@@ -80,13 +80,25 @@ Page actions go in the window toolbar, on toolbar glass. A filter or a scale con
 
 > If a screen ever needs a caption to explain what it is, the screen is wrong. Fix the screen.
 
-## Locked — Portfolio cards are large, and the mark is the hero
+## Locked — The Portfolio card is the picture
 
-A Portfolio card leads with the project's brand mark at hero size — the image from `product/icon.png` / `mark.png` / `logo.png`, or its SF Symbol on the project's colour. Name, one-line summary, paths, and the four document words all sit under it and all stay quieter than it.
+Every project gets a generated poster committed at `product/card.png`, and that image is the card face: full-bleed to the card's rounded corners, with the project name and one line of summary underneath. Nothing else is on the tile.
 
-The old card was a compact row: a 22pt mark chip, the name, then two path lines and four filled hue chips. The chips were the loudest thing in the pane and the mark was the smallest, so a page whose whole job is "here are the studio's apps" read as a table of metadata. Cards get taller, not more padded, and the metadata recedes to caption weight.
+Checkout paths, the GitHub remote, and the four document words are gone from it. They are metadata about a project, not a picture of one, and they are one click away on the project page. A card that lists them is a form; Riyu compared ours to a wall of posters and ours was a wall of forms.
 
-> The mark is the one place a project gets to look like itself. Do not shrink it back to make room for fields.
+Resolution order is `card.png`, then the small mark (`icon.png` / `mark.png` / `logo.png`), then a field in the project's own colour carrying its SF mark. The last is a placeholder that still looks designed — a project with no artwork yet never falls back to a chip beside a metadata stack. The sidebar keeps using the small mark at 22pt; a poster does not read at that size.
+
+Brand artwork lives at the root of `product/` and is routed out of the Mockups gallery. It is the project's own face, not a frame a director drew.
+
+> The summary is the first sentence of `product/README.md` with the project's name stripped off the front — and the copula it strands stripped with it. `Arkboard is Origin Ark Studio's board` becomes `Origin Ark Studio's board`. A card line never opens mid-sentence.
+
+## Locked — One headline
+
+The window title bar names the page. The tab rail names the section. Nothing else may name either one again.
+
+That means a document whose first heading repeats the title it sits under does not render that heading, and does not list it in Contents. `# Design` under the Design tab is a second headline; `# UI specification` under the Design tab is a document title and stays. The markdown file is never edited to achieve this — the reader skips the repeated opener, and the file on disk is still the file on disk.
+
+It also means the project page has no identity strip. Mark and key sit in the toolbar beside the window title, and the pane starts at the tab rail. A mark-plus-key row under a title bar that already says `Arkboard` is a second logo row.
 
 ## Locked — The sidebar is material, the document is solid
 

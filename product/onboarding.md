@@ -33,6 +33,7 @@ Riyu is reserved for the human sitting at the app. Do not send `actor=Riyu` from
 
 - **GitHub `diliprt/arkboard`** is the app.
 - Per-app **`product/`** is the director pack: design, architecture, mockups, decisions, and this onboarding page.
+- When you add a project, drop a card image at **`product/card.png`**. That picture is its Portfolio card face. Without one the card falls back to the project's mark, and then to a plain field in its colour.
 - **Cursor cloud agents** write repo code against the saved environment `diliprt/arkboard`.
 - **Never clone** onto the Linux box or the Mac for source work. The checkout already exists.
 - The **Mac** is for `xcodebuild`, Arkboard.app, and localhost MCP. Cloud agents are Linux only — no `xcodebuild` there.
@@ -41,7 +42,7 @@ Riyu is reserved for the human sitting at the app. Do not send `actor=Riyu` from
 
 A project may have a local checkout path (`repoPath`), a GitHub remote (`githubRepo` as `owner/name`), or both.
 
-Documents load from local `product/` first. If there is no local folder, they load from GitHub through `gh`. The New Project sheet sets both fields. The Portfolio card shows whichever sources exist: `local · …` and `github · owner/name`.
+Documents load from local `product/` first. If there is no local folder, they load from GitHub through `gh`. The New Project sheet sets both fields. Whichever sources exist show on the project page, in the Refresh action's help text — not on the Portfolio card, which is a picture.
 
 ## How to run Arkboard
 

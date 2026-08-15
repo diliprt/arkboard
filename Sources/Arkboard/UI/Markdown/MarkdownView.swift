@@ -5,11 +5,21 @@ struct MarkdownView: View {
     @Environment(\.typography) private var type
     var markdown: String
     var hue: Hue
+    /// The name the reader can already see — the tab, or the window title. When
+    /// the document opens with an H1 saying the same thing, that heading is a
+    /// second headline and is not rendered.
+    var suppressedTitle: String? = nil
     var onLink: (String) -> Void = { _ in }
+
+    private var blocks: [MarkdownBlock] {
+        let parsed = MarkdownParser.parse(markdown)
+        guard MarkdownParser.repeatsTitle(parsed, title: suppressedTitle) else { return parsed }
+        return Array(parsed.dropFirst())
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: type.blockGap) {
-            ForEach(Array(MarkdownParser.parse(markdown).enumerated()), id: \.offset) { _, block in
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 blockView(block)
             }
         }

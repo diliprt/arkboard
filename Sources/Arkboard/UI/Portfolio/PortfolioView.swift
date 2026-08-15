@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -57,9 +58,10 @@ struct PortfolioView: View {
         }
     }
 
-    /// The mark is the hero. Name and one line of summary sit under it, and the
-    /// paths and document markers recede to a quiet footer so they never
-    /// compete with the mark.
+    /// A poster, not a form. The project's own picture is the card face,
+    /// full-bleed to the card's rounded corners, with a name and one line of
+    /// summary under it. Checkout paths and the four document words are not on
+    /// the tile — they are metadata, and metadata is not a poster.
     private func projectCard(_ project: Project) -> some View {
         let bundle = store.documentBundles[project.id]
         let summary = MarkdownParser.cardSummary(
@@ -67,60 +69,77 @@ struct PortfolioView: View {
             name: project.name,
             fallback: project.summary
         )
-        return CardSurface(hue: .violet) {
-            VStack(alignment: .leading, spacing: 16) {
-                ProjectIcon(
-                    project: project,
-                    imageData: store.markImage(for: project),
-                    size: Metrics.markHero
+        return VStack(alignment: .leading, spacing: 0) {
+            poster(project)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(project.name).font(type.heading)
+                    Spacer(minLength: 8)
+                    pinControl(project)
+                }
+                Text(summary)
+                    .font(type.callout)
+                    .foregroundStyle(StudioColor.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(Metrics.cardPad)
+        }
+        .font(type.body)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(StudioColor.card)
+        .clipShape(Concentric.shape(Metrics.radiusCard))
+        .overlay(
+            Concentric.shape(Metrics.radiusCard)
+                .stroke(StudioColor.cardStroke(.violet, scheme: scheme), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            store.sidebarSelection = .project(project.id)
+        }
+        .contextMenu {
+            Button(project.pinned ? "Unpin" : "Pin") {
+                store.setProjectPinned(id: project.id, pinned: !project.pinned)
+            }
+            ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText())
+        }
+        .accessibilityLabel("\(project.name), \(project.key). \(summary)")
+    }
+
+    /// A fixed-aspect box the card's width, so every card in the grid lines up
+    /// whatever picture it is given.
+    private func poster(_ project: Project) -> some View {
+        Color.clear
+            .aspectRatio(Metrics.cardPosterAspect, contentMode: .fit)
+            .overlay { posterFace(project) }
+            .clipped()
+    }
+
+    @ViewBuilder
+    private func posterFace(_ project: Project) -> some View {
+        if let data = store.cardImage(for: project), let image = NSImage(data: data) {
+            Image(nsImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .accessibilityHidden(true)
+        } else {
+            // No poster yet: a field in the project's own colour carrying its
+            // mark. A placeholder that still looks designed, never a chip.
+            let brand = Color(hex: project.color)
+            ZStack {
+                LinearGradient(
+                    colors: [brand.opacity(0.30), brand.opacity(0.10)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
                 )
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(project.name).font(type.heading)
-                        Text(project.key).font(type.mono).foregroundStyle(StudioColor.tertiary)
-                        Spacer(minLength: 8)
-                        pinControl(project)
-                    }
-                    Text(summary)
-                        .font(type.callout)
-                        .foregroundStyle(StudioColor.secondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    if let path = project.repoPath, !path.isEmpty {
-                        Text("local · \(Self.displayPath(path))")
-                            .font(type.mono)
-                            .foregroundStyle(StudioColor.tertiary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    if let repo = project.githubRepo, !repo.isEmpty {
-                        Text("github · \(repo)")
-                            .font(type.mono)
-                            .foregroundStyle(StudioColor.tertiary)
-                            .lineLimit(1)
-                    }
-                    HStack(spacing: 10) {
-                        docPill("Design", .design, bundle)
-                        docPill("Architecture", .architecture, bundle)
-                        docPill("Mockups", .mockups, bundle)
-                        docPill("Decisions", .decisions, bundle)
-                    }
-                }
+                Image(systemName: project.icon.isEmpty ? ProjectMark.symbols[0] : project.icon)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(brand.opacity(0.85))
+                    .padding(Metrics.posterGlyphInset)
             }
-            .font(type.body)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                store.sidebarSelection = .project(project.id)
-            }
-            .contextMenu {
-                Button(project.pinned ? "Unpin" : "Pin") {
-                    store.setProjectPinned(id: project.id, pinned: !project.pinned)
-                }
-                ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText())
-            }
+            .accessibilityHidden(true)
         }
     }
 
@@ -135,34 +154,6 @@ struct PortfolioView: View {
         }
         .buttonStyle(.plain)
         .help(project.pinned ? "Unpin" : "Pin")
-    }
-
-    /// One quiet word per document, coloured when that document exists and
-    /// dimmed when it does not. No capsule fill — on a card led by the mark,
-    /// four filled chips are the loudest thing on screen, which is backwards.
-    private func docPill(_ label: String, _ tab: DocumentTab, _ bundle: DocumentBundle?) -> some View {
-        let exists: Bool
-        if tab == .mockups {
-            exists = bundle?.documents.contains { $0.tab == tab } == true
-        } else {
-            exists = bundle?.documents.contains { $0.tab == tab && !$0.isImage } == true
-        }
-        return Text(label)
-            .font(type.caption)
-            .foregroundStyle(
-                exists
-                    ? tab.section.hue.color(for: scheme)
-                    : StudioColor.tertiary
-            )
-            .opacity(exists ? 1 : 0.6)
-    }
-
-    private static func displayPath(_ path: String) -> String {
-        let home = NSHomeDirectory()
-        if path.hasPrefix(home) {
-            return "~" + path.dropFirst(home.count)
-        }
-        return path
     }
 }
 
