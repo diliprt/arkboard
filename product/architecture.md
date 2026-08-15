@@ -311,6 +311,7 @@ This is why `decisions.md` is written the way it is. The convention is the parse
 | `arkboard.fontFamily` | face identifier | `system` |
 | `arkboard.sidebarSelection` | last project | first project |
 | `arkboard.serverPort` | Int, informational | `7420` |
+| `arkboard.contentsVisible` | Bool | `true` |
 
 ## Seed
 
