@@ -88,3 +88,10 @@ enum Metrics {
     static let tabBarHeight: CGFloat = 44
     static let emptyPaneMin: CGFloat = 280
 }
+
+enum DocumentMeasure {
+    /// Project-home page width. Fill the pane; never a 720 island or a 1000 grid.
+    static func pageWidth(paneWidth: CGFloat) -> CGFloat {
+        max(paneWidth, Metrics.documentMin)
+    }
+}

@@ -269,6 +269,11 @@ def merge_bundles(
     return result
 
 
+def document_page_width(pane_width: float) -> float:
+    """Project-home page takes the pane. No 720 island, no 1000 grid."""
+    return max(pane_width, 560.0)
+
+
 def today_index(dates: list[int], now: int) -> int:
     """Index of the single Today rule: before the first future event."""
     for i, date in enumerate(dates):
@@ -360,6 +365,29 @@ def check_document_bundle(swift: str) -> None:
     ok("mockups has flow parser", "MockupFlowParser" in swift)
     ok("mockups tab is not a markdown essay", "MarkdownView" not in mockups_tab)
     ok("mockups still one ProseColumn family", "GridColumn" not in home)
+
+
+def check_layout_musts(swift: str, home: str) -> None:
+    """Mockups first paint and collapsed-chrome document measure."""
+    ok("Must B wide pane is not a 720 island", document_page_width(1280) == 1280)
+    ok("Must B wide pane is not a 1000 grid", document_page_width(1280) != 1000)
+    ok("Must B narrow pane still fills", document_page_width(560) == 560)
+    ok("Must B DocumentMeasure lives in Swift", "enum DocumentMeasure" in swift and "pageWidth" in swift)
+    ok("Must B project home uses the pane width", "DocumentMeasure.pageWidth" in home)
+    ok("Must B still no GridColumn on project home", "GridColumn" not in home)
+    ok("Must B still no 720 cap on ProseColumn", "Metrics.proseMax" not in (
+        (SOURCES / "UI/Theme/ThemeModifiers.swift").read_text().split("struct ProseColumn")[1].split("struct GridColumn")[0]
+        if "struct ProseColumn" in (SOURCES / "UI/Theme/ThemeModifiers.swift").read_text()
+        else ""
+    ))
+    tab_change = home.split("onChange(of: tab)")[1].split("private var")[0] if "onChange(of: tab)" in home else ""
+    ok("Must A mockups lands on the tab rail", ".mockups" in tab_change and 'scrollTo("tab-bar"' in tab_change)
+    ok("Must A tab rail is a scroll anchor", '.id("tab-bar")' in home)
+    ok("Must A landing is not a user scroll-to-recover", "tab-bar" in home and "mockups" in tab_change)
+    ui = (PRODUCT / "ui-spec.md").read_text()
+    ok("Must A ui-spec forbids scrolled-past Mockups", "must not open scrolled past them" in ui)
+    ok("Must B ui-spec grows the document with the pane", "720-centred island" in ui)
+    ok("#15 ensureDocuments still binds the home", "ensureDocuments" in home)
 
 
 def main() -> int:
@@ -526,6 +554,7 @@ def main() -> int:
 
     check_polish(swift, home, root, sidebar)
     check_document_bundle(swift)
+    check_layout_musts(swift, home)
 
     print()
     if FAIL:

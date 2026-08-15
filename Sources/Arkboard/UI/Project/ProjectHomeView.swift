@@ -38,43 +38,55 @@ struct ProjectHomeView: View {
     var bundle: DocumentBundle? { store.documentBundles[project.id] }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
-                    overview
-                    Section {
-                        ZStack(alignment: .topLeading) {
-                            StudioColor.wash(tab.section.hue, scheme: scheme)
-                            tabBody
-                                .padding(.horizontal, Metrics.paneX)
-                                .padding(.vertical, Metrics.paneY)
+        GeometryReader { geo in
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
+                        overview
+                        Section {
+                            ZStack(alignment: .topLeading) {
+                                StudioColor.wash(tab.section.hue, scheme: scheme)
+                                tabBody
+                                    .padding(.horizontal, Metrics.paneX)
+                                    .padding(.vertical, Metrics.paneY)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: Metrics.emptyPaneMin, alignment: .topLeading)
+                            .id("tab-top")
+                        } header: {
+                            tabBar
+                                .id("tab-bar")
                         }
-                        .frame(maxWidth: .infinity, minHeight: Metrics.emptyPaneMin, alignment: .topLeading)
-                        .id("tab-top")
-                    } header: {
-                        tabBar
+                    }
+                    .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
+                }
+                .frame(width: geo.size.width, height: geo.size.height)
+                .onChange(of: store.documentOutline.jumpToken) { _, _ in
+                    if let anchor = store.documentOutline.pendingAnchor {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                            proxy.scrollTo(anchor, anchor: .top)
+                        }
                     }
                 }
-            }
-            .onChange(of: store.documentOutline.jumpToken) { _, _ in
-                if let anchor = store.documentOutline.pendingAnchor {
+                .onChange(of: store.focusComposer) { _, _ in
                     withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
-                        proxy.scrollTo(anchor, anchor: .top)
+                        proxy.scrollTo("composer", anchor: .center)
                     }
                 }
-            }
-            .onChange(of: store.focusComposer) { _, _ in
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
-                    proxy.scrollTo("composer", anchor: .center)
-                }
-            }
-            .onChange(of: tab) { _, newTab in
-                publishOutline()
-                if newTab == .timeline {
-                    DispatchQueue.main.async {
+                .onChange(of: tab) { _, newTab in
+                    publishOutline()
+                    if newTab == .mockups {
+                        proxy.scrollTo("tab-bar", anchor: .top)
+                    } else if newTab == .timeline {
                         DispatchQueue.main.async {
-                            proxy.scrollTo("today", anchor: .center)
+                            DispatchQueue.main.async {
+                                proxy.scrollTo("today", anchor: .center)
+                            }
                         }
+                    }
+                }
+                .onAppear {
+                    if tab == .mockups {
+                        proxy.scrollTo("tab-bar", anchor: .top)
                     }
                 }
             }

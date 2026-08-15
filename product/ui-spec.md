@@ -177,7 +177,7 @@ Section header `Milestones`. The shared timeline component with no project filte
 
 The most important screen in the app, and the one that must not look like a tracker.
 
-Everything is inside **one** vertical scroll: the overview scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab. The overview band sits on plain `windowBackgroundColor` so it reads as a header rather than as part of the section. The outline is the right Contents column, not a bar in this scroll.
+Everything is inside **one** vertical scroll: the overview scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab. The overview band sits on plain `windowBackgroundColor` so it reads as a header rather than as part of the section. The outline is the right Contents column, not a bar in this scroll. Overview, composer, tab rail, and markdown share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar and/or Contents are hidden, that measure grows with the pane — not a 720-centred island, and not a 1000 grid.
 
 ### Overview band
 
@@ -195,7 +195,7 @@ Pinned. Capsule pills, 6pt apart, horizontally scrollable if the window is narro
 
 The selected pill fills with its section hue at 16% and its label and symbol take the full hue. Unselected pills are secondary text on nothing. **Design is selected by default** — a project is a design object first.
 
-Switching tabs cross-fades over 0.18s and returns the scroll to the top. `⌘[` and `⌘]` move between tabs.
+Switching tabs cross-fades over 0.18s and returns the scroll to the top. `⌘[` and `⌘]` move between tabs. Landing on Mockups shows the tab rail and the gallery (or its empty state) immediately — the pane must not open scrolled past them.
 
 ### Document tabs
 
