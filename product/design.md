@@ -152,6 +152,7 @@ Spacing comes from one scale: **2, 4, 8, 12, 16, 20, 24, 32, 40**. If a number o
 | Gap between cards | 12 |
 | Gap between sections in a pane | 28 |
 | Sidebar width | 232 ideal, 200 min, 300 max |
+| Document column | 720 ideal, 560 min |
 | Contents column | 220 ideal, 180 min, 280 max |
 | Issues list column | 420 ideal, 340 min, 620 max |
 | Minimum window | 1080 × 700 |
@@ -178,7 +179,7 @@ Icons are SF Symbols at `body` size unless stated, rendered in the section hue, 
 4. Horizontal scrolling inside the vertical scroll is allowed, because the axes do not fight: the tab bar uses it. The outline is a separate right-hand column, not a chip row in this scroll.
 5. Sticky headers come from `LazyVStack(pinnedViews: .sectionHeaders)` within that single scroll, not from a second container.
 
-The project home is the case that proves the rule. Overview, tab bar, and document all live in one scroll: the overview scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. It reads like a repository page, because that is the right mental model for a project that is mostly documents. Headings are listed in the right Contents column; they jump this same scroll. They are not a second copy of the document.
+The project home is the case that proves the rule. Overview, tab bar, and document all live in one scroll: the overview scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. It reads like a repository page, because that is the right mental model for a project that is mostly documents. Headings are listed in the right Contents pane beside that scroll; they jump this same scroll. They are not a second copy of the document, and they are not a third `NavigationSplitView` column — that collapsed the page.
 
 Switching tabs animates the pane content with a 0.18s ease-in-out cross-fade and returns the scroll to the top. Jumping from the outline animates the scroll over 0.2s. When **Reduce Motion** is on, both become instant.
 

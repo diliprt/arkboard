@@ -6,7 +6,7 @@ Copy in fixed-width in the tables below is literal. Ship those strings.
 
 ## The shell
 
-A single window. `NavigationSplitView` with three columns: the project portfolio, the current page, and the document contents.
+A single window. `NavigationSplitView` with two columns: the project portfolio and the current page. Contents is a trailing pane inside the document column — not a third split column, which collapsed the page to empty white.
 
 - Minimum 1080 × 700, default 1320 × 860, `.windowStyle(.automatic)`, unified toolbar.
 - The selected project is restored on launch from `arkboard.sidebarSelection`. If the saved row is missing or is leftover studio chrome (`monitor`, `issues`, `activity`, `portfolio`), the first project is selected.
@@ -16,7 +16,7 @@ A single window. `NavigationSplitView` with three columns: the project portfolio
 
 232pt wide, `.sidebar` list style, one selection. This is the studio home: a clean portfolio of projects. There is no Studio section.
 
-**Header** — a `building.2` symbol in indigo and the workspace name in `bodyStrong`.
+**Header** — the workspace name as a `caption` section header with a `building.2` symbol, secondary. It is not a row and not a destination.
 
 **Projects** — one row each, every project, sorted by `sortOrder` then name. Clicking a row opens that project's document home (overview + tabs).
 
@@ -34,7 +34,7 @@ Arkboard's own mark is `square.3.layers.3d` in indigo `#5A62D6`. Other projects 
 
 ### Contents
 
-The right column. 220pt ideal, 180 min, 280 max. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right.
+A trailing pane beside the document, 220pt ideal, 180 min, 280 max. The document column itself is at least 560pt. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right.
 
 - Header `Contents` in `caption`, secondary.
 - One heading per row, indented 12pt per level below `#`, `bodyStrong` for `#`/`##` and `caption` deeper.
@@ -310,7 +310,7 @@ One shape everywhere: the section symbol at 28pt in the hue at 40%, a title in `
 
 The UI is done when all of these are true on a clean machine.
 
-1. Launching from `./scripts/run.sh` opens the Arkboard project. The left sidebar is a project portfolio — workspace name, then one row per project with a unique mark — and does not contain Monitor or Issues.
+1. Launching from `./scripts/run.sh` opens the Arkboard project. The left sidebar is a project portfolio — workspace name as a caption, then one row per project with a unique mark — and does not contain Monitor or Issues. The center is the document home (overview, six tabs, Design selected, markdown preview), not empty white.
 2. The Arkboard row uses `square.3.layers.3d` in indigo, not a generic blue dot. A second project, if present, uses a different symbol.
 3. The project home shows the overview band with the README lead rendered as rich markdown, six tabs, Design selected, and the `Tell the team…` composer.
 4. The Design, Architecture, and Decisions tabs each render this design pack as headings, prose, tables, lists, code blocks, and quotes. No `#` characters are visible as text.
