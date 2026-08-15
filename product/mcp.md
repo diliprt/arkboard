@@ -74,7 +74,7 @@ Every date is ISO 8601 with fractional seconds. Absent values are `null`, never 
 
 **Activity** — `id`, `createdAt`, `actor`, `targetActors[]`, `kind`, `action`, `body`, `projectId`, `projectKey`, `issueId`, `issueIdentifier`, `capabilityId`, `capabilityIdentifier`, `milestoneId`
 
-**Milestone** — `id`, `projectId`, `projectKey`, `title`, `body`, `targetDate`, `status`, `relatedIssueIdentifiers[]`, `createdAt`, `updatedAt`
+**Milestone** — `id`, `projectId`, `projectKey`, `title`, `body`, `targetDate`, `status`, `relatedIssueIdentifiers[]`, `dependsOn[]`, `createdAt`, `updatedAt`
 
 **Capability** — `id`, `identifier`, `projectId`, `projectKey`, `title`, `note`, `state`, `health`, `docPath`, `docAnchor`, `linkedIssueIdentifiers[]`, `checkedAt`, `createdAt`, `updatedAt`
 
@@ -242,13 +242,26 @@ Optional `projectKey` — pass `studio` for milestones with no project — and o
 | `status` | string | no | `planned` |
 | `projectKey` | string | no | studio-wide |
 | `relatedIssueIdentifiers` | string[] | no | `[]` |
+| `dependsOn` | string[] | no | `[]` |
 | `actor` | string | no | `Agent` |
 
 `targetDate` accepts ISO 8601 or `yyyy-MM-dd`, which is stored at noon UTC. Related identifiers must name issues that exist and are not archived.
 
+`dependsOn` holds the ids of milestones that must land first. Ids are trimmed and deduplicated. Every id must name a milestone that exists, or the whole call is rejected with `Unknown milestone dependency '<id>'.`
+
 ### `update_milestone`
 
 Takes `id` plus any create field. Returns the `Milestone`.
+
+Writing `dependsOn` replaces the whole predecessor list. A milestone may not depend on itself (`A milestone cannot depend on itself.`) and the graph must stay acyclic (`Milestone dependencies cannot form a cycle.`). Both are checked before anything is written.
+
+Dependencies are how agents express order. The human Timeline draws them as links between milestone bars and offers no way to edit them, so this API is the only writer.
+
+```bash
+curl -sX PATCH http://127.0.0.1:7420/api/milestones/<id> \
+  -H 'Content-Type: application/json' \
+  -d '{"dependsOn":["<predecessor-id>"],"actor":"Product"}'
+```
 
 ## Capabilities
 

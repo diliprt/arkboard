@@ -40,7 +40,7 @@ Section identity is the point of the colour system: you should know which tab yo
 | Architecture | azure | `square.stack.3d.up` |
 | Mockups | magenta | `photo.on.rectangle.angled` |
 | Decisions & questions | gold | `questionmark.bubble` |
-| Timeline | moss | `calendar` |
+| Timeline | moss | `chart.bar.xaxis` |
 
 The project overview header claims **no section hue**. It carries the project's persisted mark — SF Symbol plus brand colour, or an image from `product/` — and nothing else, so the header never competes with the tab body underneath it. Design's rose and Architecture's azure sit two tabs apart and must never be confused; if they ever look similar on screen, the wash is too weak, not the hue wrong.
 
@@ -138,7 +138,7 @@ Eight real macOS faces, no downloads:
 - Prose line spacing is `max(3, round(B * 0.3))` — 4pt at the default size.
 - The gap between two markdown blocks equals the body size: 13pt at 13pt, 16pt at 16pt.
 - Headings get extra air above, never below: `B` for `#` and `##`, `B / 2` for deeper levels.
-- A prose column is capped at **720pt** and centred. Grids, timelines, and feeds cap at **1000pt**.
+- Reading columns fill the pane and left-align, with pane padding only. No 720-centred island, and no 1000pt grid cap — a document, a card grid, and the Timeline all take the room the window gives them.
 
 ## Space and shape
 

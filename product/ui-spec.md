@@ -38,7 +38,7 @@ The column is the system's glass and nothing else is painted behind it. The sele
 **Destinations**, in this order:
 
 1. **Portfolio** — a real row. Portfolio is a destination. Selecting it shows the Portfolio page in the document column.
-2. **Timeline** — a real row. Timeline is a destination. Selecting it shows the master studio calendar.
+2. **Timeline** — a real row. Timeline is a destination. Selecting it shows the master studio rollup: every project's plan as a Gantt.
 
 A single hairline `Divider` sits between those two destinations and the pinned projects below. Not a section header that says `Projects`.
 
@@ -196,11 +196,40 @@ Clicking the card (not the pin) opens that project's home. This page is the only
 
 ## Timeline
 
-Subtitle: `The studio calendar.`
+Subtitle: `Every project on one timeline.`
 
-Timeline is a destination. The master view is a cross-project calendar of every project's milestones (and dated shipped work the engine already has). Scale control: Week / Month / Year. Default Month. Each event shows the project's mark and name. Clicking a project's event opens that project's Timeline tab.
+Timeline is a destination, and it is a Gantt: a project plan, not a month grid of days. Rows are the studio's broader projects; each project's milestones sit underneath it. Bars run left to right across one shared time axis, and dependency links join a milestone to the ones it waits on. This is the studio rollup — the view that answers "what is every project doing between now and Christmas", which a grid of dated cells cannot.
 
-Same left-aligned, pane-width measure. No 720 island. No 1000 grid. Contents stays empty — do not invent a fake document outline.
+Scale control: `Week` / `Month` / `Quarter`. Default Month. The scale only decides how wide one gridline column is; the shape is always bars on a timeline.
+
+### Rows
+
+| Row | Contains |
+| --- | --- |
+| Project | The project mark, name in `bodyStrong`, and its milestone count. One bar in the project's colour spanning its earliest dated work to its latest. |
+| Milestone | The title in `body` and the target date in `caption`, indented under its project. A thinner bar in the status colour, ending in a diamond on the target date. |
+
+A project with no milestones and no dated work has no row. Milestones with no project belong to a `Studio` row at the bottom, which is not clickable.
+
+A milestone holds one date, so its bar starts at whatever must land first: the latest target date among its predecessors, or its project's own start when it has none. A predecessor dated after its successor never inverts a bar.
+
+Completed issues the engine has already dated appear as small moss ticks on their project's bar — shipped work in context, not rows of their own.
+
+### Time axis
+
+Fixed above the rows, one label per column — `10 Aug`, `Aug 2026`, `Q3 2026` — on a hairline. Columns stretch to fill the pane; when that would squeeze a column below a legible width the chart scrolls horizontally and the row labels stay put. Week columns start on Monday.
+
+Exactly one `Today` rule: a moss line through every row, with the word on the axis. The window always has room for it, whether the plan is entirely past, entirely future, or empty.
+
+### Dependencies
+
+A milestone's `dependsOn` holds predecessor milestone ids. The chart draws one elbow link per predecessor, from that milestone's diamond into the successor's bar start, with an arrowhead. A predecessor that is not on the current chart draws no link. Agents write dependencies through `create_milestone` / `update_milestone`; the API rejects a missing id, a self-reference, and any cycle.
+
+### Read-only
+
+Humans read this chart and nothing else. No status editor, no priority editor, no drag to reschedule, no milestone form. Status is colour — moss done, gold underway, crimson missed, slate planned — and a hover line naming the status, the date, and what the milestone comes after. Agents set every one of those fields through the API.
+
+Clicking a project row or its bar opens that project's Timeline tab. Same left-aligned, pane-width measure. No 720 island. No 1000 grid. Contents stays empty — do not invent a fake document outline.
 
 ## Onboarding
 
@@ -249,7 +278,7 @@ Grouped rows scoped to this project. A `callout` line above them reads `Tracking
 
 ### Timeline tab
 
-The same calendar as the master Timeline, filtered to this project. Scale control: Week / Month / Year. Default Month. Milestones are first-class. Completed issues may appear as lighter marks. Click-through from the master view lands here. Read-only. Agents set milestones through the API.
+The same Gantt component as the master Timeline, scoped to this project — one project row, its milestones underneath, its dependency links, the same axis and the same `Week` / `Month` / `Quarter` control. Milestones are first-class. Completed issues appear as light ticks on the project bar. Click-through from the master view lands here. Read-only. Agents set milestones and dependencies through the API.
 
 ## New Project
 
@@ -288,7 +317,7 @@ Riyu does not manage work, so none of these exist on any screen. This list is a 
 - **No issue creation.** No New Issue button, no quick-add sheet, no `⌘⇧N`. Say it in the project composer.
 - **No board, no swimlanes, no kanban.** The previous build carried a `BoardView` nobody ever opened.
 - **No estimates, no points, no velocity, no burndown.**
-- **No milestone editing.** Timeline is read-only.
+- **No milestone editing.** Timeline is read-only. No milestone form, no drag to reschedule a bar, and no way to draw or cut a dependency. Milestones and their `dependsOn` predecessors move only through the API.
 - **No document editing.** `product/` is written in an editor and committed. Arkboard has no markdown text area outside the two composers, and no "save to product/" anywhere.
 - **No MCP tool names in empty states.** An empty document does not teach the human to call `create_capability`. It says a director pass will write it, and stops.
 - **No raw markdown in a reading view.**
@@ -338,7 +367,7 @@ One shape everywhere: the section symbol in the hue at 40% — sized from the ty
 
 ## Chat with Chief of Staff
 
-An AppKit / SwiftUI context menu on the entire app — sidebar, document, tabs, calendar events, cards, onboarding, empty states. The label is exactly `Chat with Chief of Staff`. Not "Chief of Agent". Not a generic Chat.
+An AppKit / SwiftUI context menu on the entire app — sidebar, document, tabs, timeline rows, cards, onboarding, empty states. The label is exactly `Chat with Chief of Staff`. Not "Chief of Agent". Not a generic Chat.
 
 Existing useful items stay. Pin / Unpin on a project row stay; this item is added. Issue rows keep `Copy identifier`, `Copy title`, and `Archive`. This menu does not offer status, priority, assignee, or issue creation. It does not open an external Grok chat. The board is the inbox.
 

@@ -8,7 +8,7 @@ The design pack in [`product/`](product/README.md) is the specification. If a do
 
 ## What you see
 
-The left sidebar is a portfolio of projects, each with its own brand mark. Click a project to open its document home — overview, then Design, Architecture, Mockups, Decisions & questions, Issues, Timeline. The first four tabs render `product/` markdown as a rich preview. Long documents list headings in the right-hand Contents column. Issues are a project tab only. Timeline is milestones.
+The left sidebar is a portfolio of projects, each with its own brand mark. Click a project to open its document home — overview, then Design, Architecture, Mockups, Decisions & questions, Issues, Timeline. The first four tabs render `product/` markdown as a rich preview. Long documents list headings in the right-hand Contents column. Issues are a project tab only. Timeline is a Gantt: projects as rows, milestones underneath, bars on one time axis, and links between milestones that wait on each other.
 
 The human UI has no status, priority, or assignee controls, and no New Issue button. Say what you want on the project. Agents file it. Monitor and Issues are not left-sidebar rows.
 
@@ -42,15 +42,21 @@ Proves `/health`, the nineteen MCP tools, actor attribution, soft-delete, capabi
 On Linux, without the app:
 
 ```bash
-python3 scripts/spec_check.py
+python3 scripts/spec_check.py       # design pack, routing, layout, and Timeline rules
+./scripts/gantt_check.sh            # compiles and unit-tests the Timeline maths (needs swiftc)
+python3 scripts/timeline_preview.py # draws the Timeline Gantt's layout to SVG/PNG
 ```
+
+`scripts/gantt_check.sh` builds `Sources/Arkboard/UI/Portfolio/TimelineModel.swift` on its own. That file imports Foundation only, so the Gantt's axis, bar, and dependency logic is testable on a Linux host with no Xcode.
+
+`scripts/timeline_preview.py` draws that same geometry — row order, bar spans, dependency links, the Today rule, each scale — so a Timeline change can be looked at before anyone opens Xcode. It is a geometry preview, not a screenshot; sign the finished screen off on a Mac.
 
 ## Agent API
 
 `http://127.0.0.1:7420` — not configurable. If the port is taken the server stays down and Settings (and the sidebar footer) say so.
 
 - Health: `GET /health`
-- REST: `/api/projects`, `/api/issues`, `/api/activity`, `/api/notes`, `/api/milestones`, `/api/capabilities`, `/api/documents`
+- REST: `/api/projects`, `/api/issues`, `/api/activity`, `/api/notes`, `/api/milestones` (`PATCH /api/milestones/{id}` sets `dependsOn`), `/api/capabilities`, `/api/documents`
 - MCP: `POST /mcp` (`initialize`, `ping`, `tools/list`, `tools/call`)
 
 Mutating calls take `actor`. Default is `Agent`. Do not send `Riyu`.

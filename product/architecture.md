@@ -35,11 +35,12 @@ The database never stores a copy of a document. Not a cached body, not an excerp
 
 - **Monitor** joins both: open questions parsed out of `product/`, and capability health plus server status out of SQLite. It is the only screen that mixes them.
 - **Project home** is documents on top, database at the bottom. The Design, Architecture, Mockups, and Decisions tabs read `product/` and nothing else. The Issues and Timeline tabs read SQLite and nothing else.
+- **Timeline** — master and project tab — is one component, `TimelineGanttView`. It reads projects, milestones, and completed issues out of the existing store; `GanttPlanner` turns them into project rows, milestone rows, and dependency links. The pure layout maths live in `TimelineModel.swift`, which imports Foundation only, so `./scripts/gantt_check.sh` can compile and test it on Linux without Xcode.
 - **Issues, Activity, Portfolio** are database-only, except that Portfolio counts which documents exist.
 
 ## Data model
 
-Ten tables, four migrations (`v1`, `v2-project-icon`, `v3-project-pinned`, `v4-activity-metadata`), no legacy. Identifiers are `UUID().uuidString` unless stated. Dates are stored as GRDB `DATETIME`. Existing databases pick up `pinned` in `v3-project-pinned`, default true, and `activity.metadata` in `v4-activity-metadata`, default `{}`.
+Ten tables, five migrations (`v1`, `v2-project-icon`, `v3-project-pinned`, `v4-activity-metadata`, `v5-milestone-dependencies`), no legacy. Identifiers are `UUID().uuidString` unless stated. Dates are stored as GRDB `DATETIME`. Existing databases pick up `pinned` in `v3-project-pinned`, default true, `activity.metadata` in `v4-activity-metadata`, default `{}`, and `milestone.dependsOn` in `v5-milestone-dependencies`, default `'[]'`.
 
 ### Enumerations
 
@@ -126,6 +127,7 @@ CREATE TABLE milestone (
   targetDate              DATETIME NOT NULL,
   status                  TEXT NOT NULL DEFAULT 'planned',
   relatedIssueIdentifiers TEXT NOT NULL DEFAULT '[]',                      -- JSON array of strings
+  dependsOn               TEXT NOT NULL DEFAULT '[]',                      -- JSON array of milestone ids
   createdAt               DATETIME NOT NULL,
   updatedAt               DATETIME NOT NULL
 );
@@ -207,6 +209,7 @@ Validation lives with the write path, not in the server, so REST, MCP, and the U
 - Unknown `status`, `priority`, `state`, `health`, or milestone `status` is rejected before anything is written; a rejected field does not partially apply the rest of the update.
 - Labels are trimmed, lowercased, and deduplicated; an update replaces the full set.
 - `relatedIssueIdentifiers` and `linkedIssueIdentifiers` must match `^[A-Z][A-Z0-9]{1,5}-(C)?\d+$` and must resolve to rows that exist and are not archived.
+- `milestone.dependsOn` ids are trimmed and deduplicated, must resolve to milestones that exist, may not name the milestone itself, and may not close a cycle. The graph is walked before the write, so a rejected edge leaves the rest of the update unapplied.
 - Dates accept ISO 8601 with or without fractional seconds, or bare `yyyy-MM-dd`, which is stored as noon UTC. Anything else is rejected.
 - Project keys are uppercased, stripped to `A–Z0–9`, and must be 2 to 6 characters.
 
@@ -237,6 +240,7 @@ HTTP/1.1, `Content-Length` required on bodies, 1 MB request cap, one response pe
 | POST | `/api/notes` | post a studio or project note |
 | GET | `/api/milestones` | list milestones |
 | POST | `/api/milestones` | create a milestone |
+| PATCH | `/api/milestones/{id}` | update a milestone, including `dependsOn` |
 | GET | `/api/capabilities` | list capabilities |
 | POST | `/api/capabilities` | create a capability |
 | GET | `/api/documents` | list documents in a project's `product/` |
@@ -318,7 +322,7 @@ This is why `decisions.md` is written the way it is. The convention is the parse
 
 ## Seed
 
-On an empty database, and only then: a workspace named **Origin Ark**, and one project — **Arkboard**, key `ARK`, colour `#5A62D6`, icon `square.3.layers.3d`, `repoPath` set to the resolved repository root, `githubRepo` set to `diliprt/arkboard`. Then a handful of capabilities describing the app's own day-one surface, one milestone, and a single activity row welcoming the studio. Existing databases pick up `icon` in `v2-project-icon` and receive a distinct mark per project so the portfolio is never a row of identical dots. They pick up `pinned` in `v3-project-pinned`, default true, so Arkboard does not vanish from the sidebar. They pick up `activity.metadata` in `v4-activity-metadata`, default `{}`.
+On an empty database, and only then: a workspace named **Origin Ark**, and one project — **Arkboard**, key `ARK`, colour `#5A62D6`, icon `square.3.layers.3d`, `repoPath` set to the resolved repository root, `githubRepo` set to `diliprt/arkboard`. Then a handful of capabilities describing the app's own day-one surface, one milestone, and a single activity row welcoming the studio. Existing databases pick up `icon` in `v2-project-icon` and receive a distinct mark per project so the portfolio is never a row of identical dots. They pick up `pinned` in `v3-project-pinned`, default true, so Arkboard does not vanish from the sidebar. They pick up `activity.metadata` in `v4-activity-metadata`, default `{}`, and `milestone.dependsOn` in `v5-milestone-dependencies`, default empty, so an existing plan simply has no links until an agent sets them.
 
 Nothing fictional. The previous build seeded a demo project and a fake three-bot conversation, and the first thing anyone had to do was work out which rows were real. One real project, and everything you see is true.
 

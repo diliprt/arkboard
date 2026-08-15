@@ -160,6 +160,11 @@ enum AppDatabase {
                 t.add(column: "metadata", .text).notNull().defaults(to: "{}")
             }
         }
+        migrator.registerMigration("v5-milestone-dependencies") { db in
+            try db.alter(table: "milestone") { t in
+                t.add(column: "dependsOn", .text).notNull().defaults(to: "[]")
+            }
+        }
         return migrator
     }
 }

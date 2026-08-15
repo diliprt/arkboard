@@ -63,6 +63,16 @@ enum Hue: String, CaseIterable, Sendable {
         }
     }
 
+    /// Milestone bars and diamonds carry status as colour, the same mapping design.md documents.
+    static func milestone(_ status: MilestoneStatus) -> Hue {
+        switch status {
+        case .done: return .moss
+        case .inProgress: return .gold
+        case .missed: return .crimson
+        case .planned: return .slate
+        }
+    }
+
     static func fnv1a(_ string: String) -> UInt32 {
         var hash: UInt32 = 2_166_136_261
         for byte in string.utf8 {
@@ -103,7 +113,7 @@ enum StudioSection: String, CaseIterable, Sendable {
         case .architecture: return "square.stack.3d.up"
         case .mockups: return "photo.on.rectangle.angled"
         case .decisions: return "questionmark.bubble"
-        case .timeline: return "calendar"
+        case .timeline: return "chart.bar.xaxis"
         }
     }
 

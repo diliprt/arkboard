@@ -162,6 +162,61 @@ if [[ -n "$IDENT" ]]; then
   check_json "create_milestone with related issue" "$GOOD_REL" '(.error | not) and ((.result.structuredContent.relatedIssueIdentifiers // []) | index("'"$IDENT"'") != null)'
 fi
 
+info "MCP milestone dependencies (Timeline Gantt links)"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+DEP_A="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg t "Dep A $STAMP" '{
+    jsonrpc:"2.0", id:22, method:"tools/call",
+    params:{ name:"create_milestone", arguments:{ title:$t, projectKey:"ARK", targetDate:"2030-01-15", actor:"Product" } }
+  }')")"
+check_json "new milestone has empty dependsOn" "$DEP_A" '(.result.structuredContent.dependsOn // ["unset"]) | length == 0'
+A_ID="$(echo "$DEP_A" | jq -r '.result.structuredContent.id // empty')"
+
+BAD_DEP="$(curl -sS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0","id":23,"method":"tools/call",
+    "params":{"name":"create_milestone","arguments":{"title":"Bad dependency smoke","targetDate":"2030-01-01","dependsOn":["not-a-milestone"],"actor":"Ops"}}
+  }')"
+check_json "unknown dependency error" "$BAD_DEP" '.error.message | test("Unknown milestone dependency")'
+
+if [[ -n "$A_ID" ]]; then
+  DEP_B="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg t "Dep B $STAMP" --arg a "$A_ID" '{
+      jsonrpc:"2.0", id:24, method:"tools/call",
+      params:{ name:"create_milestone", arguments:{ title:$t, projectKey:"ARK", targetDate:"2030-02-15", dependsOn:[$a], actor:"Product" } }
+    }')")"
+  check_json "create_milestone accepts dependsOn" "$DEP_B" '(.result.structuredContent.dependsOn // []) | index("'"$A_ID"'") != null'
+  B_ID="$(echo "$DEP_B" | jq -r '.result.structuredContent.id // empty')"
+
+  SELF_DEP="$(curl -sS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg a "$A_ID" '{
+      jsonrpc:"2.0", id:25, method:"tools/call",
+      params:{ name:"update_milestone", arguments:{ id:$a, dependsOn:[$a], actor:"Ops" } }
+    }')")"
+  check_json "self dependency error" "$SELF_DEP" '.error.message | test("cannot depend on itself")'
+
+  if [[ -n "$B_ID" ]]; then
+    CYCLE="$(curl -sS --max-time 5 -X POST "$BASE/mcp" \
+      -H 'Content-Type: application/json' \
+      -d "$(jq -n --arg a "$A_ID" --arg b "$B_ID" '{
+        jsonrpc:"2.0", id:26, method:"tools/call",
+        params:{ name:"update_milestone", arguments:{ id:$a, dependsOn:[$b], actor:"Ops" } }
+      }')")"
+    check_json "dependency cycle error" "$CYCLE" '.error.message | test("cannot form a cycle")'
+    check_json "rejected cycle left A unchanged" \
+      "$(curl -sfS --max-time 5 "$BASE/api/milestones?projectKey=ARK")" \
+      "([.milestones[] | select(.id == \"$A_ID\")][0].dependsOn | length) == 0"
+    REST_DEP="$(curl -sfS --max-time 5 -X PATCH "$BASE/api/milestones/$B_ID" \
+      -H 'Content-Type: application/json' \
+      -d '{"dependsOn":[],"actor":"Product"}')"
+    check_json "REST PATCH replaces dependsOn" "$REST_DEP" '(.dependsOn // ["unset"]) | length == 0'
+  fi
+fi
+
 REQ_TITLE="Smoke capability $(date +%Y%m%d-%H%M%S)"
 info "MCP create_capability / update_capability not_working"
 REQC="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \

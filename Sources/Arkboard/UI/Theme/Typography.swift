@@ -88,6 +88,17 @@ enum Metrics {
     static let tabFade: CGFloat = 24
     static let tabPillX: CGFloat = 10
     static let emptyPaneMin: CGFloat = 280
+    static let ganttLabelColumn: CGFloat = 240
+    static let ganttAxisHeight: CGFloat = 44
+    static let ganttTodayTier: CGFloat = 24
+    static let ganttProjectRow: CGFloat = 34
+    static let ganttMilestoneRow: CGFloat = 28
+    static let ganttProjectBar: CGFloat = 14
+    static let ganttMilestoneBar: CGFloat = 8
+    static let ganttDiamond: CGFloat = 10
+    static let ganttBarMin: CGFloat = 10
+    static let ganttLinkElbow: CGFloat = 10
+    static let ganttTodayFlag: CGFloat = 60
 }
 
 enum DocumentMeasure {

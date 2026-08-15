@@ -93,6 +93,7 @@ enum JSONPayload {
             "targetDate": StudioISO8601.string(from: milestone.targetDate),
             "status": milestone.status.rawValue,
             "relatedIssueIdentifiers": milestone.relatedIdentifiers,
+            "dependsOn": milestone.dependencyIds,
             "createdAt": StudioISO8601.string(from: milestone.createdAt),
             "updatedAt": StudioISO8601.string(from: milestone.updatedAt),
         ]
