@@ -2,7 +2,9 @@
 
 What is settled, and what is still open. This file is the source of truth for both. A note typed into the app is a sticky; this is the record.
 
-The headings here are load-bearing. Arkboard parses this document to build Monitor's open-questions lane, and the rule is simple: a heading starting with **Locked** or **Decided** is settled, and a heading starting with **Open** or ending in a question mark is not. Keep the convention when you add to this file, and Monitor stays honest for free.
+The headings here are load-bearing. Arkboard parses this document to build the open-questions lane, and the rule is simple: a heading starting with **Locked** or **Decided** is settled, and a heading starting with **Open** or ending in a question mark is not. Keep the convention when you add to this file, and the parse stays honest for free.
+
+> **Supersede, 2026-08-15.** Older locks below name Monitor as a screen. It is not one and has not been for several passes: the engine is real, but it has no sidebar row and no destination, and its questions surface as the gold chips above a project's Decisions tab. The locks themselves still hold; only the screen name is stale. Nothing here licenses adding Monitor, Issues or Activity back to the left column.
 
 ## Locked — `product/` in Git is the source of truth
 
@@ -101,6 +103,21 @@ That means a document whose first heading repeats the title it sits under does n
 It also means the project page has no identity strip. Mark and key sit in the toolbar beside the window title, and the pane starts at the tab rail. A mark-plus-key row under a title bar that already says `Arkboard` is a second logo row.
 
 And it means **Timeline has no in-page title**: that pane opens on the scale control and the Gantt. The window title bar is also pinned to the inline display mode, because a title and subtitle stacked in their own row under a sparse toolbar reads as a headline band even when no view is drawing one — which is what Timeline looked like while its code had no band at all.
+
+## Locked — product/ tabs are living
+
+Design, Architecture, Mockups and Decisions describe the app that is on `main`. They ship **in the same pull request as the chrome they describe**, not in a brochure pass afterwards.
+
+A tab that still describes dead chrome is a defect, and it fails review the same way a broken layout does. This is not pedantry about documentation: `product/` is what Arkboard renders. A stale Design tab is a stale *screen in the running app*, read by the person who has to trust it, and by every agent that reads the pack to find out what it is building. We shipped Portfolio posters, a grey selected row, one window title and a Gantt while `product/design.md` still mapped Monitor, Issues and Activity as the left sidebar. Anyone reading the app to learn the app was being told a version of it that had not existed for weeks.
+
+The rule in practice:
+
+- Change the chrome, change the tab, one PR. If the diff touches `Sources/Arkboard/UI/` and the behaviour it describes is written down, the writing moves too.
+- **Mockups are the latest measured window shots** in `product/mockups/`, taken from the current build. Not a folder someone forgot. An empty gallery is honest; a gallery of last month's chrome is not.
+- Never rewrite a historical lock to pretend it always said the current thing. Add a supersede line and leave the record intact — the reasoning is the point of this file, and reasoning that has been quietly edited is worth nothing.
+- Critique and merge fail if a tab still describes something you cannot find in the running app.
+
+> A design pack that lags the product is worse than no design pack, because people believe it.
 
 ## Locked — Mac-first measures before Critique
 

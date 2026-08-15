@@ -1,5 +1,7 @@
 # Polish
 
+> **Historical record. Superseded, 2026-08-15.** This is the punch list from one audit of main @ `4cd6b9d`, kept because the reasoning is worth reading. Much of the chrome it argues about is gone: there is no overview band, no `New Project` in the sidebar footer, no in-page screen header, and the Timeline is a Gantt rather than a calendar. Read it as a record of how the app got here, not as a description of it. Current chrome is [design.md](design.md); current rules are [decisions.md](decisions.md).
+
 A UI punch list from a live audit of main @ `4cd6b9d`, against seven screenshots of the running app. This is polish only: nothing here adds product. The portfolio stays on the left, Contents stays on the right, Monitor and Issues stay out of the left chrome, and `product/` stays the source of truth. Numbers and copy referenced here come from [design.md](design.md) and [ui-spec.md](ui-spec.md).
 
 **Shipped** (this pass): C1, SB2, H1, T1, T2, O1, T3, D2, D3, plus cheap should-fix C2, O2, D4, E1. SB1: New Project is the sidebar footer, not a toolbar item. D1: the document measure is the pane width (overview, composer, tabs, markdown), left-aligned, pane padding only — not a 720 island when chrome is collapsed, not GridColumn 1000. Nits H2, H3, O3 left.

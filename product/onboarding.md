@@ -76,7 +76,8 @@ That is the Linux-runnable contract check. It does not launch the app.
 4. **No issue creation** in the human UI. Say it in the compact note sheet. An agent files it.
 5. **Product Critique** is PASS or NOT YET after UI ships.
 6. **Mac-first measures before Critique.** A UI change is measured before it is reviewed: Apple Build compiles it on the existing Mac checkout — no worktrees — and runs `./scripts/mac_measure.sh` against the running Debug build, then pastes that JSON into the Critique packet. A still without the click measures is not a review, because a screenshot cannot show a body that moves 52pt under a rail that never does. The script exits non-zero when the numbers drift; that is a failed build, not a conversation. See `product/decisions.md`, "Locked — Mac-first measures before Critique".
-7. **Do not bounce Design frames** into Riyu's chat unless asked.
+7. **product/ tabs are living.** Design, Architecture, Mockups and Decisions describe the app on `main`, and they ship in the same PR as the chrome they describe — never a brochure pass afterwards. `product/` is what Arkboard renders, so a stale Design tab is a stale screen in the running app. Mockups are the latest measured window shots in `product/mockups/`, not a forgotten folder. Critique fails a tab that still describes dead chrome. See `product/decisions.md`, "Locked — product/ tabs are living".
+8. **Do not bounce Design frames** into Riyu's chat unless asked.
 
 ## Current chrome
 
