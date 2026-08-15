@@ -72,7 +72,7 @@ struct PortfolioView: View {
         return CardSurface(hue: .violet) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    ProjectDot(hex: project.color, size: 10)
+                    ProjectIcon(project: project, imageData: store.markImage(for: project), size: 22)
                     Text(project.name).font(type.heading)
                     Text(project.key).font(type.mono).foregroundStyle(StudioColor.secondary)
                 }

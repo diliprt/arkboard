@@ -16,6 +16,7 @@ enum JSONPayload {
             "key": project.key,
             "name": project.name,
             "color": project.color,
+            "icon": project.icon,
             "summary": project.summary,
             "repoPath": json(project.repoPath),
             "githubRepo": json(project.githubRepo),

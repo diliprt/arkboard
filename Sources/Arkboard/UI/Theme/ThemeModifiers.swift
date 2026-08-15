@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct StudioRoot: ViewModifier {
@@ -45,6 +46,33 @@ struct ProjectDot: View {
         Circle()
             .fill(Color(hex: hex))
             .frame(width: size, height: size)
+    }
+}
+
+struct ProjectIcon: View {
+    var project: Project
+    var imageData: Data? = nil
+    var size: CGFloat = 22
+
+    var body: some View {
+        Group {
+            if let imageData, let image = NSImage(data: imageData) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: project.icon.isEmpty ? ProjectMark.symbols[0] : project.icon)
+                    .font(.system(size: size * 0.52, weight: .semibold))
+                    .foregroundStyle(Color(hex: project.color))
+            }
+        }
+        .frame(width: size, height: size)
+        .background(
+            Color(hex: project.color).opacity(0.16),
+            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .accessibilityLabel(project.name)
     }
 }
 

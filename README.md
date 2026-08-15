@@ -8,11 +8,9 @@ The design pack in [`product/`](product/README.md) is the specification. If a do
 
 ## What you see
 
-Sidebar: **Monitor**, **Issues**, **Activity**, **Portfolio**, then projects.
+The left sidebar is a portfolio of projects, each with its own brand mark. Click a project to open its document home — overview, then Design, Architecture, Mockups, Decisions & questions, Issues, Timeline. The first four tabs render `product/` markdown as a rich preview. Long documents list headings in the right-hand Contents column. Issues are a project tab only. Timeline is milestones.
 
-A project opens as a document home — overview, then Design, Architecture, Mockups, Decisions & questions, Issues, Timeline. The first four tabs render `product/` markdown as a rich preview. Issues are tracking only. Timeline is milestones.
-
-The human UI has no status, priority, or assignee controls, and no New Issue button. Say what you want in the Monitor composer. Agents file it.
+The human UI has no status, priority, or assignee controls, and no New Issue button. Say what you want on the project. Agents file it. Monitor and Issues are not left-sidebar rows.
 
 ## Requirements
 
@@ -49,7 +47,7 @@ python3 scripts/spec_check.py
 
 ## Agent API
 
-`http://127.0.0.1:7420` — not configurable. If the port is taken the server stays down and Monitor says so.
+`http://127.0.0.1:7420` — not configurable. If the port is taken the server stays down and Settings (and the sidebar footer) say so.
 
 - Health: `GET /health`
 - REST: `/api/projects`, `/api/issues`, `/api/activity`, `/api/notes`, `/api/milestones`, `/api/capabilities`, `/api/documents`

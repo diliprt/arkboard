@@ -12,9 +12,7 @@ Three sentences, and every other decision in this folder follows from them.
 
 ## What you see when you open it
 
-The sidebar is the studio: **Monitor**, **Issues**, **Activity**, **Portfolio**, then one row per project.
-
-Click a project and you get a document home, not a ticket list. A short overview at the top, then tabs:
+The left sidebar is the studio home: a portfolio of every project, each with that app's own mark. Click a project and you get a document home, not a ticket list. A short overview at the top, then tabs:
 
 | Tab | What it is | Where it comes from |
 | --- | --- | --- |
@@ -25,7 +23,7 @@ Click a project and you get a document home, not a ticket list. A short overview
 | Issues | Tracking, read-only for humans | SQLite |
 | Timeline | Milestones and what shipped | SQLite |
 
-The first four tabs render markdown from that repo's `product/` folder as a **rich preview** — real headings, lists, code blocks, quotes, tables, links, images. Never a wall of raw `.md`. Long documents get a subsection outline that jumps within the same scroll.
+The first four tabs render markdown from that repo's `product/` folder as a **rich preview** — real headings, lists, code blocks, quotes, tables, links, images. Never a wall of raw `.md`. Long documents list their headings in the right-hand **Contents** column; click one to jump to that subsection.
 
 ## Where the truth lives
 
@@ -37,7 +35,7 @@ The database holds only what documents cannot: issues, comments, activity, miles
 
 ## What is deliberately missing
 
-Riyu does not assign work, so the human UI has **no status field, no priority field, and no assignee picker** anywhere. Agents set those through the API; humans never see a dropdown for them. There is no issue-creation form either. If something needs to happen, you say it in the Monitor composer and an agent files it.
+Riyu does not assign work, so the human UI has **no status field, no priority field, and no assignee picker** anywhere. Agents set those through the API; humans never see a dropdown for them. There is no issue-creation form either. If something needs to happen, you say it on the project and an agent files it. Monitor and Issues are not left-sidebar rows; Issues stays as a tab on the project page.
 
 ## What's in this folder
 

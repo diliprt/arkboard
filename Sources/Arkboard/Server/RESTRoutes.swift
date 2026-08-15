@@ -12,6 +12,7 @@ enum RESTRoutes {
                     key: HTTPJSON.string(body, "key") ?? "",
                     name: HTTPJSON.string(body, "name") ?? "",
                     color: HTTPJSON.string(body, "color"),
+                    icon: HTTPJSON.string(body, "icon"),
                     summary: HTTPJSON.string(body, "summary"),
                     repoPath: HTTPJSON.string(body, "repoPath"),
                     githubRepo: HTTPJSON.string(body, "githubRepo"),

@@ -66,7 +66,7 @@ Mentions in a comment or note body are parsed with `@Name` and recorded as targe
 
 Every date is ISO 8601 with fractional seconds. Absent values are `null`, never omitted.
 
-**Project** — `id`, `key`, `name`, `color`, `summary`, `repoPath`, `githubRepo`, `openIssueCount`, `createdAt`
+**Project** — `id`, `key`, `name`, `color`, `icon`, `summary`, `repoPath`, `githubRepo`, `openIssueCount`, `createdAt`
 
 **Issue** — `id`, `identifier`, `projectId`, `projectKey`, `title`, `body`, `status`, `priority`, `assignee`, `labels[]`, `createdAt`, `updatedAt`, `completedAt`, `archivedAt`
 
@@ -94,7 +94,8 @@ Returns `{ "projects": [Project] }`.
 | --- | --- | --- | --- |
 | `key` | string | yes | — |
 | `name` | string | yes | — |
-| `color` | string | no | `#5A62D6` |
+| `color` | string | no | assigned from the ramp when omitted |
+| `icon` | string | no | SF Symbol; assigned a distinct unused mark when omitted |
 | `summary` | string | no | `""` |
 | `repoPath` | string | no | `null` |
 | `githubRepo` | string | no | `null` |

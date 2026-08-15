@@ -132,6 +132,24 @@ enum AppDatabase {
                 t.column("milestoneId", .text).indexed().references("milestone", onDelete: .setNull)
             }
         }
+        migrator.registerMigration("v2-project-icon") { db in
+            try db.alter(table: "project") { t in
+                t.add(column: "icon", .text).notNull().defaults(to: "circle.fill")
+            }
+            let rows = try Row.fetchAll(db, sql: "SELECT id, key, name, color FROM project ORDER BY sortOrder, name")
+            var used = Set<String>()
+            for row in rows {
+                let key: String = row["key"]
+                let name: String = row["name"]
+                let color: String = row["color"]
+                let mark = ProjectMark.assigned(key: key, name: name, usedSymbols: used, existingColor: color)
+                used.insert(mark.symbol)
+                try db.execute(
+                    sql: "UPDATE project SET icon = ?, color = ? WHERE id = ?",
+                    arguments: [mark.symbol, mark.color, row["id"]]
+                )
+            }
+        }
         return migrator
     }
 }

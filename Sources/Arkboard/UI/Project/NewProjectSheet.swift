@@ -8,6 +8,7 @@ struct NewProjectSheet: View {
     @State private var name = ""
     @State private var key = ""
     @State private var color = Hue.indigo.light
+    @State private var icon = ProjectMark.symbols[1]
     @State private var repoPath = ""
     @State private var githubRepo = ""
     @State private var error: String?
@@ -37,6 +38,25 @@ struct NewProjectSheet: View {
                     .buttonStyle(.plain)
                 }
             }
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(28), spacing: 8), count: 10), spacing: 8) {
+                ForEach(ProjectMark.symbols.filter { $0 != ProjectMark.arkboardSymbol }, id: \.self) { symbol in
+                    Button {
+                        icon = symbol
+                    } label: {
+                        Image(systemName: symbol)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color(hex: color))
+                            .frame(width: 28, height: 28)
+                            .background(Color(hex: color).opacity(0.16), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .stroke(icon == symbol ? StudioColor.primary : Color.clear, lineWidth: 1.5)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .onAppear { pickUnusedMark() }
             HStack {
                 TextField("Documents folder", text: $repoPath)
                     .font(type.mono)
@@ -59,6 +79,15 @@ struct NewProjectSheet: View {
         .frame(width: 520)
     }
 
+    private func pickUnusedMark() {
+        let used = Set(store.projects.map(\.icon))
+        let mark = ProjectMark.assigned(key: key.isEmpty ? name : key, name: name, usedSymbols: used, existingColor: color)
+        icon = mark.symbol
+        if color == Hue.indigo.light {
+            color = mark.color
+        }
+    }
+
     private func pickFolder() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -75,6 +104,7 @@ struct NewProjectSheet: View {
                 key: key,
                 name: name,
                 color: color,
+                icon: icon,
                 summary: "",
                 repoPath: repoPath.isEmpty ? nil : repoPath,
                 githubRepo: githubRepo.isEmpty ? nil : githubRepo,

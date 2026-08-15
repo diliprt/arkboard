@@ -4,16 +4,12 @@ struct MonitorView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.colorScheme) private var scheme
     @Environment(\.typography) private var type
-    @State private var draft = ""
-    @State private var scopeKey: String = "studio"
-    @FocusState private var composerFocused: Bool
-
     var body: some View {
         VStack(spacing: 0) {
             ScreenHeader(section: .monitor, subtitle: "What needs you, and what is broken.")
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.sectionGap) {
-                    composer
+                    NoteComposer(allowStudioScope: true)
                     questions
                     broken
                     health
@@ -24,41 +20,6 @@ struct MonitorView: View {
                 .frame(maxWidth: .infinity)
             }
             .background(StudioColor.wash(.indigo, scheme: scheme))
-        }
-        .onChange(of: store.focusComposer) { _, _ in
-            composerFocused = true
-        }
-    }
-
-    private var composer: some View {
-        CardSurface(hue: .indigo) {
-            HStack(alignment: .top, spacing: 12) {
-                ProjectDot(hex: Hue.moss.light, size: 10)
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("Tell the team…", text: $draft, axis: .vertical)
-                        .font(type.body)
-                        .lineLimit(1...5)
-                        .focused($composerFocused)
-                        .textFieldStyle(.plain)
-                    HStack {
-                        Picker("Scope", selection: $scopeKey) {
-                            Text("to Studio").tag("studio")
-                            ForEach(store.projects) { project in
-                                Text("to \(project.name)").tag(project.key)
-                            }
-                        }
-                        .labelsHidden()
-                        .frame(maxWidth: 200)
-                        Spacer()
-                        Text("⌘↩")
-                            .font(type.caption)
-                            .foregroundStyle(StudioColor.tertiary)
-                        Button("Send", action: send)
-                            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            .keyboardShortcut(.return, modifiers: .command)
-                    }
-                }
-            }
         }
     }
 
@@ -71,7 +32,7 @@ struct MonitorView: View {
             + Text("  \(items.count)")
                 .font(type.caption)
                 .foregroundStyle(StudioColor.secondary)
-            if items.isEmpty && store.brokenCapabilities.isEmpty && draft.isEmpty {
+            if items.isEmpty && store.brokenCapabilities.isEmpty {
                 EmptyStateView(section: .monitor, title: EmptyCopy.quietStudio.0, sentence: EmptyCopy.quietStudio.1)
             } else if items.isEmpty {
                 EmptyStateView(section: .decisions, title: EmptyCopy.noQuestions.0, sentence: EmptyCopy.noQuestions.1)
@@ -171,11 +132,4 @@ struct MonitorView: View {
         }
     }
 
-    private func send() {
-        let body = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty else { return }
-        let key = scopeKey == "studio" ? nil : scopeKey
-        _ = try? store.postNote(body: body, projectKey: key, actor: "Riyu")
-        draft = ""
-    }
 }

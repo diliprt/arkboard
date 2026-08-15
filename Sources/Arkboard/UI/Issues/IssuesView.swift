@@ -115,7 +115,7 @@ struct IssueRowView: View {
     var body: some View {
         HStack(spacing: 8) {
             if showProject, let project = store.project(id: issue.projectId) {
-                ProjectDot(hex: project.color, size: 6)
+                ProjectIcon(project: project, imageData: store.markImage(for: project), size: 16)
                 Text(project.key).font(type.mono).foregroundStyle(StudioColor.secondary)
             }
             Text(issue.identifier)

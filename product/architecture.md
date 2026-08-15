@@ -39,7 +39,7 @@ The database never stores a copy of a document. Not a cached body, not an excerp
 
 ## Data model
 
-Ten tables, one migration, no legacy. Identifiers are `UUID().uuidString` unless stated. Dates are stored as GRDB `DATETIME`.
+Ten tables, two migrations (`v1` then `v2-project-icon`), no legacy. Identifiers are `UUID().uuidString` unless stated. Dates are stored as GRDB `DATETIME`.
 
 ### Enumerations
 
@@ -67,6 +67,7 @@ CREATE TABLE project (
   key               TEXT NOT NULL UNIQUE,          -- ARK, 2–6 chars, A–Z0–9
   name              TEXT NOT NULL,
   color             TEXT NOT NULL DEFAULT '#5A62D6',
+  icon              TEXT NOT NULL DEFAULT 'circle.fill',  -- SF Symbol; Arkboard is square.3.layers.3d
   summary           TEXT NOT NULL DEFAULT '',      -- one line, only used before product/ loads
   repoPath          TEXT,                          -- absolute path to the local checkout
   githubRepo        TEXT,                          -- owner/name, for remote product/ reads
@@ -308,12 +309,12 @@ This is why `decisions.md` is written the way it is. The convention is the parse
 | `arkboard.appearance` | `light` / `dark` / `system` | `light` |
 | `arkboard.fontSize` | `12` / `13` / `14` / `16` | `13` |
 | `arkboard.fontFamily` | face identifier | `system` |
-| `arkboard.sidebarSelection` | last selection | `monitor` |
+| `arkboard.sidebarSelection` | last project | first project |
 | `arkboard.serverPort` | Int, informational | `7420` |
 
 ## Seed
 
-On an empty database, and only then: a workspace named **Origin Ark**, and one project — **Arkboard**, key `ARK`, colour `#5A62D6`, `repoPath` set to the resolved repository root, `githubRepo` set to `diliprt/arkboard`. Then a handful of capabilities describing the app's own day-one surface, one milestone, and a single activity row welcoming the studio.
+On an empty database, and only then: a workspace named **Origin Ark**, and one project — **Arkboard**, key `ARK`, colour `#5A62D6`, icon `square.3.layers.3d`, `repoPath` set to the resolved repository root, `githubRepo` set to `diliprt/arkboard`. Then a handful of capabilities describing the app's own day-one surface, one milestone, and a single activity row welcoming the studio. Existing databases pick up `icon` in `v2-project-icon` and receive a distinct mark per project so the portfolio is never a row of identical dots.
 
 Nothing fictional. The previous build seeded a demo project and a fake three-bot conversation, and the first thing anyone had to do was work out which rows were real. One real project, and everything you see is true.
 
@@ -359,9 +360,10 @@ Sources/Arkboard/
   Model/
     Entities.swift               Project, Issue, Comment, Milestone, Capability, Activity
     Enums.swift                  status, priority, state, health, kind, action
+    ProjectMark.swift            persisted SF Symbol + colour, product/ image names
     HumanVocabulary.swift        status → Queued / Underway / Done
   Data/
-    AppDatabase.swift            DatabasePool, migration v1, path
+    AppDatabase.swift            DatabasePool, migrations v1 and v2-project-icon, path
     AppStore.swift               @Observable, ValueObservation, mutate()
     Validation.swift             titles, dates, labels, identifiers
     Seed.swift                   first-run seed
@@ -377,8 +379,8 @@ Sources/Arkboard/
     ToolCatalogue.swift          one entry per tool, schema + handler
   UI/
     Theme/                       Hue, Section, Typography, Metrics, modifiers
-    Markdown/                    MarkdownView, Outline, CodeBlock, TableView
-    Shell/                       RootView, Sidebar, ScreenHeader
+    Markdown/                    MarkdownView, ContentsOutline, CodeBlock, TableView
+    Shell/                       RootView, Sidebar, ScreenHeader, NoteComposer
     Monitor/  Issues/  Activity/  Portfolio/  Project/  Settings/
   Resources/
     Assets.xcassets              AppIcon

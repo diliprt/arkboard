@@ -42,7 +42,7 @@ Section identity is the point of the colour system: you should know which tab yo
 | Decisions & questions | gold | `questionmark.bubble` |
 | Timeline | moss | `calendar` |
 
-The project overview header claims **no section hue**. It carries the project's own stored colour as a 10pt dot and nothing else, so the header never competes with the tab body underneath it. Design's rose and Architecture's azure sit two tabs apart and must never be confused; if they ever look similar on screen, the wash is too weak, not the hue wrong.
+The project overview header claims **no section hue**. It carries the project's persisted mark — SF Symbol plus brand colour, or an image from `product/` — and nothing else, so the header never competes with the tab body underneath it. Design's rose and Architecture's azure sit two tabs apart and must never be confused; if they ever look similar on screen, the wash is too weak, not the hue wrong.
 
 ### States borrow three
 
@@ -152,6 +152,7 @@ Spacing comes from one scale: **2, 4, 8, 12, 16, 20, 24, 32, 40**. If a number o
 | Gap between cards | 12 |
 | Gap between sections in a pane | 28 |
 | Sidebar width | 232 ideal, 200 min, 300 max |
+| Contents column | 220 ideal, 180 min, 280 max |
 | Issues list column | 420 ideal, 340 min, 620 max |
 | Minimum window | 1080 × 700 |
 | Default window | 1320 × 860 |
@@ -174,10 +175,10 @@ Icons are SF Symbols at `body` size unless stated, rendered in the section hue, 
 1. A pane may have fixed chrome — a screen title bar, a filter row, a toolbar. Fixed chrome does not count as a scroll region.
 2. Below the chrome there is exactly one vertical `ScrollView`, and everything the pane has to say lives inside it.
 3. A `List` is never placed inside a `ScrollView`. Where a pane needs rows, use a `LazyVStack` of row views inside the single scroll.
-4. Horizontal scrolling inside the vertical scroll is allowed, because the axes do not fight: the tab bar and the outline chip row use it.
+4. Horizontal scrolling inside the vertical scroll is allowed, because the axes do not fight: the tab bar uses it. The outline is a separate right-hand column, not a chip row in this scroll.
 5. Sticky headers come from `LazyVStack(pinnedViews: .sectionHeaders)` within that single scroll, not from a second container.
 
-The project home is the case that proves the rule. Overview, tab bar, and document all live in one scroll: the overview scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. It reads like a repository page, because that is the right mental model for a project that is mostly documents.
+The project home is the case that proves the rule. Overview, tab bar, and document all live in one scroll: the overview scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. It reads like a repository page, because that is the right mental model for a project that is mostly documents. Headings are listed in the right Contents column; they jump this same scroll. They are not a second copy of the document.
 
 Switching tabs animates the pane content with a 0.18s ease-in-out cross-fade and returns the scroll to the top. Jumping from the outline animates the scroll over 0.2s. When **Reduce Motion** is on, both become instant.
 
@@ -213,13 +214,13 @@ Bold, italic, strikethrough, and inline code inside paragraphs, list items, quot
 
 ### Outline
 
-Any document with two or more headings gets an outline bar that pins directly under the tab bar:
+Any document with two or more headings fills the right-hand **Contents** column:
 
-- A leading **On this page** menu listing every heading, indented by level, which is the complete outline and works for a document with two headings or two hundred.
-- Then a horizontally scrolling row of `##` chips in the section hue at 12% fill.
-- Tapping either scrolls the same scroll view to that heading with the heading landing at the top of the visible area.
+- The heading `Contents` in `caption`.
+- Every heading on the current page, indented by level, which is the complete outline and works for a document with two headings or two hundred.
+- Clicking a row scrolls the document column to that heading with the heading landing at the top of the visible area.
 
-The outline never becomes a second column or a second scroll of the document. It is navigation, and it sits with the other navigation.
+This is the only outline. Do not also pin an `On this page` menu or a chip rail under the tab bar, and do not put contents on the left. The right column is navigation; the document column is the only scroll of the prose.
 
 ### When a document is not there
 

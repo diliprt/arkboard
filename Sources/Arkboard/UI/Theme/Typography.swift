@@ -66,6 +66,9 @@ enum Metrics {
     static let sidebarIdeal: CGFloat = 232
     static let sidebarMin: CGFloat = 200
     static let sidebarMax: CGFloat = 300
+    static let outlineIdeal: CGFloat = 220
+    static let outlineMin: CGFloat = 180
+    static let outlineMax: CGFloat = 280
     static let issuesIdeal: CGFloat = 420
     static let issuesMin: CGFloat = 340
     static let issuesMax: CGFloat = 620

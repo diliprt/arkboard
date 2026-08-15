@@ -18,17 +18,15 @@ struct SidebarView: View {
                 }
                 .listRowSeparator(.hidden)
             }
-            Section("Studio") {
-                studioRow(.monitor)
-                studioRow(.issues)
-                studioRow(.activity)
-                studioRow(.portfolio)
-            }
-            Section("Projects") {
+            Section {
                 ForEach(store.projects) { project in
                     NavigationLink(value: SidebarItem.project(project.id)) {
-                        HStack {
-                            ProjectDot(hex: project.color)
+                        HStack(spacing: 8) {
+                            ProjectIcon(
+                                project: project,
+                                imageData: store.markImage(for: project),
+                                size: 22
+                            )
                             Text(project.name)
                                 .font(type.body)
                             Spacer()
@@ -71,26 +69,5 @@ struct SidebarView: View {
                 .help("New Project")
             }
         }
-    }
-
-    private func studioRow(_ section: StudioSection) -> some View {
-        let item: SidebarItem = {
-            switch section {
-            case .monitor: return .monitor
-            case .issues: return .issues
-            case .activity: return .activity
-            case .portfolio: return .portfolio
-            default: return .monitor
-            }
-        }()
-        return NavigationLink(value: item) {
-            SwiftUI.Label {
-                Text(section.title).font(type.body)
-            } icon: {
-                Image(systemName: section.symbol)
-                    .foregroundStyle(section.hue.color(for: scheme))
-            }
-        }
-        .tag(item)
     }
 }

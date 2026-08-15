@@ -21,8 +21,14 @@ final class AppStore {
     var focusIssueSearch: Int = 0
     var selectedIssueID: String?
     var undoArchive: UndoArchive?
-    var sidebarSelection: SidebarItem {
-        didSet { UserDefaults.standard.set(sidebarSelection.persistenceValue, forKey: SettingsKey.sidebarSelection) }
+    var documentOutline = DocumentOutline.empty
+    var pendingProjectTab: ProjectHomeTab?
+    var sidebarSelection: SidebarItem? {
+        didSet {
+            if let sidebarSelection {
+                UserDefaults.standard.set(sidebarSelection.persistenceValue, forKey: SettingsKey.sidebarSelection)
+            }
+        }
     }
 
     var appearance: AppearancePreference {
@@ -47,7 +53,7 @@ final class AppStore {
         fontSize = [12, 13, 14, 16].contains(size) ? size : 13
         fontFamily = FontFamilyID(rawValue: defaults.string(forKey: SettingsKey.fontFamily) ?? "system") ?? .system
         appearance = AppearancePreference(rawValue: defaults.string(forKey: SettingsKey.appearance) ?? "light") ?? .light
-        sidebarSelection = .from(persistence: defaults.string(forKey: SettingsKey.sidebarSelection) ?? "monitor")
+        sidebarSelection = SidebarItem.from(persistence: defaults.string(forKey: SettingsKey.sidebarSelection) ?? "")
     }
 
     func start() async {
@@ -71,7 +77,10 @@ final class AppStore {
 
     private func startObservations() {
         observe(Workspace.all()) { [weak self] in self?.workspace = $0.first }
-        observe(Project.order(Column("sortOrder"), Column("name"))) { [weak self] in self?.projects = $0 }
+        observe(Project.order(Column("sortOrder"), Column("name"))) { [weak self] rows in
+            self?.projects = rows
+            self?.resolveSidebar()
+        }
         observe(Issue.order(Column("updatedAt").desc)) { [weak self] in self?.issues = $0 }
         observe(Comment.order(Column("createdAt"))) { [weak self] in self?.comments = $0 }
         observe(Milestone.order(Column("targetDate"))) { [weak self] in self?.milestones = $0 }
@@ -219,25 +228,29 @@ final class AppStore {
 
     // MARK: - Projects
 
-    func createProject(key: String, name: String, color: String?, summary: String?, repoPath: String?, githubRepo: String?, actor: String) throws -> Project {
+    func createProject(key: String, name: String, color: String?, icon: String?, summary: String?, repoPath: String?, githubRepo: String?, actor: String) throws -> Project {
         let key = try Validation.projectKey(key)
         let name = try Validation.collapseTitle(name)
         return try mutate(actor: actor) { db in
             if try Project.filter(Column("key") == key).fetchOne(db) != nil {
                 throw ValidationError.duplicateKey(key)
             }
+            let existing = try Project.fetchAll(db)
+            let used = Set(existing.map(\.icon))
+            let mark = ProjectMark.assigned(key: key, name: name, usedSymbols: used, existingColor: color)
             let now = Date()
             let project = Project(
                 id: UUID().uuidString,
                 key: key,
                 name: name,
-                color: color?.isEmpty == false ? color! : "#5A62D6",
+                color: (color?.isEmpty == false) ? color! : mark.color,
+                icon: (icon?.isEmpty == false) ? icon! : mark.symbol,
                 summary: summary ?? "",
                 repoPath: repoPath,
                 githubRepo: githubRepo,
                 issueCounter: 0,
                 capabilityCounter: 0,
-                sortOrder: Double(try Project.fetchCount(db)),
+                sortOrder: Double(existing.count),
                 createdAt: now
             )
             try project.insert(db)
@@ -515,13 +528,55 @@ final class AppStore {
 
     // MARK: - UI helpers
 
-    func goToMonitorComposer() {
-        sidebarSelection = .monitor
+    func resolveSidebar() {
+        if case let .project(id) = sidebarSelection, projects.contains(where: { $0.id == id }) {
+            return
+        }
+        if let first = projects.first {
+            sidebarSelection = .project(first.id)
+        } else {
+            sidebarSelection = nil
+        }
+    }
+
+    func selectProject(_ id: String) {
+        sidebarSelection = .project(id)
+    }
+
+    func openIssue(_ issue: Issue) {
+        selectedIssueID = issue.id
+        sidebarSelection = .project(issue.projectId)
+        pendingProjectTab = .issues
+    }
+
+    func publishOutline(headings: [HeadingRef], hue: Hue) {
+        if documentOutline.headings == headings, documentOutline.hue == hue { return }
+        documentOutline.headings = headings
+        documentOutline.hue = hue
+    }
+
+    func jumpToHeading(_ anchor: String) {
+        documentOutline.pendingAnchor = anchor
+        documentOutline.jumpToken += 1
+    }
+
+    func clearOutline() {
+        documentOutline = .empty
+    }
+
+    func markImage(for project: Project) -> Data? {
+        documentBundles[project.id]?.documents.first { ProjectMark.isProductIcon(path: $0.path) }?.imageData
+    }
+
+    func goToComposer() {
+        if sidebarSelection == nil, let first = projects.first {
+            sidebarSelection = .project(first.id)
+        }
         focusComposer += 1
     }
 
-    func goToIssuesSearch() {
-        sidebarSelection = .issues
+    func goToProjectIssues() {
+        pendingProjectTab = .issues
         focusIssueSearch += 1
     }
 
@@ -597,4 +652,15 @@ enum SettingsKey {
 struct UndoArchive: Equatable {
     var issue: Issue
     var expiresAt: Date
+}
+
+struct DocumentOutline: Equatable, Sendable {
+    var headings: [HeadingRef] = []
+    var hue: Hue = .rose
+    var pendingAnchor: String?
+    var jumpToken: Int = 0
+
+    static let empty = DocumentOutline()
+
+    var isActive: Bool { headings.count >= 2 }
 }
