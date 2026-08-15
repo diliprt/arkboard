@@ -135,4 +135,17 @@ enum DocumentMeasure {
         guard contentsVisible else { return 0 }
         return min(Metrics.outlineMax, max(Metrics.outlineMin, outlineWidth))
     }
+
+    /// Y of a tab body's first line, measured from the top of the tab section.
+    ///
+    /// Every project tab shares it — Design's prose, an empty state, a filled
+    /// gallery — and it is the pane's own vertical padding and nothing else.
+    /// `leadingDecoration` is any row a tab puts above its first line, and it
+    /// must be zero: a tab that leads with a decoration moves the body, and the
+    /// body moving is the jump a reader feels on the click. Mockups once opened
+    /// with a 28pt section symbol and started its first line 52pt below
+    /// Design's, with the rail sitting perfectly still above both.
+    static func tabBodyTop(paneY: CGFloat, leadingDecoration: CGFloat = 0) -> CGFloat {
+        paneY + leadingDecoration
+    }
 }

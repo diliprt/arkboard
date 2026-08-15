@@ -17,13 +17,28 @@ struct EmptyStateView: View {
     var action: (() -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: layout == .poster ? .center : .leading, spacing: 12) {
-            Image(systemName: section.symbol)
-                .font(type.face(size: type.bodySize + 15, weight: .medium))
-                .foregroundStyle(section.hue.color(for: scheme).opacity(0.40))
-            Text(title)
-                .font(type.heading)
-                .foregroundStyle(StudioColor.primary)
+        VStack(alignment: layout == .poster ? .center : .leading, spacing: layout == .poster ? 12 : 8) {
+            if layout == .poster {
+                // Only a centred full-pane poster leads with the big symbol. In
+                // a document tab that row sits above the first line and pushes
+                // the whole pane down — it is what dropped the Mockups body 52pt
+                // below Design's, and every tab has to share one origin.
+                Image(systemName: section.symbol)
+                    .font(type.face(size: type.bodySize + 15, weight: .medium))
+                    .foregroundStyle(section.hue.color(for: scheme).opacity(0.40))
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if layout == .document {
+                    // Section identity stays, on the title's own line, at the
+                    // title's own size, so it adds no height above it.
+                    Image(systemName: section.symbol)
+                        .font(type.heading)
+                        .foregroundStyle(section.hue.color(for: scheme).opacity(0.55))
+                }
+                Text(title)
+                    .font(type.heading)
+                    .foregroundStyle(StudioColor.primary)
+            }
             Text(sentence)
                 .font(type.callout)
                 .foregroundStyle(StudioColor.secondary)
