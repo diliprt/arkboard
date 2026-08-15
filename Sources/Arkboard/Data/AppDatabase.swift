@@ -150,6 +150,11 @@ enum AppDatabase {
                 )
             }
         }
+        migrator.registerMigration("v3-project-pinned") { db in
+            try db.alter(table: "project") { t in
+                t.add(column: "pinned", .boolean).notNull().defaults(to: true)
+            }
+        }
         return migrator
     }
 }

@@ -1,6 +1,6 @@
 # The agent API
 
-Arkboard exposes one small API on loopback. Agents use it to file work, report what is broken, read the product documents, and talk to the studio. Nineteen tools, all of them boring on purpose.
+Arkboard exposes one small API on loopback. Agents use it to file work, report what is broken, read the product documents, and talk to the studio. Twenty tools, all of them boring on purpose.
 
 Base URL is `http://127.0.0.1:7420` and it is not configurable. The listener refuses anything that is not loopback.
 
@@ -66,7 +66,7 @@ Mentions in a comment or note body are parsed with `@Name` and recorded as targe
 
 Every date is ISO 8601 with fractional seconds. Absent values are `null`, never omitted.
 
-**Project** — `id`, `key`, `name`, `color`, `icon`, `summary`, `repoPath`, `githubRepo`, `openIssueCount`, `createdAt`
+**Project** — `id`, `key`, `name`, `color`, `icon`, `summary`, `repoPath`, `githubRepo`, `pinned`, `openIssueCount`, `createdAt`
 
 **Issue** — `id`, `identifier`, `projectId`, `projectKey`, `title`, `body`, `status`, `priority`, `assignee`, `labels[]`, `createdAt`, `updatedAt`, `completedAt`, `archivedAt`
 
@@ -99,11 +99,22 @@ Returns `{ "projects": [Project] }`.
 | `summary` | string | no | `""` |
 | `repoPath` | string | no | `null` |
 | `githubRepo` | string | no | `null` |
+| `pinned` | boolean | no | `true` |
 | `actor` | string | no | `Agent` |
 
 `key` is uppercased and stripped to `A–Z0–9`; it must end up 2 to 6 characters and must be unique.
 
 Returns the `Project`.
+
+### `update_project`
+
+| Parameter | Type | Required | Default |
+| --- | --- | --- | --- |
+| `id` or `key` | string | yes | — |
+| `pinned` | boolean | no | unchanged |
+| `actor` | string | no | `Agent` |
+
+Returns the `Project`. Agents use this to pin or unpin. The human UI writes the same field from the Portfolio card and the sidebar context menu.
 
 ## Documents
 

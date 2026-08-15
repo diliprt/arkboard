@@ -274,6 +274,51 @@ def document_page_width(pane_width: float) -> float:
     return max(pane_width, 560.0)
 
 
+MONTHS = (
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+)
+
+
+def period_start(year: int, month: int, day: int, scale: str) -> tuple[int, int, int]:
+    """Monday-start week, first of month, 1 January. Mirrors TimelineCalendarMath."""
+    from datetime import date, timedelta
+    current = date(year, month, day)
+    if scale == "week":
+        start = current - timedelta(days=current.weekday())
+        return start.year, start.month, start.day
+    if scale == "month":
+        return year, month, 1
+    if scale == "year":
+        return year, 1, 1
+    raise ValueError(scale)
+
+
+def shift_period(year: int, month: int, day: int, scale: str, delta: int) -> tuple[int, int, int]:
+    from datetime import date
+    if scale == "week":
+        from datetime import timedelta
+        start = date(year, month, day) + timedelta(weeks=delta)
+        return start.year, start.month, start.day
+    if scale == "month":
+        index = year * 12 + (month - 1) + delta
+        next_year, next_month = divmod(index, 12)
+        return next_year, next_month + 1, 1
+    if scale == "year":
+        return year + delta, 1, 1
+    raise ValueError(scale)
+
+
+def period_title(year: int, month: int, day: int, scale: str) -> str:
+    if scale == "week":
+        return f"Week of {day} {MONTHS[month - 1]}"
+    if scale == "month":
+        return f"{MONTHS[month - 1]} {year}"
+    if scale == "year":
+        return str(year)
+    raise ValueError(scale)
+
+
 def today_index(dates: list[int], now: int) -> int:
     """Index of the single Today rule: before the first future event."""
     for i, date in enumerate(dates):
@@ -329,8 +374,8 @@ def check_polish(swift: str, home: str, root: str, sidebar: str) -> None:
     ok("O2 Contents width range", "outlineMin" in root and "outlineMax" in root)
     ok("T3 question chips wrap", "FlowLayout" in home)
     ok("D2 single todayIndex", "todayIndex" in swift and "shouldShowToday" not in swift)
-    ok("D3 pane scrolls to today", 'scrollTo("today"' in home)
     ok("D3 TimelineSpine has no local ScrollViewReader", "ScrollViewReader" not in (SOURCES / "UI/Portfolio/TimelineSpine.swift").read_text())
+    ok("D3 calendar is the timeline reading view", "TimelineScale" in swift and "TimelineCalendarView" in swift)
     ok("D4 issue identifier not duplicated in title",
        "issue.identifier)  \\(issue.title)" not in swift)
     ok("E1 empty state can fill the pane", "minHeight" in (SOURCES / "UI/Shell/EmptyStateView.swift").read_text())
@@ -397,6 +442,104 @@ def check_layout_musts(swift: str, home: str) -> None:
     ok("Must A scroll-to-tab-bar kept", 'scrollTo("tab-bar"' in home)
     ok("#15 ensureDocuments kept", "ensureDocuments" in home)
     ok("ui-spec project-home empties share the document edge", "share the document left edge" in ui or "shares the document left edge" in ui)
+
+
+def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str) -> None:
+    """Portfolio destination, pins, master Timeline calendar, quiet project home."""
+    ok("week start is Monday of that week", period_start(2026, 8, 15, "week") == (2026, 8, 10))
+    ok("month start is the first", period_start(2026, 8, 15, "month") == (2026, 8, 1))
+    ok("year start is 1 January", period_start(2026, 8, 15, "year") == (2026, 1, 1))
+    ok("shift week", shift_period(2026, 8, 10, "week", 1) == (2026, 8, 17))
+    ok("shift month", shift_period(2026, 8, 1, "month", -1) == (2026, 7, 1))
+    ok("shift year", shift_period(2026, 1, 1, "year", 1) == (2027, 1, 1))
+    ok("week title", period_title(2026, 8, 10, "week") == "Week of 10 August")
+    ok("month title", period_title(2026, 8, 1, "month") == "August 2026")
+    ok("year title", period_title(2026, 1, 1, "year") == "2026")
+    ok("default timeline scale is month", "TimelineScale = .month" in swift and "TimelineScale" in swift)
+
+    enums = (SOURCES / "Model/Enums.swift").read_text()
+    ok("sidebar persists portfolio", '"portfolio"' in enums and "case portfolio" in enums)
+    ok("sidebar persists timeline", '"timeline"' in enums and "case timeline" in enums)
+    ok("leftover chrome is not a destination", "monitor" not in enums.split("enum SidebarItem")[1].split("enum ServerListenState")[0] or "case monitor" not in enums)
+
+    ok("sidebar Portfolio is a destination row", "SidebarItem.portfolio" in sidebar and "Portfolio" in sidebar)
+    ok("sidebar Timeline is a destination row", "SidebarItem.timeline" in sidebar and "Timeline" in sidebar)
+    portfolio_at = sidebar.find("SidebarItem.portfolio")
+    timeline_at = sidebar.find("SidebarItem.timeline")
+    pins_at = sidebar.find("pinnedProjects")
+    ok("sidebar order is Portfolio then Timeline then pins",
+       portfolio_at != -1 and timeline_at != -1 and pins_at != -1 and portfolio_at < timeline_at < pins_at)
+    ok("sidebar project rows are pinned only", "ForEach(store.pinnedProjects)" in sidebar)
+    ok("sidebar does not list every project", "ForEach(store.projects)" not in sidebar)
+    ok("sidebar has pin control", "Unpin" in sidebar or "pin.fill" in sidebar)
+    ok("sidebar still has no Monitor", "binoculars" not in sidebar and ".monitor" not in sidebar)
+    ok("sidebar still has no Issues row", "tray.full" not in sidebar)
+    ok("sidebar still has no Activity row", "bubble.left.and.bubble.right" not in sidebar)
+    ok("workspace stays a caption", "building.2" in sidebar and "Origin Ark" in sidebar)
+
+    ok("root opens Portfolio destination", "PortfolioView()" in root)
+    ok("root opens Timeline destination", "TimelineView()" in root)
+    ok("root still opens project home", "ProjectHomeView(project:" in root)
+    ok("Contents hides on Portfolio and Timeline", "showsContents" in root or "case .project" in root)
+
+    portfolio = (SOURCES / "UI/Portfolio/PortfolioView.swift").read_text()
+    ok("portfolio cards exist", "projectCard" in portfolio or "ProjectCard" in portfolio)
+    ok("portfolio card shows local path", "local ·" in portfolio)
+    ok("portfolio card shows github remote", "github ·" in portfolio)
+    ok("portfolio card has doc pills", "Design" in portfolio and "Architecture" in portfolio and "Mockups" in portfolio and "Decisions" in portfolio)
+    ok("portfolio card has pin", "pin.fill" in portfolio or "setPinned" in portfolio or "togglePinned" in portfolio)
+    ok("portfolio has no 1000 grid cap", "gridMax" not in portfolio and "GridColumn" not in portfolio)
+    ok("portfolio New Project uses the existing sheet", "arkboardNewProject" in portfolio)
+
+    calendar = (SOURCES / "UI/Portfolio/TimelineCalendar.swift").read_text() if (SOURCES / "UI/Portfolio/TimelineCalendar.swift").exists() else ""
+    ok("timeline calendar source exists", bool(calendar))
+    ok("timeline scale control Week Month Year",
+       "Week" in calendar and "Month" in calendar and "Year" in calendar)
+    ok("timeline calendar math lives in Swift", "periodStart" in calendar or "TimelineCalendarMath" in calendar)
+    ok("master timeline uses the calendar", "TimelineCalendarView" in swift)
+    ok("project timeline tab uses the calendar", "TimelineCalendarView" in home)
+    ok("click-through opens project Timeline", "pendingProjectTab = .timeline" in swift or "openProjectTimeline" in swift)
+
+    ok("pinned column exists", "var pinned: Bool" in swift)
+    ok("v3 pin migration", "v3-project-pinned" in swift)
+    ok("create project accepts pinned", "pinned" in (SOURCES / "Server/ToolCatalogue.swift").read_text())
+    ok("update_project exists so agents can pin", "update_project" in swift)
+    ok("project JSON includes pinned", '"pinned"' in (SOURCES / "Data/JSONPayload.swift").read_text())
+
+    header = ""
+    if "private var projectHeader" in home:
+        header = home.split("private var projectHeader")[1].split("private var tabBar")[0]
+    ok("project home has a thin header", "private var projectHeader" in home)
+    ok("project home has no overview band", "private var overview" not in home)
+    ok("thin header has no README lead", "MarkdownView" not in header and "firstSentence" not in header)
+    ok("thin header has no More documents", "More documents" not in header)
+    ok("thin header has no inline composer", "NoteComposer" not in header)
+    ok("project home note is a compact sheet", "ProjectNoteSheet" in home)
+    ok("⌘N still focuses the composer", "goToComposer" in swift and "composerFocused = true" in swift)
+
+    ok("ui-spec Portfolio is a destination", "Portfolio is a destination" in ui)
+    ok("ui-spec pins only in the sidebar", "pinned" in ui.lower() and "Portfolio is a destination" in ui)
+    ok("ui-spec voids sidebar-is-the-portfolio", "the sidebar *is* the portfolio" not in ui)
+    ok("ui-spec voids Portfolio is not a row", "Portfolio are not rows" not in ui and "Portfolio is not a row" not in ui)
+    ok("ui-spec Timeline is a sidebar destination", "Timeline is a destination" in ui or "master Timeline" in ui)
+    ok("ui-spec Timeline is a calendar", "Week / Month / Year" in ui or "Week, Month, Year" in ui)
+    ok("ui-spec voids spine as primary Timeline", "vertical spine" not in ui.split("## Timeline")[1].split("## ")[0] if "## Timeline" in ui else True)
+    ok("ui-spec project home is a thin header", "thin" in ui.lower() and "overview band" not in ui.lower().split("## project home")[1].split("## ")[0] if "## project home" in ui.lower() else "thin header" in ui.lower())
+    ok("ui-spec voids inline composer on project home", "Tell the team" not in ui.split("## Project home")[1].split("## New Project")[0] if "## Project home" in ui else True)
+
+    ok("sidebar footer has Onboarding icon", "sparkles" in sidebar and "Onboarding" in sidebar)
+    ok("sidebar footer is not Setup", "Setup" not in sidebar)
+    ok("sidebar footer is not a gear", "gearshape" not in sidebar)
+    ok("sidebar persists onboarding", "case onboarding" in enums and '"onboarding"' in enums)
+    ok("root opens Onboarding destination", "OnboardingView()" in root)
+    onboarding_md = (PRODUCT / "onboarding.md").read_text() if (PRODUCT / "onboarding.md").exists() else ""
+    ok("onboarding document exists", bool(onboarding_md))
+    ok("onboarding names Origin Ark Studio", "Origin Ark Studio" in onboarding_md and "originarkstudio.com" in onboarding_md)
+    ok("onboarding names the Product actor", "actor=Product" in onboarding_md or "`Product`" in onboarding_md)
+    ok("onboarding is not labelled Setup", "Setup" not in onboarding_md.split("\n")[0] if onboarding_md else False)
+    state = (ROOT / "company" / "STATE.md").read_text() if (ROOT / "company" / "STATE.md").exists() else ""
+    ok("company STATE points at onboarding", "product/onboarding.md" in state)
+    ok("ui-spec footer names Onboarding", "Onboarding" in ui.split("**Footer**")[1].split("###")[0] if "**Footer**" in ui else "Onboarding" in ui)
 
 
 def main() -> int:
@@ -467,7 +610,11 @@ def main() -> int:
         "UI/Issues/IssuesView.swift",
         "UI/Activity/ActivityView.swift",
         "UI/Portfolio/PortfolioView.swift",
+        "UI/Portfolio/TimelineCalendar.swift",
+        "UI/Portfolio/TimelineView.swift",
         "UI/Project/ProjectHomeView.swift",
+        "UI/Project/ProjectNoteSheet.swift",
+        "UI/Shell/OnboardingView.swift",
         "UI/Settings/SettingsView.swift",
     ]
     for rel in required:
@@ -483,8 +630,8 @@ def main() -> int:
     ok("no requirement table", 'table: "requirement"' not in swift)
     ok("studio.sqlite", "studio.sqlite" in swift)
     ok("port 7420", "7420" in swift)
-    ok("19 tools listed", all(name in swift for name in [
-        "list_projects", "create_project", "list_documents", "read_document",
+    ok("20 tools listed", all(name in swift for name in [
+        "list_projects", "create_project", "update_project", "list_documents", "read_document",
         "list_issues", "get_issue", "create_issue", "update_issue", "delete_issue",
         "restore_issue", "add_comment", "post_note", "list_activity",
         "list_milestones", "create_milestone", "update_milestone",
@@ -525,7 +672,6 @@ def main() -> int:
     sidebar = (SOURCES / "UI/Shell/SidebarView.swift").read_text()
     ok("sidebar has no Monitor row", "binoculars" not in sidebar and ".monitor" not in sidebar)
     ok("sidebar has no Issues row", "tray.full" not in sidebar and "studioRow" not in sidebar)
-    ok("sidebar lists projects", "ForEach(store.projects)" in sidebar)
     ok("sidebar uses ProjectIcon", "ProjectIcon" in sidebar)
     root = (SOURCES / "UI/Shell/RootView.swift").read_text()
     ok("root has ContentsOutline", "ContentsOutline()" in root)
@@ -539,7 +685,6 @@ def main() -> int:
     home = (SOURCES / "UI/Project/ProjectHomeView.swift").read_text()
     ok("home has no OutlineBar", "OutlineBar" not in home)
     ok("home publishes outline", "publishOutline" in home)
-    ok("home composer on project", "NoteComposer(projectKey:" in home)
     ok("issues stay a project tab", "case .issues:" in home)
 
     # Distinct marks: Arkboard reserved, others do not collide with it or each other.
@@ -557,13 +702,13 @@ def main() -> int:
     ok("others are not Arkboard mark", "square.3.layers.3d" not in others, str(others))
     ui = (PRODUCT / "ui-spec.md").read_text()
     design = (PRODUCT / "design.md").read_text()
-    ok("ui-spec sidebar is projects", "clean portfolio of projects" in ui)
     ok("ui-spec contents on the right", "one outline, on the right" in ui)
     ok("design contents column", "right-hand **Contents** column" in design or "right-hand **Contents**" in design)
 
     check_polish(swift, home, root, sidebar)
     check_document_bundle(swift)
     check_layout_musts(swift, home)
+    check_studio_chrome(swift, home, root, sidebar, ui)
 
     print()
     if FAIL:

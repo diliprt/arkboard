@@ -116,9 +116,18 @@ enum HTTPJSON {
     }
 
     static func bool(_ object: [String: Any], _ key: String, default defaultValue: Bool = false) -> Bool {
+        optionalBool(object, key) ?? defaultValue
+    }
+
+    static func optionalBool(_ object: [String: Any], _ key: String) -> Bool? {
+        guard object[key] != nil else { return nil }
         if let value = object[key] as? Bool { return value }
-        if let value = object[key] as? String { return value == "true" || value == "1" }
-        return defaultValue
+        if let value = object[key] as? NSNumber { return value.boolValue }
+        if let value = object[key] as? String {
+            if value == "true" || value == "1" { return true }
+            if value == "false" || value == "0" { return false }
+        }
+        return nil
     }
 
     static func int(_ object: [String: Any], _ key: String, default defaultValue: Int) -> Int {

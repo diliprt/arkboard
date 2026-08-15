@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct PortfolioView: View {
@@ -6,27 +7,58 @@ struct PortfolioView: View {
     @Environment(\.typography) private var type
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScreenHeader(section: .portfolio, subtitle: "Every project at arm's length.")
-            ScrollView {
-                VStack(alignment: .leading, spacing: Metrics.sectionGap) {
-                    totals
-                    if store.projects.isEmpty {
-                        EmptyStateView(section: .portfolio, title: EmptyCopy.portfolioEmpty.0, sentence: EmptyCopy.portfolioEmpty.1, layout: .poster)
-                    } else {
-                        cards
+        GeometryReader { geo in
+            VStack(spacing: 0) {
+                ScreenHeader(
+                    section: .portfolio,
+                    subtitle: "Every project at arm's length.",
+                    trailing: AnyView(
+                        Button {
+                            NotificationCenter.default.post(name: .arkboardNewProject, object: nil)
+                        } label: {
+                            SwiftUI.Label("New Project", systemImage: "folder.badge.plus")
+                                .font(type.body)
+                        }
+                        .buttonStyle(.plain)
+                    )
+                )
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Metrics.sectionGap) {
+                        totals
+                        if store.projects.isEmpty {
+                            EmptyStateView(
+                                section: .portfolio,
+                                title: EmptyCopy.portfolioEmpty.0,
+                                sentence: EmptyCopy.portfolioEmpty.1,
+                                actionTitle: "New Project",
+                                layout: .poster
+                            ) {
+                                NotificationCenter.default.post(name: .arkboardNewProject, object: nil)
+                            }
+                        } else {
+                            cards
+                        }
+                        if !store.milestones.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Milestones").font(type.heading)
+                                TimelineSpine(
+                                    events: TimelineBuilder.events(
+                                        milestones: store.milestones,
+                                        issues: store.issues.filter { $0.status == .done }
+                                    ),
+                                    showToday: false
+                                )
+                            }
+                        }
                     }
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Milestones").font(type.heading)
-                        TimelineSpine(events: TimelineBuilder.events(milestones: store.milestones, issues: store.issues.filter { $0.status == .done }))
-                    }
+                    .padding(Metrics.paneX)
+                    .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
                 }
-                .padding(Metrics.paneX)
-                .frame(maxWidth: Metrics.gridMax, alignment: .leading)
-                .frame(maxWidth: .infinity)
+                .background(StudioColor.wash(.violet, scheme: scheme))
             }
-            .background(StudioColor.wash(.violet, scheme: scheme))
         }
+        .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { store.clearOutline() }
     }
 
     private var totals: some View {
@@ -52,22 +84,13 @@ struct PortfolioView: View {
     private var cards: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 12)], spacing: 12) {
             ForEach(store.projects) { project in
-                Button {
-                    store.sidebarSelection = .project(project.id)
-                } label: {
-                    projectCard(project)
-                }
-                .buttonStyle(.plain)
+                projectCard(project)
             }
         }
     }
 
     private func projectCard(_ project: Project) -> some View {
         let bundle = store.documentBundles[project.id]
-        let grouped = store.humanIssues(projectId: project.id)
-        let questions = store.openQuestions.filter { $0.projectId == project.id }.count
-        let broken = store.capabilities.filter { $0.projectId == project.id && $0.health == .notWorking }.count
-        let next = store.milestones.filter { $0.projectId == project.id && $0.status != .done }.sorted { $0.targetDate < $1.targetDate }.first
         let summary = bundle?.overview.flatMap { $0.markdown }.map { MarkdownParser.firstSentence($0) } ?? project.summary
         return CardSurface(hue: .violet) {
             VStack(alignment: .leading, spacing: 10) {
@@ -75,37 +98,55 @@ struct PortfolioView: View {
                     ProjectIcon(project: project, imageData: store.markImage(for: project), size: 22)
                     Text(project.name).font(type.heading)
                     Text(project.key).font(type.mono).foregroundStyle(StudioColor.secondary)
+                    Spacer()
+                    Button {
+                        store.setProjectPinned(id: project.id, pinned: !project.pinned)
+                    } label: {
+                        Image(systemName: project.pinned ? "pin.fill" : "pin")
+                            .foregroundStyle(project.pinned ? Hue.violet.color(for: scheme) : StudioColor.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(project.pinned ? "Unpin" : "Pin")
                 }
                 Text(summary)
                     .font(type.callout)
                     .foregroundStyle(StudioColor.secondary)
                     .lineLimit(2)
+                VStack(alignment: .leading, spacing: 4) {
+                    if let path = project.repoPath, !path.isEmpty {
+                        Text("local · \(Self.displayPath(path))")
+                            .font(type.mono)
+                            .foregroundStyle(StudioColor.secondary)
+                            .lineLimit(1)
+                    }
+                    if let repo = project.githubRepo, !repo.isEmpty {
+                        Text("github · \(repo)")
+                            .font(type.mono)
+                            .foregroundStyle(StudioColor.secondary)
+                            .lineLimit(1)
+                    }
+                }
                 HStack(spacing: 6) {
                     docPill("Design", .design, bundle)
                     docPill("Architecture", .architecture, bundle)
                     docPill("Mockups", .mockups, bundle)
                     docPill("Decisions", .decisions, bundle)
                 }
-                Text("Underway \(grouped[.underway, default: []].count) · Queued \(grouped[.queued, default: []].count) · Done \(grouped[.done, default: []].count)")
-                    .font(type.caption)
-                    .foregroundStyle(StudioColor.secondary)
-                if let next {
-                    HStack(spacing: 6) {
-                        ProjectDot(hex: (next.status == .inProgress ? Hue.gold : Hue.moss).light, size: 6)
-                        Text(next.title).font(type.caption)
-                        Text(next.targetDate, style: .date).font(type.caption).foregroundStyle(StudioColor.secondary)
-                    }
-                }
-                HStack {
-                    if questions > 0 { Chip(text: "\(questions) questions", hue: .gold) }
-                    if broken > 0 { Chip(text: "\(broken) not working", hue: .crimson) }
-                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                store.sidebarSelection = .project(project.id)
             }
         }
     }
 
     private func docPill(_ label: String, _ tab: DocumentTab, _ bundle: DocumentBundle?) -> some View {
-        let exists = bundle?.documents.contains { $0.tab == tab && !$0.isImage } == true
+        let exists: Bool
+        if tab == .mockups {
+            exists = bundle?.documents.contains { $0.tab == tab } == true
+        } else {
+            exists = bundle?.documents.contains { $0.tab == tab && !$0.isImage } == true
+        }
         return Text(label)
             .font(type.caption)
             .foregroundStyle(exists ? tab.section.hue.color(for: scheme) : Hue.slate.color(for: scheme))
@@ -116,6 +157,14 @@ struct PortfolioView: View {
                 in: Capsule()
             )
             .overlay(Capsule().stroke(exists ? Color.clear : Hue.slate.color(for: scheme).opacity(0.4), lineWidth: 1))
+    }
+
+    private static func displayPath(_ path: String) -> String {
+        let home = NSHomeDirectory()
+        if path.hasPrefix(home) {
+            return "~" + path.dropFirst(home.count)
+        }
+        return path
     }
 }
 

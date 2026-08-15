@@ -2,7 +2,7 @@ import Foundation
 
 enum ToolCatalogue {
     static let names: [String] = [
-        "list_projects", "create_project",
+        "list_projects", "create_project", "update_project",
         "list_documents", "read_document",
         "list_issues", "get_issue", "create_issue", "update_issue", "delete_issue", "restore_issue",
         "add_comment", "post_note", "list_activity",
@@ -21,8 +21,15 @@ enum ToolCatalogue {
                 "summary": ["type": "string"],
                 "repoPath": ["type": "string"],
                 "githubRepo": ["type": "string"],
+                "pinned": ["type": "boolean"],
                 "actor": ["type": "string"],
             ], required: ["key", "name"]),
+            tool("update_project", "Update a project. Agents use this to pin or unpin.", [
+                "id": ["type": "string"],
+                "key": ["type": "string"],
+                "pinned": ["type": "boolean"],
+                "actor": ["type": "string"],
+            ]),
             tool("list_documents", "List product/ documents for a project", [
                 "projectKey": ["type": "string"],
                 "tab": ["type": "string"],
@@ -160,9 +167,18 @@ enum ToolCatalogue {
                 summary: HTTPJSON.string(arguments, "summary"),
                 repoPath: HTTPJSON.string(arguments, "repoPath"),
                 githubRepo: HTTPJSON.string(arguments, "githubRepo"),
+                pinned: HTTPJSON.optionalBool(arguments, "pinned") ?? true,
                 actor: HTTPJSON.string(arguments, "actor") ?? "Agent"
             )
             return JSONPayload.project(project, openIssueCount: 0)
+        case "update_project":
+            let id = HTTPJSON.string(arguments, "id") ?? HTTPJSON.string(arguments, "key") ?? ""
+            let project = try store.updateProject(
+                idOrKey: id,
+                pinned: HTTPJSON.optionalBool(arguments, "pinned"),
+                actor: HTTPJSON.string(arguments, "actor") ?? "Agent"
+            )
+            return JSONPayload.project(project, openIssueCount: store.openIssueCount(for: project))
         case "list_documents":
             return try await listDocuments(arguments, store: store)
         case "read_document":

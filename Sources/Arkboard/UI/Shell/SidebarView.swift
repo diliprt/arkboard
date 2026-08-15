@@ -9,7 +9,13 @@ struct SidebarView: View {
         @Bindable var store = store
         List(selection: $store.sidebarSelection) {
             Section {
-                ForEach(store.projects) { project in
+                SwiftUI.Label("Portfolio", systemImage: StudioSection.portfolio.symbol)
+                    .font(type.body)
+                    .tag(SidebarItem.portfolio)
+                SwiftUI.Label("Timeline", systemImage: StudioSection.timeline.symbol)
+                    .font(type.body)
+                    .tag(SidebarItem.timeline)
+                ForEach(store.pinnedProjects) { project in
                     HStack(spacing: 8) {
                         ProjectIcon(
                             project: project,
@@ -24,6 +30,11 @@ struct SidebarView: View {
                             .foregroundStyle(StudioColor.secondary)
                     }
                     .tag(SidebarItem.project(project.id))
+                    .contextMenu {
+                        Button(project.pinned ? "Unpin" : "Pin") {
+                            store.setProjectPinned(id: project.id, pinned: !project.pinned)
+                        }
+                    }
                 }
             } header: {
                 HStack(spacing: 6) {
@@ -52,22 +63,40 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.plain)
                 .help("New Project")
-                Button {
-                    NotificationCenter.default.post(name: .arkboardOpenSettings, object: nil)
-                } label: {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill((store.serverState.isListening ? Hue.moss : Hue.crimson).color(for: scheme))
-                            .frame(width: 7, height: 7)
-                        Text(store.serverState.isListening ? "Agents · :7420" : "Agents offline")
-                            .font(type.caption)
-                            .foregroundStyle(StudioColor.secondary)
-                        Spacer()
+                HStack(spacing: 8) {
+                    Button {
+                        store.sidebarSelection = .onboarding
+                    } label: {
+                        Image(systemName: "sparkles")
+                            .font(type.body)
+                            .foregroundStyle(
+                                store.sidebarSelection == .onboarding
+                                    ? Hue.indigo.color(for: scheme)
+                                    : StudioColor.secondary
+                            )
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
-                    .padding(12)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+                    .help("Onboarding")
+                    Button {
+                        NotificationCenter.default.post(name: .arkboardOpenSettings, object: nil)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill((store.serverState.isListening ? Hue.moss : Hue.crimson).color(for: scheme))
+                                .frame(width: 7, height: 7)
+                            Text(store.serverState.isListening ? "Agents · :7420" : "Agents offline")
+                                .font(type.caption)
+                                .foregroundStyle(StudioColor.secondary)
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
             }
             .background(.bar)
         }

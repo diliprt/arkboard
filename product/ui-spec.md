@@ -9,28 +9,33 @@ Copy in fixed-width in the tables below is literal. Ship those strings.
 A single window. `NavigationSplitView` with two columns: the project portfolio and the current page. Contents is a trailing pane inside the document column — not a third split column, which collapsed the page to empty white.
 
 - Minimum 1080 × 700, default 1320 × 860, `.windowStyle(.automatic)`, unified toolbar.
-- The selected project is restored on launch from `arkboard.sidebarSelection`. If the saved row is missing or is leftover studio chrome (`monitor`, `issues`, `activity`, `portfolio`), the first project is selected.
-- The window title is the current project name; the subtitle is the workspace name.
+- The selected row is restored on launch from `arkboard.sidebarSelection`. Valid values are `portfolio`, `timeline`, `onboarding`, or `project:<id>`. Leftover studio chrome (`monitor`, `issues`, `activity`) is discarded and Portfolio is selected.
+- The window title is Portfolio, Timeline, Onboarding, or the current project name; the subtitle is the workspace name.
 
 ### Sidebar
 
-232pt wide, `.sidebar` list style, one selection. This is the studio home: a clean portfolio of projects. There is no Studio section.
+232pt wide, `.sidebar` list style, one selection. There is no Studio section.
 
-**Header** — the workspace name as a `caption` section header with a `building.2` symbol, secondary. It is not a row and not a destination.
+**Header** — the workspace name as a `caption` section header with a `building.2` symbol, secondary. It is not a row and not a destination. "Origin Ark" stays a caption.
 
-**Projects** — one row each, every project, sorted by `sortOrder` then name. Clicking a row opens that project's document home (overview + tabs).
+**Destinations**, in this order:
 
-Each row: the project's persisted mark (22pt), the name in `body`, and the key in `mono` `caption` trailing, right-aligned and secondary. The mark is that app's brand — an SF Symbol on a 6pt-radius square washed with the project's colour, or an image from `product/icon.png` / `product/mark.png` / `product/logo.png` when one exists. It is never the same blue dot for every project.
+1. **Portfolio** — a real row. Portfolio is a destination. Selecting it shows the Portfolio page in the document column.
+2. **Timeline** — a real row. Timeline is a destination. Selecting it shows the master studio calendar.
+
+**Pinned projects** — under those two rows, only projects whose `pinned` flag is true, sorted by `sortOrder` then name. Clicking a pinned row opens that project's document home (Design default). Unpinning removes the row from the sidebar; the project stays on the Portfolio page. Pinning puts it back. Existing projects start pinned so Arkboard does not disappear on first launch.
+
+Each project row: the project's persisted mark (22pt), the name in `body`, and the key in `mono` `caption` trailing, right-aligned and secondary. The mark is that app's brand — an SF Symbol on a 6pt-radius square washed with the project's colour, or an image from `product/icon.png` / `product/mark.png` / `product/logo.png` when one exists. It is never the same blue dot for every project. A context menu on the row offers `Pin` / `Unpin`.
 
 Arkboard's own mark is `square.3.layers.3d` in indigo `#5A62D6`. Other projects get a distinct symbol (and a distinct colour when they would otherwise share indigo).
 
-**Not in this sidebar.** Monitor and Issues are leftover ticket chrome. Issues stay as a tab on the project page. Monitor is not a studio row. Activity and Portfolio are not rows either — the sidebar *is* the portfolio.
+**Not in this sidebar.** Monitor and Issues are leftover ticket chrome. Issues stay as a tab on the project page. Monitor is not a studio row. Activity is not a row.
 
 **Footer**, pinned, on `.bar`:
 
+- **New Project** — `folder.badge.plus` and the words `New Project`. This is the only creation affordance in the entire human UI. The Portfolio page may open the same sheet; do not invent a second create flow.
+- **Onboarding** — a `sparkles` icon, help text `Onboarding`. Not labelled Setup. Not a gear. Clicking it opens the Onboarding page in the document column.
 - A 7pt dot and `Agents · :7420` in `caption`. Moss when the server is listening, crimson and `Agents offline` when it is not. Clicking opens Settings to the Agents section.
-
-**Toolbar** — a single `folder.badge.plus` button that opens New Project. This is the only creation affordance in the entire human UI.
 
 ### Contents
 
@@ -59,12 +64,10 @@ Not a sidebar row. The engine — open questions parsed from Decisions, capabili
 
 ### Composer
 
-Lives on the project home overview, not on a studio Monitor screen.
+A compact note sheet opened from the project-home header icon (or `⌘N`), not a large box in the project scroll.
 
-A card, `controlBackgroundColor`, radius 10, indigo stroke at 14%.
-
-- Riyu's avatar in moss, then a multi-line text field that grows from one line to five, placeholder `Tell the team…`.
-- A `Send` button, disabled while empty, with `⌘↩` as the shortcut and `⌘↩` shown in `caption` beside it.
+- A short field, placeholder `Tell the team…`, `Send` with `⌘↩`.
+- **History** of notes for this project from existing Activity. No second store.
 - Sending posts an activity note authored by `Riyu`, scoped to the current project, and clears the field.
 
 This is how a human asks for work. There is no issue form anywhere in the app; you say what you want and an agent files it.
@@ -148,44 +151,50 @@ Activity is read-only. The composer lives on the project home, on purpose — th
 
 Subtitle: `Every project at arm's length.`
 
-One scroll, capped at 1000pt.
+This is the studio view of every app in one place. Cards, not a table, not a markdown essay. The document column uses the same left-aligned, pane-width measure as the project home. No 720 island. No 1000 grid. Contents is hidden — there is no document.
 
-### Totals
-
-A row of four chips in violet: `Projects`, `Open issues`, `Questions waiting`, `Not working`. Numbers in `title`, labels in `caption`.
+Totals chips (`Projects`, `Open issues`, `Questions waiting`, `Not working`) and a studio milestones list may sit above or below the cards. They must not replace the cards.
 
 ### Project cards
 
-A grid, cards between 300 and 460pt wide, 12pt gaps.
+A grid, cards between 300 and 460pt wide, 12pt gaps. One card per project, pinned or not.
 
 Each card:
 
 - The project mark, name in `heading`, key in `mono` `caption`.
-- One line of summary — the first sentence of that project's `product/README.md`, or its stored `summary` if the documents have not loaded.
-- **Documents** — four small pills labelled `Design`, `Architecture`, `Mockups`, `Decisions`, filled in that section's hue when the document exists and hollow slate when it does not. This is the most useful thing on the card: it shows at a glance which projects have been thought through.
-- A counts line: `Underway 2 · Queued 7 · Done 31`.
-- A footer line for the next milestone: a moss or gold dot, its title, and its date. Omitted when there is none.
-- Badges for `3 questions` in gold and `1 not working` in crimson when non-zero.
+- A pin control. Filled pin when pinned. Clicking the pin toggles pin and does not open the project.
+- One-line summary — the first sentence of that project's `product/README.md`, or its stored `summary` if the documents have not loaded. This is the only human place for that copy.
+- **Local** checkout path when `repoPath` is set, as `local · …`.
+- **GitHub** remote when `githubRepo` is set, as `github · owner/name`.
+- **Documents** — four small pills labelled `Design`, `Architecture`, `Mockups`, `Decisions`, filled in that section's hue when the document exists and hollow slate when it does not. Load from the same document bundle as the project home (local `product/` preferred when both sources exist).
 
-Clicking a card opens that project's home.
+Clicking the card (not the pin) opens that project's home. A `New Project` control on this page opens the existing sheet. After create, the project is pinned and selected.
 
-### Milestones
+## Timeline
 
-Section header `Milestones`. The shared timeline component with no project filter: studio-wide milestones first, then per project, on one spine ordered by date with a `Today` rule.
+Subtitle: `The studio calendar.`
+
+Timeline is a destination. The master view is a cross-project calendar of every project's milestones (and dated shipped work the engine already has). Scale control: Week / Month / Year. Default Month. Each event shows the project's mark and name. Clicking a project's event opens that project's Timeline tab.
+
+Same left-aligned, pane-width measure. No 720 island. No 1000 grid. Contents stays empty — do not invent a fake document outline.
+
+## Onboarding
+
+Subtitle: `How this studio works.`
+
+Opened from the footer `sparkles` icon, not from Settings. The page renders `product/onboarding.md` as rich markdown. Thin header only — no article band, no composer. Contents lists that document's headings. This is the operating manual, not a settings duplicate.
 
 ## Project home
 
 The most important screen in the app, and the one that must not look like a tracker.
 
-Everything is inside **one** vertical scroll: the overview scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab. The overview band sits on plain `windowBackgroundColor` so it reads as a header rather than as part of the section. The outline is the right Contents column, not a bar in this scroll. Overview, composer, tab rail, markdown, and project-home empty states share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar and/or Contents are hidden, that measure grows with the pane — not a 720-centred island, and not a 1000 grid.
+Everything is inside **one** vertical scroll: the thin header scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab. The thin header sits on plain `windowBackgroundColor` so it reads as chrome rather than as part of the section. The outline is the right Contents column, not a bar in this scroll. Header, tab rail, markdown, and project-home empty states share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar and/or Contents are hidden, that measure grows with the pane — not a 720-centred island, and not a 1000 grid.
 
-### Overview band
+### Thin header
 
 - The project mark at 28pt, the name in `display`, the key in a `mono` `caption` capsule.
-- Trailing: the document source in `mono` `caption` — `local · product/` or `github · diliprt/arkboard` — a relative `loaded 2m ago`, and a `Refresh` button with `arrow.clockwise`.
-- Below that, the lead of `product/README.md` — everything before its first `##` — rendered as rich markdown, not truncated, because it is inside the scroll.
-- If any documents did not route to a tab, a `More documents` row of chips that select the tab holding each one.
-- The `Tell the team…` composer at the bottom of the band, scoped to this project.
+- Trailing: the document source in `mono` `caption` — `local · product/` or `github · diliprt/arkboard` — a `Refresh` button with `arrow.clockwise`, and a note icon (`bubble.left`) that opens the compact composer sheet.
+- No README lead. No article summary. No `More documents` chip row. Those documents stay reachable via tabs. The long description lives on Portfolio.
 
 ### Tab bar
 
@@ -213,13 +222,7 @@ Grouped rows scoped to this project. A `callout` line above them reads `Tracking
 
 ### Timeline tab
 
-A vertical spine ordered by date, oldest at the top, with a `Today` rule and the initial scroll positioned there.
-
-- Milestones are the primary events: a dot in moss when done, gold when in progress, crimson when missed, slate when planned, the title in `bodyStrong`, the date in `caption`, the description as one line, and related issue identifiers as chips.
-- Completed issues appear as light rows under the week they were completed: a small moss dot, the identifier, and the title.
-- Week headers read `Week of 11 August` in uppercase `caption`, moss.
-
-Read-only. Agents set milestones through the API.
+The same calendar as the master Timeline, filtered to this project. Scale control: Week / Month / Year. Default Month. Milestones are first-class. Completed issues may appear as lighter marks. Click-through from the master view lands here. Read-only. Agents set milestones through the API.
 
 ## New Project
 
@@ -234,7 +237,7 @@ The one creation sheet, 520pt wide.
 | Documents folder | optional folder picker, sets `repoPath` |
 | GitHub repository | optional `owner/name`, used when there is no local folder |
 
-Buttons `Cancel` and `Create Project`. Creating it selects the new project.
+Buttons `Cancel` and `Create Project`. Creating it pins the project and selects it.
 
 ## Settings
 
@@ -297,7 +300,7 @@ One shape everywhere: the section symbol at 28pt in the hue at 40%, a title in `
 
 | Shortcut | Action |
 | --- | --- |
-| `⌘N` | focus the project composer |
+| `⌘N` | open the compact project note sheet |
 | `⌘↩` | send the focused composer |
 | `⌘F` | open the current project's Issues tab |
 | `⌘R` | reload the selected project's documents |
@@ -310,9 +313,9 @@ One shape everywhere: the section symbol at 28pt in the hue at 40%, a title in `
 
 The UI is done when all of these are true on a clean machine.
 
-1. Launching from `./scripts/run.sh` opens the Arkboard project. The left sidebar is a project portfolio — workspace name as a caption, then one row per project with a unique mark — and does not contain Monitor or Issues. The center is the document home (overview, six tabs, Design selected, markdown preview), not empty white.
+1. Launching from `./scripts/run.sh` restores the last sidebar row. The left sidebar is Portfolio, then Timeline, then pinned projects — workspace name as a caption — and does not contain Monitor or Issues. Selecting a pinned project opens the document home (thin header, six tabs, Design selected, markdown preview), not empty white.
 2. The Arkboard row uses `square.3.layers.3d` in indigo, not a generic blue dot. A second project, if present, uses a different symbol.
-3. The project home shows the overview band with the README lead rendered as rich markdown, six tabs, Design selected, and the `Tell the team…` composer.
+3. The project home shows a thin header (mark, name, key, source, refresh, note icon), six tabs, Design selected, and no article summary.
 4. The Design, Architecture, and Decisions tabs each render this design pack as headings, prose, tables, lists, code blocks, and quotes. No `#` characters are visible as text.
 5. The right column is labelled `Contents` and lists this page's headings. Clicking a heading scrolls the same document scroll to that subsection. There is no `On this page` chip rail.
 6. Scrolling the project home moves the overview off screen and pins the tab bar; only one scrollbar is ever visible over the document. Contents is its own column.

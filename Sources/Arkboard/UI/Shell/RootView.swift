@@ -16,7 +16,7 @@ struct RootView: View {
                 document
                     .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
                     .clipped()
-                if store.contentsVisible {
+                if showsContents {
                     outlineDivider
                     ContentsOutline()
                         .frame(width: outlineWidth)
@@ -98,28 +98,44 @@ struct RootView: View {
 
     @ViewBuilder
     private var document: some View {
-        if case let .project(id) = store.sidebarSelection, let project = store.project(id: id) {
-            ProjectHomeView(project: project)
-                .id(project.id)
-        } else {
-            EmptyStateView(
-                section: .portfolio,
-                title: EmptyCopy.noProjects.0,
-                sentence: EmptyCopy.noProjects.1,
-                actionTitle: "New Project",
-                minHeight: Metrics.emptyPaneMin,
-                layout: .poster
-            ) {
-                showNewProject = true
+        switch store.sidebarSelection {
+        case .timeline:
+            TimelineView()
+        case .onboarding:
+            OnboardingView()
+        case .project(let id):
+            if let project = store.project(id: id) {
+                ProjectHomeView(project: project)
+                    .id(project.id)
+            } else {
+                PortfolioView()
             }
+        case .portfolio, .none:
+            PortfolioView()
+        }
+    }
+
+    private var showsContents: Bool {
+        guard store.contentsVisible else { return false }
+        switch store.sidebarSelection {
+        case .project, .onboarding:
+            return true
+        default:
+            return false
         }
     }
 
     private var windowTitle: String {
-        if case let .project(id) = store.sidebarSelection {
+        switch store.sidebarSelection {
+        case .portfolio, .none:
+            return "Portfolio"
+        case .timeline:
+            return "Timeline"
+        case .onboarding:
+            return "Onboarding"
+        case .project(let id):
             return store.project(id: id)?.name ?? "Project"
         }
-        return store.workspace?.name ?? "Arkboard"
     }
 }
 

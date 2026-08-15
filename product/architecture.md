@@ -39,7 +39,7 @@ The database never stores a copy of a document. Not a cached body, not an excerp
 
 ## Data model
 
-Ten tables, two migrations (`v1` then `v2-project-icon`), no legacy. Identifiers are `UUID().uuidString` unless stated. Dates are stored as GRDB `DATETIME`.
+Ten tables, three migrations (`v1`, `v2-project-icon`, `v3-project-pinned`), no legacy. Identifiers are `UUID().uuidString` unless stated. Dates are stored as GRDB `DATETIME`. Existing databases pick up `pinned` in `v3-project-pinned`, default true.
 
 ### Enumerations
 
@@ -74,6 +74,7 @@ CREATE TABLE project (
   issueCounter      INTEGER NOT NULL DEFAULT 0,
   capabilityCounter INTEGER NOT NULL DEFAULT 0,
   sortOrder         DOUBLE NOT NULL DEFAULT 0,
+  pinned            INTEGER NOT NULL DEFAULT 1,    -- sidebar pin; existing rows start pinned
   createdAt         DATETIME NOT NULL
 );
 
@@ -223,6 +224,7 @@ HTTP/1.1, `Content-Length` required on bodies, 1 MB request cap, one response pe
 | GET | `/health` | liveness and version |
 | GET | `/api/projects` | list projects |
 | POST | `/api/projects` | create a project |
+| PATCH | `/api/projects/{idOrKey}` | update a project (`pinned`) |
 | GET | `/api/issues` | list, with `projectKey`, `status`, `query`, `includeArchived` |
 | POST | `/api/issues` | create an issue |
 | GET | `/api/issues/{idOrIdentifier}` | one issue with comments |
@@ -309,13 +311,13 @@ This is why `decisions.md` is written the way it is. The convention is the parse
 | `arkboard.appearance` | `light` / `dark` / `system` | `light` |
 | `arkboard.fontSize` | `12` / `13` / `14` / `16` | `13` |
 | `arkboard.fontFamily` | face identifier | `system` |
-| `arkboard.sidebarSelection` | last project | first project |
+| `arkboard.sidebarSelection` | `portfolio` / `timeline` / `onboarding` / `project:<id>` | `portfolio` |
 | `arkboard.serverPort` | Int, informational | `7420` |
 | `arkboard.contentsVisible` | Bool | `true` |
 
 ## Seed
 
-On an empty database, and only then: a workspace named **Origin Ark**, and one project — **Arkboard**, key `ARK`, colour `#5A62D6`, icon `square.3.layers.3d`, `repoPath` set to the resolved repository root, `githubRepo` set to `diliprt/arkboard`. Then a handful of capabilities describing the app's own day-one surface, one milestone, and a single activity row welcoming the studio. Existing databases pick up `icon` in `v2-project-icon` and receive a distinct mark per project so the portfolio is never a row of identical dots.
+On an empty database, and only then: a workspace named **Origin Ark**, and one project — **Arkboard**, key `ARK`, colour `#5A62D6`, icon `square.3.layers.3d`, `repoPath` set to the resolved repository root, `githubRepo` set to `diliprt/arkboard`. Then a handful of capabilities describing the app's own day-one surface, one milestone, and a single activity row welcoming the studio. Existing databases pick up `icon` in `v2-project-icon` and receive a distinct mark per project so the portfolio is never a row of identical dots. They pick up `pinned` in `v3-project-pinned`, default true, so Arkboard does not vanish from the sidebar.
 
 Nothing fictional. The previous build seeded a demo project and a fake three-bot conversation, and the first thing anyone had to do was work out which rows were real. One real project, and everything you see is true.
 
@@ -381,7 +383,7 @@ Sources/Arkboard/
   UI/
     Theme/                       Hue, Section, Typography, Metrics, modifiers
     Markdown/                    MarkdownView, ContentsOutline, CodeBlock, TableView
-    Shell/                       RootView, Sidebar, ScreenHeader, NoteComposer
+    Shell/                       RootView, Sidebar, ScreenHeader, NoteComposer, Onboarding
     Monitor/  Issues/  Activity/  Portfolio/  Project/  Settings/
   Resources/
     Assets.xcassets              AppIcon
