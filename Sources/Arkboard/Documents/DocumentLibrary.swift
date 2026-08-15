@@ -130,7 +130,10 @@ actor DocumentLibrary {
                 documents.append(
                     StudioDocument(
                         path: relative,
-                        tab: .mockups,
+                        // Ask the router. Most images are frames, but a project's
+                        // own poster and mark are brand artwork and must not turn
+                        // up in the Mockups gallery.
+                        tab: DocumentRouting.tab(for: relative),
                         title: DocumentRouting.title(for: relative),
                         markdown: nil,
                         imageData: data,
