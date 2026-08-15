@@ -39,7 +39,7 @@ The database never stores a copy of a document. Not a cached body, not an excerp
 
 ## Data model
 
-Ten tables, three migrations (`v1`, `v2-project-icon`, `v3-project-pinned`), no legacy. Identifiers are `UUID().uuidString` unless stated. Dates are stored as GRDB `DATETIME`. Existing databases pick up `pinned` in `v3-project-pinned`, default true.
+Ten tables, four migrations (`v1`, `v2-project-icon`, `v3-project-pinned`, `v4-activity-metadata`), no legacy. Identifiers are `UUID().uuidString` unless stated. Dates are stored as GRDB `DATETIME`. Existing databases pick up `pinned` in `v3-project-pinned`, default true, and `activity.metadata` in `v4-activity-metadata`, default `{}`.
 
 ### Enumerations
 
@@ -156,8 +156,9 @@ CREATE TABLE activity (
   actor        TEXT NOT NULL,
   kind         TEXT NOT NULL,
   action       TEXT NOT NULL,
-  body         TEXT NOT NULL,                      -- the message, or a one-line summary of the change
+  body         TEXT NOT NULL,                      -- the message a person reads
   targetActors TEXT NOT NULL DEFAULT '[]',         -- JSON array, from @mentions
+  metadata     TEXT NOT NULL DEFAULT '{}',         -- JSON object History does not print
   projectId    TEXT REFERENCES project(id)    ON DELETE SET NULL,
   issueId      TEXT REFERENCES issue(id)      ON DELETE SET NULL,
   capabilityId TEXT REFERENCES capability(id) ON DELETE SET NULL,
@@ -173,7 +174,7 @@ CREATE INDEX activity_project ON activity(projectId);
 
 **Capabilities, not requirements.** The old build had a `requirement` table that slowly turned into a second document store and then took over Monitor. A capability is deliberately thinner: a title, a one-line note capped at 280 characters, and two independent signals — is it built, does it work. It exists to answer Monitor's second question and for no other reason. The moment a capability wants a body, that body belongs in `product/design.md`, and the capability should point at it with `docPath` and `docAnchor`.
 
-**Activity is the message log.** A comment on an issue writes both a `comment` row and an `activity` row; a studio note writes only an `activity` row with `kind = note`. `body` is what a person reads. `@mentions` are parsed out of the body into `targetActors`, and if the body contains "handoff", "hand off", or "handing off", the kind becomes `handoff`. All four foreign keys are real, with `ON DELETE SET NULL`, so history survives a deletion instead of dangling.
+**Activity is the message log.** A comment on an issue writes both a `comment` row and an `activity` row; a studio note writes only an `activity` row with `kind = note`. `body` is what a person reads. A Chief of Staff handoff keeps selection and page focus in `metadata` so History can print the comment alone. `@mentions` are parsed out of the body into `targetActors`, and if the body contains "handoff", "hand off", or "handing off", the kind becomes `handoff`. All four foreign keys are real, with `ON DELETE SET NULL`, so history survives a deletion instead of dangling.
 
 **Identifiers.** `ARK-14` and `ARK-C3` come from `issueCounter` and `capabilityCounter` on the project row, incremented and consumed inside the same GRDB write transaction as the insert. The `UNIQUE` constraint on `identifier` is the backstop. This is safe for one process; two processes on one database file is not a supported configuration.
 
@@ -317,7 +318,7 @@ This is why `decisions.md` is written the way it is. The convention is the parse
 
 ## Seed
 
-On an empty database, and only then: a workspace named **Origin Ark**, and one project — **Arkboard**, key `ARK`, colour `#5A62D6`, icon `square.3.layers.3d`, `repoPath` set to the resolved repository root, `githubRepo` set to `diliprt/arkboard`. Then a handful of capabilities describing the app's own day-one surface, one milestone, and a single activity row welcoming the studio. Existing databases pick up `icon` in `v2-project-icon` and receive a distinct mark per project so the portfolio is never a row of identical dots. They pick up `pinned` in `v3-project-pinned`, default true, so Arkboard does not vanish from the sidebar.
+On an empty database, and only then: a workspace named **Origin Ark**, and one project — **Arkboard**, key `ARK`, colour `#5A62D6`, icon `square.3.layers.3d`, `repoPath` set to the resolved repository root, `githubRepo` set to `diliprt/arkboard`. Then a handful of capabilities describing the app's own day-one surface, one milestone, and a single activity row welcoming the studio. Existing databases pick up `icon` in `v2-project-icon` and receive a distinct mark per project so the portfolio is never a row of identical dots. They pick up `pinned` in `v3-project-pinned`, default true, so Arkboard does not vanish from the sidebar. They pick up `activity.metadata` in `v4-activity-metadata`, default `{}`.
 
 Nothing fictional. The previous build seeded a demo project and a fake three-bot conversation, and the first thing anyone had to do was work out which rows were real. One real project, and everything you see is true.
 

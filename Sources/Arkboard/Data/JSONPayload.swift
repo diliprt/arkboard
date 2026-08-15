@@ -10,6 +10,13 @@ enum JSONPayload {
         return StudioISO8601.string(from: value)
     }
 
+    static func metadataObject(_ raw: String) -> Any {
+        guard let data = raw.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data)
+        else { return [:] }
+        return object
+    }
+
     static func project(_ project: Project, openIssueCount: Int) -> [String: Any] {
         [
             "id": project.id,
@@ -72,6 +79,7 @@ enum JSONPayload {
             "capabilityId": json(row.capabilityId),
             "capabilityIdentifier": json(capability?.identifier),
             "milestoneId": json(row.milestoneId),
+            "metadata": metadataObject(row.metadata),
         ]
     }
 

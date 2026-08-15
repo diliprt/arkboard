@@ -140,7 +140,8 @@ final class AppStore {
                     projectId: log.projectId,
                     issueId: log.issueId,
                     capabilityId: log.capabilityId,
-                    milestoneId: log.milestoneId
+                    milestoneId: log.milestoneId,
+                    metadata: log.metadata
                 )
                 try row.insert(db)
             }
@@ -454,7 +455,7 @@ final class AppStore {
         }
     }
 
-    func postNote(body: String, projectKey: String?, actor: String, kind: ActivityKind? = nil, extraTargets: [String] = []) throws -> Activity {
+    func postNote(body: String, projectKey: String?, actor: String, kind: ActivityKind? = nil, extraTargets: [String] = [], metadata: String = "{}") throws -> Activity {
         let body = try Validation.requireBody(body, empty: .emptyNote)
         var targets = Validation.mentions(in: body)
         for name in extraTargets where !targets.contains(name) {
@@ -464,7 +465,7 @@ final class AppStore {
         let who = Validation.actor(actor)
         return try mutate(actor: who) { db in
             let project = try projectKey.flatMap { try Project.filter(Column("key") == $0.uppercased()).fetchOne(db) }
-            let draft = ActivityDraft(kind: resolved == .note && targets.isEmpty ? .note : resolved, action: .noted, body: body, targetActors: targets, projectId: project?.id)
+            let draft = ActivityDraft(kind: resolved == .note && targets.isEmpty ? .note : resolved, action: .noted, body: body, targetActors: targets, projectId: project?.id, metadata: metadata)
             let row = Activity(
                 id: UUID().uuidString,
                 createdAt: Date(),
@@ -476,7 +477,8 @@ final class AppStore {
                 projectId: draft.projectId,
                 issueId: nil,
                 capabilityId: nil,
-                milestoneId: nil
+                milestoneId: nil,
+                metadata: draft.metadata
             )
             try row.insert(db)
             return (row, nil)
@@ -703,7 +705,7 @@ final class AppStore {
             selectedText: selected,
             headingFallback: fallback
         )
-        noteSheet = NoteSheetRequest(project: focusedProject(), draft: handoff.selectedText, handoff: handoff)
+        noteSheet = NoteSheetRequest(project: focusedProject(), draft: "", handoff: handoff)
         focusComposer += 1
     }
 

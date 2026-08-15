@@ -211,7 +211,7 @@ Says something in Activity without attaching it to an issue. This is how an agen
 | `projectKey` | string | no | omit for a studio-wide note |
 | `actor` | string | no | |
 
-Returns the `Activity`.
+Returns the `Activity`. Handoff rows from the board include a `metadata` object (selected text, page, tab, document, heading) that History does not print. `body` is the comment the human typed.
 
 ## Activity
 

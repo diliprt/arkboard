@@ -155,6 +155,11 @@ enum AppDatabase {
                 t.add(column: "pinned", .boolean).notNull().defaults(to: true)
             }
         }
+        migrator.registerMigration("v4-activity-metadata") { db in
+            try db.alter(table: "activity") { t in
+                t.add(column: "metadata", .text).notNull().defaults(to: "{}")
+            }
+        }
         return migrator
     }
 }

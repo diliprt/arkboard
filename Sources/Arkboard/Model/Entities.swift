@@ -126,6 +126,7 @@ struct Activity: Codable, FetchableRecord, PersistableRecord, Identifiable, Hash
     var issueId: String?
     var capabilityId: String?
     var milestoneId: String?
+    var metadata: String = "{}"
 
     var targets: [String] {
         (try? JSONDecoder().decode([String].self, from: Data(targetActors.utf8))) ?? []
@@ -146,6 +147,7 @@ struct ActivityDraft: Sendable {
     var issueId: String? = nil
     var capabilityId: String? = nil
     var milestoneId: String? = nil
+    var metadata: String = "{}"
 }
 
 struct StudioDocument: Identifiable, Hashable, Sendable {

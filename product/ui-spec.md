@@ -316,12 +316,14 @@ Existing useful items stay. Pin / Unpin on a project row stay; this item is adde
 
 Choosing the item (with a highlight or with none) opens that sheet. The title is exactly `Chat with Chief of Staff`. Do not title it Note.
 
-- The current selection prefilled in the field (editable). If they copied, prefer the current selection in the view over the clipboard.
+- The composer is empty — placeholder `Tell the team…` only. Selection is silent context for Chief of Staff, not a message. Do not prefill the field with the highlight. The human writes the ask. If they copied, still prefer the current selection in the view over the clipboard for capture — just do not show it.
 - One quiet friendly line for where they are, e.g. `Arkboard · Design · product/design.md`. Do not show a raw dump — no ISO timestamp, no `project · ARK · Design · …`, no destination jargon, no tab twice.
 
-The Activity body is the note they typed, plus the friendly page line if needed. Do not append `destination:`, `project:`, `tab:`, `doc:`, or an ISO timestamp to the message. Kind `handoff`, target `Product`, and `projectId` stay on the Activity row.
+The Activity body is the comment they typed. Nothing else — no selected quote, no destination dump, no friendly page line in the body. The sheet chrome can still show the friendly line so they know where they are.
 
-Capture still knows these fields so the friendly line and project scope are right. They are not a visible dump in the body:
+History is actor, time, and their comment. That is it.
+
+Capture still knows these fields so Chief of Staff can read them via the engine / API / MCP. They live on the Activity row as `metadata` JSON — not rendered in History, not stuffed into markdown the human would see:
 
 - **selected text**, if any
 - **destination** — `portfolio` | `timeline` | `onboarding` | `project`

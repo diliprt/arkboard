@@ -394,13 +394,8 @@ def handoff_nearest_heading(markdown: str, selected: str, fallback: str | None =
 
 
 def handoff_persist_body(user_text: str, page_line: str = "") -> str:
-    note = user_text.strip()
-    line = page_line.strip()
-    if not line:
-        return note
-    if not note:
-        return line
-    return f"{note}\n\n{line}"
+    """Activity body is the typed comment only. page_line is chrome, not body."""
+    return user_text.strip()
 
 
 def today_index(dates: list[int], now: int) -> int:
@@ -681,8 +676,8 @@ def check_chief_handoff(swift: str, home: str, root: str, sidebar: str, ui: str)
         handoff_nearest_heading("# Design\nNo match here.", "", "Design") == "Design",
     )
     body = handoff_persist_body("Ship the context menu.", page)
-    ok("handoff body is the typed note", "Ship the context menu." in body)
-    ok("handoff body keeps the friendly page line", page in body)
+    ok("handoff persistBody is the user comment only", body == "Ship the context menu.")
+    ok("handoff body has no friendly page line", page not in body)
     for dump in (
         "destination:",
         "project:",
@@ -693,19 +688,23 @@ def check_chief_handoff(swift: str, home: str, root: str, sidebar: str, ui: str)
         "at:",
         "2026-08-15T09:10:00.000Z",
         "Chief of Staff handoff ·",
+        "This document is the visual contract.",
     ):
         ok(f"handoff body has no {dump} dump", dump not in body)
 
-    studio = handoff_persist_body("Look at Portfolio.", "Portfolio")
-    ok("studio handoff is the typed note", "Look at Portfolio." in studio)
-    ok("studio handoff keeps the friendly line", "Portfolio" in studio)
+    studio = handoff_persist_body("Look at this.", "Portfolio")
+    ok("studio handoff is the typed note", studio == "Look at this.")
+    ok("studio handoff has no page line", "Portfolio" not in studio)
     ok("studio handoff has no destination dump", "destination:" not in studio)
 
     persist_src = (SOURCES / "Model/ChiefHandoff.swift").read_text()
-    persist_fn = persist_src.split("static func persistBody")[-1].split("struct NoteSheetRequest")[0] if "static func persistBody" in persist_src else persist_src
+    persist_fn = persist_src.split("func persistBody")[-1].split("struct NoteSheetRequest")[0]
     ok("persistBody has no destination: dump", "destination:" not in persist_fn)
     ok("persistBody has no project: dump", "project:" not in persist_fn)
     ok("persistBody has no ISO at: dump", "at:" not in persist_fn)
+    ok("persistBody does not append pageLine", "pageLine" not in persist_fn)
+    ok("persistBody does not append selectedText", "selectedText" not in persist_fn)
+    ok("handoff contextJSON lives in Swift", "contextJSON" in persist_src)
 
     ok("source ChiefHandoff.swift", (SOURCES / "Model/ChiefHandoff.swift").exists())
     ok("menu label is Chat with Chief of Staff", "Chat with Chief of Staff" in swift)
@@ -762,6 +761,38 @@ def check_chief_handoff(swift: str, home: str, root: str, sidebar: str, ui: str)
        "lastHighlight" in swift and "firstSelectedText" in swift)
     ok("History is still the Activity log",
        'Text("History")' in sheet and "chat thread" not in sheet.lower())
+    history_view = sheet.split('Text("History")')[-1] if 'Text("History")' in sheet else sheet
+    ok("History view binds the comment", "Text(row.body)" in history_view)
+    ok("History view does not bind selectedText", "selectedText" not in history_view)
+
+    appstore = (SOURCES / "Data/AppStore.swift").read_text()
+    begin = appstore.split("func beginChiefHandoff")[-1].split("private func focusedProject")[0]
+    ok("composer is not seeded with selected text",
+       "handoff.selectedText" not in begin and 'draft: ""' in begin)
+    ok("beginChiefHandoff still captures selection",
+       "ChiefHandoff.capture" in begin and "selectedText" in begin)
+
+    composer = (SOURCES / "UI/Shell/NoteComposer.swift").read_text()
+    ok("composer does not seed from selectedText", "handoff.selectedText" not in composer)
+    appear = composer.split("onAppear")[-1].split("onChange")[0] if "onAppear" in composer else composer
+    ok("composer does not seed handoff drafts", "handoff == nil" in appear or "handoff == nil" in composer)
+    ok("send persists metadata, not selected quote in body",
+       "metadata:" in composer and "contextJSON" in composer)
+
+    entities = (SOURCES / "Model/Entities.swift").read_text()
+    ok("activity row has metadata", "var metadata: String" in entities)
+    ok("v4-activity-metadata migration",
+       "v4-activity-metadata" in (SOURCES / "Data/AppDatabase.swift").read_text())
+    ok("activity JSON exposes metadata",
+       '"metadata"' in (SOURCES / "Data/JSONPayload.swift").read_text())
+    ok("postNote accepts metadata", "metadata:" in appstore.split("func postNote")[1].split("func createMilestone")[0])
+
+    ok("ui-spec selection is silent context", "silent context" in ui.lower())
+    ok("ui-spec the human writes the ask", "writes the ask" in ui.lower())
+    ok("ui-spec History is actor + time + comment",
+       "actor" in ui.lower() and ("their comment" in ui.lower() or "the comment they typed" in ui.lower()))
+    ok("ui-spec context is not rendered in History",
+       "not rendered in history" in ui.lower() or "history does not print" in ui.lower())
 
 
 def main() -> int:
