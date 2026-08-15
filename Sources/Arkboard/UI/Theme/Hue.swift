@@ -139,9 +139,10 @@ enum StudioColor {
     /// `paneBackground` may use this — painting it on a navigation surface is
     /// exactly what blocks the glass.
     static var documentField: Color { Color(nsColor: .windowBackgroundColor) }
-    /// The sidebar's selected row. The system's quiet selection grey, not a
-    /// saturated accent fill: a project's mark and key have to stay readable on
-    /// the row that is selected, and they do not survive a bright blue.
+    /// The system's unemphasized selection grey. The sidebar gets this by
+    /// keeping its list from taking first responder (see `QuietSelection`)
+    /// rather than by painting it, because AppKit picks the emphasized or
+    /// unemphasized style itself and a tint cannot override that choice.
     static var quietSelection: Color { Color(nsColor: .unemphasizedSelectedContentBackgroundColor) }
     static var card: Color { Color(nsColor: .controlBackgroundColor) }
     static var editor: Color { Color(nsColor: .textBackgroundColor) }

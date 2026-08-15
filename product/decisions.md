@@ -100,6 +100,18 @@ That means a document whose first heading repeats the title it sits under does n
 
 It also means the project page has no identity strip. Mark and key sit in the toolbar beside the window title, and the pane starts at the tab rail. A mark-plus-key row under a title bar that already says `Arkboard` is a second logo row.
 
+And it means **Timeline has no in-page title**: that pane opens on the scale control and the Gantt. The window title bar is also pinned to the inline display mode, because a title and subtitle stacked in their own row under a sparse toolbar reads as a headline band even when no view is drawing one — which is what Timeline looked like while its code had no band at all.
+
+## Locked — The selected sidebar row is always the unemphasized grey
+
+One grey selected row, on every destination, focused or not. Portfolio, Timeline and the pinned projects all behave the same, and none of them ever goes accent blue.
+
+The reason is legibility, not taste. An emphasized selection forces the row's content to white, and a project row is a coloured mark plus a name plus a key — the blue swallowed all three, so the row that told you where you were was the one row you could not read.
+
+How it is achieved matters as much as the result. `NSColor.unemphasizedSelectedContentBackgroundColor` is a colour to draw with, not a mode to set: AppKit decides between the emphasized and unemphasized style from first-responder status, and `tint` only reaches the row's icons. We tried the tint first and it did nothing, which is exactly the trap. Finder, Mail and Music keep their sidebar lists from becoming first responder; Arkboard does the same, so the row keeps the system's own quiet rendering and its own colours.
+
+> Do not paint a grey capsule behind the row to fake this. A hand-drawn selection drifts from the system's the first time Apple changes it, and it will not match the one in the Chat sheet three inches away.
+
 ## Locked — The sidebar is material, the document is solid
 
 The two columns are deliberately different surfaces. The sidebar is frosted system material with loosely paced rows; the document is an opaque reading field with the section wash over it. Side by side they read as slightly different colours, and that difference *is* the navigation-versus-content split, visible without reading a word.
