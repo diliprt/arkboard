@@ -73,6 +73,7 @@ final class AppStore {
             NSLog("Arkboard seed failed: \(error)")
         }
         startObservations()
+        await loadProjectsFromDatabase()
         await refreshAllDocuments()
         startServer()
     }
@@ -86,8 +87,12 @@ final class AppStore {
     private func startObservations() {
         observe(Workspace.all()) { [weak self] in self?.workspace = $0.first }
         observe(Project.order(Column("sortOrder"), Column("name"))) { [weak self] rows in
-            self?.projects = rows
-            self?.resolveSidebar()
+            guard let self else { return }
+            self.projects = rows
+            self.resolveSidebar()
+            if self.documentBundles.isEmpty, !rows.isEmpty {
+                Task { await self.refreshAllDocuments() }
+            }
         }
         observe(Issue.order(Column("updatedAt").desc)) { [weak self] in self?.issues = $0 }
         observe(Comment.order(Column("createdAt"))) { [weak self] in self?.comments = $0 }
@@ -213,16 +218,48 @@ final class AppStore {
     // MARK: - Documents
 
     func refreshAllDocuments() async {
-        var next: [String: DocumentBundle] = [:]
+        guard !projects.isEmpty else { return }
         for project in projects {
-            next[project.id] = await documents.refresh(project: project)
+            let loaded = await documents.refresh(project: project)
+            applyIncomingBundle(projectId: project.id, incoming: loaded)
         }
-        documentBundles = next
     }
 
     func refreshDocuments(projectId: String) async {
         guard let project = project(id: projectId) else { return }
-        documentBundles[projectId] = await documents.refresh(project: project)
+        let loaded = await documents.refresh(project: project)
+        applyIncomingBundle(projectId: projectId, incoming: loaded)
+    }
+
+    private func applyIncomingBundle(projectId: String, incoming: DocumentBundle) {
+        if DocumentBundleMerge.shouldReplace(current: documentBundles[projectId], incoming: incoming) {
+            documentBundles[projectId] = incoming
+            persistResolvedRootIfNeeded(projectId: projectId, bundle: incoming)
+        }
+    }
+
+    private func persistResolvedRootIfNeeded(projectId: String, bundle: DocumentBundle) {
+        guard bundle.source == "local", let root = bundle.root else { return }
+        guard let project = project(id: projectId) else { return }
+        let repo = URL(fileURLWithPath: root).deletingLastPathComponent().path
+        if project.repoPath == repo { return }
+        if let existing = project.repoPath,
+           FileManager.default.fileExists(atPath: (existing as NSString).appendingPathComponent("product")) {
+            return
+        }
+        try? updateRepoPath(projectId: projectId, path: repo)
+    }
+
+    private func loadProjectsFromDatabase() async {
+        do {
+            let rows = try await pool.read { db in
+                try Project.order(Column("sortOrder"), Column("name")).fetchAll(db)
+            }
+            projects = rows
+            resolveSidebar()
+        } catch {
+            NSLog("Arkboard project read failed: \(error)")
+        }
     }
 
     func updateRepoPath(projectId: String, path: String?) throws {

@@ -11,8 +11,13 @@ actor DocumentLibrary {
     }
 
     func refresh(project: Project) async -> DocumentBundle {
-        cache[project.id] = nil
-        return await bundle(for: project)
+        let loaded = await load(project)
+        if let cached = cache[project.id],
+           !DocumentBundleMerge.shouldReplace(current: cached, incoming: loaded) {
+            return cached
+        }
+        cache[project.id] = loaded
+        return loaded
     }
 
     func dropAll() {
