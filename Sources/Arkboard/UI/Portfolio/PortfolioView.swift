@@ -58,7 +58,11 @@ struct PortfolioView: View {
 
     private func projectCard(_ project: Project) -> some View {
         let bundle = store.documentBundles[project.id]
-        let summary = bundle?.overview.flatMap { $0.markdown }.map { MarkdownParser.firstSentence($0) } ?? project.summary
+        let summary = MarkdownParser.cardSummary(
+            markdown: bundle?.overview?.markdown,
+            name: project.name,
+            fallback: project.summary
+        )
         return CardSurface(hue: .violet) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {

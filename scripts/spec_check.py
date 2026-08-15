@@ -113,6 +113,40 @@ def collapse_title(raw: str) -> str:
     return re.sub(r"\s+", " ", raw).strip()
 
 
+def first_sentence(markdown: str) -> str:
+    stripped = re.sub(r"^#+\s+", "", markdown)
+    stripped = re.sub(r"\s+", " ", stripped.replace("\n", " ")).strip()
+    idx = stripped.find(". ")
+    if idx != -1:
+        return stripped[: idx + 1].strip()
+    return stripped
+
+
+def strip_name_prefix(text: str, name: str) -> str:
+    """Drop a leading project name so the card does not read 'Arkboard Arkboard is…'."""
+    result = text.strip()
+    prefix = name.strip()
+    if not prefix:
+        return result
+    separators = set(" \t\n\r—–-:,")
+    while result.lower().startswith(prefix.lower()):
+        rest = result[len(prefix) :]
+        if not rest:
+            break
+        if rest[0] not in separators:
+            break
+        result = rest.lstrip("".join(separators))
+    return result
+
+
+def card_summary(markdown: str | None, name: str, fallback: str = "") -> str:
+    raw = first_sentence(markdown) if markdown else fallback
+    if not raw:
+        raw = fallback
+    stripped = strip_name_prefix(raw, name)
+    return stripped or strip_name_prefix(fallback, name)
+
+
 def project_key(raw: str) -> str:
     key = "".join(ch for ch in raw.upper() if ch.isalnum() and ch.isascii())
     key = "".join(ch for ch in key if ("A" <= ch <= "Z") or ("0" <= ch <= "9"))
@@ -498,6 +532,20 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     ok("portfolio New Project uses the existing sheet", "arkboardNewProject" in portfolio)
     ok("Portfolio view has no milestone section",
        "Milestones" not in portfolio and "TimelineSpine" not in portfolio)
+    ark_readme = "# Arkboard\n\nArkboard is Origin Ark Studio's local studio board for macOS. More."
+    ok("card summary strips doubled Arkboard name",
+       card_summary(ark_readme, "Arkboard") == "is Origin Ark Studio's local studio board for macOS.")
+    ok("card summary strips a single leading name",
+       card_summary("Lumen paints light.", "Lumen") == "paints light.")
+    ok("card summary keeps a lead that is not the name",
+       card_summary("A quiet board.", "Arkboard") == "A quiet board.")
+    ok("card summary does not strip a longer word",
+       card_summary("Arkboarded later.", "Arkboard") == "Arkboarded later.")
+    parser = (SOURCES / "Documents/MarkdownParser.swift").read_text()
+    ok("card summary lives in Swift", "cardSummary" in parser and "withoutNamePrefix" in parser)
+    ok("portfolio card uses cardSummary", "cardSummary" in portfolio)
+    ok("ui-spec strips a leading project name on the card",
+       "strip" in (ui.split("## Portfolio")[1].split("## Timeline")[0].lower() if "## Portfolio" in ui else ""))
 
     calendar = (SOURCES / "UI/Portfolio/TimelineCalendar.swift").read_text() if (SOURCES / "UI/Portfolio/TimelineCalendar.swift").exists() else ""
     ok("timeline calendar source exists", bool(calendar))

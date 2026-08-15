@@ -162,7 +162,7 @@ Each card:
 
 - The project mark, name in `heading`, key in `mono` `caption`.
 - A pin control. Filled pin when pinned. Clicking the pin toggles pin and does not open the project.
-- One-line summary — the first sentence of that project's `product/README.md`, or its stored `summary` if the documents have not loaded. This is the only human place for that copy.
+- One-line summary — the first sentence of that project's `product/README.md`, or its stored `summary` if the documents have not loaded. If the lead starts with the project name, strip that prefix so the card does not read `Arkboard Arkboard is…`. This is the only human place for that copy.
 - **Local** checkout path when `repoPath` is set, as `local · …`.
 - **GitHub** remote when `githubRepo` is set, as `github · owner/name`.
 - **Documents** — four small pills labelled `Design`, `Architecture`, `Mockups`, `Decisions`, filled in that section's hue when the document exists and hollow slate when it does not. Load from the same document bundle as the project home (local `product/` preferred when both sources exist).
