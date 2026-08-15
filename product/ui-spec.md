@@ -63,7 +63,9 @@ Create is not in this column.
 
 ### Contents
 
-A trailing overlay that floats over the right edge of the document on edge-to-edge glass — the inspector language, on the trailing side. It is not a split column and it does not steal width from the document: opening it covers the page; closing it reveals the full document again. The document measure does not collapse. 220pt ideal, 180 min, 280 max, user-resizable in that range. The choice persists as `arkboard.contentsVisible`. The document column itself is at least 560pt and always uses the full pane width, Contents shown or hidden. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right. Do not bring back a third `NavigationSplitView` column, a `GridColumn` 1000, or a 720 island. Nothing opaque is painted behind it; the glass is the surface.
+A trailing overlay that floats over the right edge of the document on edge-to-edge glass — the inspector language, on the trailing side. It is not a split column.
+
+**The prose reserves a gutter for it.** "Does not steal width" is not a pass if the last words of every line are unreadable under the overlay. When Contents is open the document reflows with a trailing gutter exactly as wide as the overlay, so no glyph is ever printed underneath it. That is an inset on the text, not a third `NavigationSplitView` column and not a 720 island: the page still measures the whole pane, and closing Contents returns the full width immediately. The document measure does not collapse. 220pt ideal, 180 min, 280 max, user-resizable in that range. The choice persists as `arkboard.contentsVisible`. The document column itself is at least 560pt and always uses the full pane width, Contents shown or hidden. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right. Do not bring back a third `NavigationSplitView` column, a `GridColumn` 1000, or a 720 island. Nothing opaque is painted behind it; the glass is the surface.
 
 The toggle lives in the window toolbar, on toolbar glass: a `sidebar.trailing` control that carries a selected state while Contents is open, help text `Show Contents` / `Hide Contents`.
 
@@ -190,19 +192,27 @@ Cards only — not a table, not a markdown essay, no milestone block, and no stu
 
 ### Project cards
 
+**Posters, not forms. The card is the picture.**
+
 A grid, cards between 320 and 480pt wide, 12pt gaps. One card per project, pinned or not. Cards are content, so they are a solid surface with one hairline stroke and concentric corners — never glass.
 
-**The mark is the hero.** Each card leads with the project's brand mark at `Metrics.markHero`, a large rounded square at the top-left: the image from `product/icon.png` / `mark.png` / `logo.png` when the project has one, otherwise its SF Symbol on the project's colour. This is the card. It is not a 22pt chip beside the name, which is what made the old tile read as a row in a table rather than a thing you want to open.
+Each card is a full-bleed image with a short caption under it. The picture runs edge to edge to the card's rounded corners at `Metrics.cardPosterAspect`, so every tile in the grid lines up whatever artwork it is given. Resolution order:
 
-Everything else is quieter than the mark, in this order:
+1. `product/card.png` — the project's generated poster. This is the intended face.
+2. `product/icon.png` / `mark.png` / `logo.png` — the small mark, stretched to the poster box, when there is no card yet.
+3. No image at all — a field in the project's own colour carrying its SF mark. A placeholder that still looks designed. Never a 22pt chip beside a stack of metadata, which is what made the old tile read as a row in a table rather than a thing you want to open.
 
-- The name in `heading` and the key in `mono`, tertiary, on one line under the mark.
+Brand artwork lives at the root of `product/` and is the project's own face, so it never appears in the Mockups gallery. A frame the director drew belongs in `product/mockups/`.
+
+Under the picture, quietly:
+
+- The name in `heading`.
 - A pin control at the end of that line. Filled pin when pinned. Clicking the pin toggles pin and does not open the project.
-- One-line summary in `callout`, secondary, clamped to two lines — the first sentence of that project's `product/README.md`, or its stored `summary` if the documents have not loaded. If the lead starts with the project name, strip that prefix so the card does not read `Arkboard Arkboard is…`. This is the only human place for that copy.
-- A footer that recedes: the **local** checkout path as `local · …` and the **GitHub** remote as `github · owner/name`, both `mono` and tertiary, one line each, middle-truncated.
-- **Documents** — one caption word each for `Design`, `Architecture`, `Mockups`, `Decisions`, in that section's hue when the document exists and dimmed tertiary when it does not. Load from the same document bundle as the project home (local `product/` preferred when both sources exist). No capsule fill: on a card led by a large mark, four filled chips become the loudest thing on the screen, which is backwards.
+- One-line summary in `callout`, secondary, clamped to two lines — the first sentence of that project's `product/README.md`, or its stored `summary` if the documents have not loaded. If the lead starts with the project name, strip that prefix, and strip the copula it strands with it: `Arkboard is Origin Ark Studio's board` becomes `Origin Ark Studio's board`, not `is Origin Ark Studio's board`. A card line always opens on a capital and reads as a sentence someone wrote.
 
-Each card uses the same `typography` environment as the project home, the sidebar, and documents — one scale, one face. No one-off `.font(.system)` and no custom faces. Settings text size and face flow through, and the mark keeps its own icon-grid proportions.
+**Not on the tile.** Checkout paths, the GitHub remote, and the four document words are gone. They are metadata, and metadata is not a poster; they belong to the project page, which is one click away.
+
+Each card uses the same `typography` environment as the project home, the sidebar, and documents — one scale, one face. No one-off `.font(.system)` and no custom faces. Settings text size and face flow through.
 
 Clicking the card (not the pin) opens that project's home. This page is the only place a human creates a project. A `New Project` control opens the existing sheet. After create, the project is pinned and selected.
 
@@ -251,15 +261,17 @@ Opened from the footer `sparkles` icon, not from Settings. The window title says
 
 The most important screen in the app, and the one that must not look like a tracker.
 
-Everything is inside **one** vertical scroll: the identity strip scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab over the document field. The outline is the right Contents overlay, not a bar in this scroll. Strip, tab rail, markdown, and project-home empty states share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar is hidden, that measure grows with the pane. Contents covers the document and does not change the measure — not a 720-centred island, and not a 1000 grid.
+Everything is inside **one** vertical scroll, and the tab rail is the first thing in it, so the rail is pinned from first paint and there is nothing above it that can push it around. The document scrolls underneath. The pane carries the wash of the selected tab over the document field. The outline is the right Contents overlay, not a bar in this scroll. Tab rail, markdown, and project-home empty states share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar is hidden, that measure grows with the pane. Contents reserves a trailing gutter and does not change the measure — not a 720-centred island, and not a 1000 grid.
 
-### Identity strip
+**One headline.** The window title bar names the page and the tab rail names the section. A document that opens with an H1 saying the same thing — `# Design` under the Design tab — is a second headline, so that heading is not rendered and does not appear in Contents. The markdown file is untouched; only the repeated opener is skipped, and a document with its own title (`# UI specification` under Design) keeps it.
 
-The window title bar already says the project's name, so this strip never repeats it. It is a thin line of identity and actions, not a title band, and it paints no background of its own — no `windowBackgroundColor` slab, which Materials forbids. It is content at the top of the scroll and it scrolls away like content.
+### Identity on the toolbar
 
-- Leading: the project mark at `Metrics.markHeader` and the key in a `mono` capsule.
-- Trailing: the document source in `mono`, tertiary — `local · product/` or `github · diliprt/arkboard` — a `Refresh` button with `arrow.clockwise`, and a note icon (`bubble.left`) that opens the compact composer sheet. Both are borderless system buttons with SF Symbols at body size and a help label; neither draws its own bezel.
-- No name in `display`. No README lead. No article summary. No `More documents` chip row. Those documents stay reachable via tabs. The long description lives on Portfolio.
+There is no identity strip in the pane. The window title bar already says the project's name, and a mark-plus-key row under it is a second logo row saying the same thing again. Identity lives in the toolbar beside the title, and **the pane starts at the tab rail**.
+
+- Leading, next to the window title: the project mark at `Metrics.markSidebar` and the key in `mono`, secondary.
+- Trailing: `Refresh` (`arrow.clockwise`), whose help text names the document source — `Reload local · product/` or `Reload github · diliprt/arkboard` — and a note action (`bubble.left`) that opens the compact composer sheet.
+- No name in `display`, and no name in the pane at all. No README lead. No article summary. No `More documents` chip row. Those documents stay reachable via tabs. The long description lives on Portfolio.
 
 ### Tab bar
 
@@ -271,7 +283,13 @@ Each tab is a native accessory-bar capsule: an SF Symbol and a label at body siz
 
 **Design is selected by default** — a project is a design object first. Clicking the already-selected tab does nothing; a filter cannot be turned off, only moved.
 
-Switching tabs cross-fades over 0.18s and returns the scroll to the top. The selected capsule scrolls itself into view. `⌘[` and `⌘]` move between tabs. Landing on Mockups shows the tab rail and the gallery (or its empty state) immediately — the pane must not open scrolled past them.
+**The rail does not move.** Switching tabs returns the scroll to the top of the tab body — every tab, the same way — and nothing about that switch is animated. The rail stays put; Design → Mockups → Design does not shift it by a pixel. The selected capsule scrolls itself into view horizontally. `⌘[` and `⌘]` move between tabs. Landing on Mockups shows the tab rail and the gallery (or its empty state) immediately — the pane must not open scrolled past them.
+
+Three rules keep that true, and all three are load-bearing:
+
+1. **The scroll target is never the rail.** The rail is a pinned header, which the scroll view repositions itself; scrolling *to* it chases a moving target, and that is what made the pane bounce. The anchor is the top of the tab body.
+2. **The reset is unanimated.** An eased scroll can still be in flight when the next layout pass lands, and the two fight.
+3. **The gallery's height is known before it paints.** Mockup cells are a fixed height, so the grid does not grow as thumbnails materialise and shove the pane around a frame late.
 
 ### Document tabs
 

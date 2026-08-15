@@ -27,7 +27,7 @@ CARD_GAP = 12.0
 SIDEBAR_IDEAL = 232.0
 SIDEBAR_ROW_Y = 5.0
 RADIUS_CARD = 10.0
-MARK_HERO = 88.0
+CARD_POSTER_ASPECT = 1.5
 MARK_SIDEBAR = 22.0
 MARK_CORNER_RATIO = 0.2237
 MARK_GLYPH_RATIO = 0.52
@@ -57,7 +57,8 @@ DOCUMENT_FIELD = "#F5F5F5"
 SIDEBAR_MATERIAL = "#FAFAFA"
 TITLEBAR = "#F2F2F3"
 HAIRLINE = "#D8D8DC"
-SELECTION = "#0B6BE4"
+# NSColor.unemphasizedSelectedContentBackgroundColor: the quiet selection.
+SELECTION = "#DCDCE0"
 FACE = "SF Pro Text, DejaVu Sans, Helvetica, Arial, sans-serif"
 MONO_FACE = "SF Mono, DejaVu Sans Mono, Menlo, monospace"
 
@@ -125,9 +126,9 @@ def sidebar(height: float, selected: int = 0) -> list[str]:
         selected_row = index == selected
         if selected_row:
             out.append(rect(8, y, SIDEBAR_IDEAL - 16, row_h, SELECTION, r=6))
-        fill = "#FFFFFF" if selected_row else PRIMARY
-        out.append(glyph(22, y + row_h / 2, 12, fill, 0.9))
-        out.append(text(40, y + row_h / 2 + BODY * 0.36, label, BODY, fill))
+        hue = VIOLET if index == 0 else MOSS
+        out.append(glyph(14 + MARK_SIDEBAR / 2, y + row_h / 2, 12, hue, 0.95))
+        out.append(text(14 + MARK_SIDEBAR + 10, y + row_h / 2 + BODY * 0.36, label, BODY, PRIMARY))
         y += row_h
     y += SIDEBAR_ROW_Y
     out.append(f'<line x1="16" y1="{y:.1f}" x2="{SIDEBAR_IDEAL - 16:.1f}" y2="{y:.1f}" stroke="{HAIRLINE}" stroke-width="1"/>')
@@ -135,8 +136,8 @@ def sidebar(height: float, selected: int = 0) -> list[str]:
     project_h = MARK_SIDEBAR + SIDEBAR_ROW_Y * 2
     if selected == 2:
         out.append(rect(8, y, SIDEBAR_IDEAL - 16, project_h, SELECTION, r=6))
-    name_fill = "#FFFFFF" if selected == 2 else PRIMARY
-    key_fill = "#D8E6FB" if selected == 2 else TERTIARY
+    name_fill = PRIMARY
+    key_fill = SECONDARY
     out.append(mark_tile(14, y + SIDEBAR_ROW_Y, MARK_SIDEBAR, INDIGO))
     out.append(text(14 + MARK_SIDEBAR + 10, y + project_h / 2 + BODY * 0.36, "Arkboard", BODY, name_fill))
     out.append(text(SIDEBAR_IDEAL - 16, y + project_h / 2 + MONO * 0.36, "ARK", MONO, key_fill, face=MONO_FACE, anchor="end"))
@@ -149,36 +150,32 @@ def sidebar(height: float, selected: int = 0) -> list[str]:
     return out
 
 
-def card(x, y, w, name, key, summary, local, remote, docs) -> tuple[list[str], float]:
-    inner = w - CARD_PAD * 2
-    cy = y + CARD_PAD
+def card(x, y, w, name, key, summary, brand, has_poster) -> tuple[list[str], float]:
+    """A poster with a caption. No paths, no document words."""
+    poster_h = w / CARD_POSTER_ASPECT
     out: list[str] = []
-    out.append(mark_tile(x + CARD_PAD, cy, MARK_HERO, INDIGO))
-    cy += MARK_HERO + 16
+    if has_poster:
+        # Stand-in for product/card.png: the real bytes are Riyu's generated art.
+        out.append(f'<defs><linearGradient id="poster{int(x)}" x1="0" y1="0" x2="1" y2="1">'
+                   f'<stop offset="0%" stop-color="#F3E9E2"/><stop offset="55%" stop-color="#CFC2F0"/>'
+                   f'<stop offset="100%" stop-color="{brand}"/></linearGradient></defs>')
+        out.append(rect(x, y, w, poster_h, f"url(#poster{int(x)})"))
+        for i, inset in enumerate((0.30, 0.22, 0.14)):
+            out.append(rect(x + w * inset, y + poster_h * (inset - 0.05), w * 0.52, poster_h * 0.62,
+                            "#FFFFFF", r=18, opacity=0.20 + i * 0.10))
+    else:
+        out.append(rect(x, y, w, poster_h, blend(CARD_FILL, brand, 0.22)))
+        out.append(glyph(x + w / 2, y + poster_h / 2, poster_h * 0.42, brand, 0.85))
 
+    cy = y + poster_h + CARD_PAD
     out.append(text(x + CARD_PAD, cy + HEADING * 0.72, name, HEADING, PRIMARY, weight="600"))
-    name_w = len(name) * HEADING * 0.56
-    out.append(text(x + CARD_PAD + name_w + 8, cy + HEADING * 0.72, key, MONO, TERTIARY, face=MONO_FACE))
     pin_x = x + w - CARD_PAD - 6
     out.append(
         f'<path d="M{pin_x - 4:.1f} {cy + 3:.1f} l8 0 l-3 5 l0 5 l-2 0 l0 -5 z" fill="{TERTIARY}"/>'
     )
-    cy += HEADING + 6
-
+    cy += HEADING + 3
     out.append(text(x + CARD_PAD, cy + CALLOUT * 0.72, summary, CALLOUT, SECONDARY))
-    cy += CALLOUT + 16
-
-    for line in (local, remote):
-        if line:
-            out.append(text(x + CARD_PAD, cy + MONO * 0.72, line, MONO, TERTIARY, face=MONO_FACE))
-            cy += MONO + 6
-
-    dx = x + CARD_PAD
-    for label, hue, exists in docs:
-        out.append(text(dx, cy + CAPTION * 0.72, label, CAPTION, hue if exists else TERTIARY,
-                        opacity=1.0 if exists else 0.6))
-        dx += len(label) * CAPTION * 0.56 + 10
-    cy += CAPTION + CARD_PAD
+    cy += CALLOUT + CARD_PAD
 
     height = cy - y
     out.insert(0, rect(x, y, w, height, CARD_FILL, r=RADIUS_CARD, stroke=CARD_STROKE))
@@ -188,14 +185,15 @@ def card(x, y, w, name, key, summary, local, remote, docs) -> tuple[list[str], f
 TITLEBAR_H = 52.0
 
 
-def window_chrome(width: float, title: str, subtitle: str, actions: str) -> list[str]:
+def window_chrome(width: float, title: str, subtitle: str, actions: str, title_x: float | None = None) -> list[str]:
     """Traffic lights plus the window title and subtitle. This is the only title."""
     out = [rect(0, 0, width, TITLEBAR_H, TITLEBAR)]
     out.append(f'<line x1="0" y1="{TITLEBAR_H}" x2="{width}" y2="{TITLEBAR_H}" stroke="{HAIRLINE}" stroke-width="1"/>')
     for i, colour in enumerate(("#FF5F57", "#FEBC2E", "#28C840")):
         out.append(f'<circle cx="{20 + i * 20}" cy="20" r="6" fill="{colour}"/>')
-    out.append(text(SIDEBAR_IDEAL + 24, 22, title, BODY, PRIMARY, weight="600"))
-    out.append(text(SIDEBAR_IDEAL + 24, 38, subtitle, CAPTION, SECONDARY))
+    tx = SIDEBAR_IDEAL + 24 if title_x is None else title_x
+    out.append(text(tx, 22, title, BODY, PRIMARY, weight="600"))
+    out.append(text(tx, 38, subtitle, CAPTION, SECONDARY))
     if "plus" in actions:
         out.append(text(width - 60, 26, "+", HEADING + 2, PRIMARY, anchor="middle"))
     out.append(rect(width - 34, 14, 16, 14, "none", r=3, stroke=PRIMARY, sw=1.2))
@@ -207,21 +205,15 @@ def project_home(width: float, height: float) -> list[str]:
     pane_x = SIDEBAR_IDEAL
     pane_w = width - pane_x
     out = [rect(0, 0, width, height, DOCUMENT_FIELD)]
-    out.extend(window_chrome(width, "Arkboard", "Origin Ark", ""))
+    out.extend(window_chrome(width, "Arkboard", "Origin Ark", "", title_x=SIDEBAR_IDEAL + 24 + MARK_SIDEBAR + 44))
     out.append(f'<g transform="translate(0,{TITLEBAR_H})">' + "".join(sidebar(height - TITLEBAR_H, selected=2)) + "</g>")
 
     rose_pane = blend(DOCUMENT_FIELD, ROSE, 0.06)
+    # Mark and key ride in the title bar beside the window title. No strip below.
+    out.append(mark_tile(SIDEBAR_IDEAL + 24, 14, MARK_SIDEBAR, INDIGO))
+    out.append(text(SIDEBAR_IDEAL + 24 + MARK_SIDEBAR + 8, 22, "ARK", MONO, SECONDARY, face=MONO_FACE))
+    out.append(glyph(width - 60, 26, 12, SECONDARY, 0.85))
     y = TITLEBAR_H
-    strip_h = max(MARK_HEADER := 28.0, BODY) + 24
-    out.append(rect(pane_x, y, pane_w, strip_h, DOCUMENT_FIELD))
-    out.append(mark_tile(pane_x + PANE_X, y + 12, MARK_HEADER, INDIGO))
-    key_x = pane_x + PANE_X + MARK_HEADER + 10
-    out.append(rect(key_x, y + strip_h / 2 - 9, 38, 18, blend(DOCUMENT_FIELD, "#6E7781", 0.12), r=9))
-    out.append(text(key_x + 19, y + strip_h / 2 + MONO * 0.36, "ARK", MONO, "#6E7781", face=MONO_FACE, anchor="middle"))
-    out.append(text(width - PANE_X - 60, y + strip_h / 2 + MONO * 0.36, "local · product/", MONO, TERTIARY, face=MONO_FACE, anchor="end"))
-    out.append(glyph(width - PANE_X - 34, y + strip_h / 2, 12, SECONDARY, 0.8))
-    out.append(glyph(width - PANE_X - 10, y + strip_h / 2, 12, SECONDARY, 0.8))
-    y += strip_h
 
     # Tab rail: native accessory-bar capsules on the glass layer, tinted by section.
     rail_h = BODY + 26
@@ -240,8 +232,6 @@ def project_home(width: float, height: float) -> list[str]:
 
     out.append(rect(pane_x, y, pane_w, height - y, rose_pane))
     dy = y + PANE_X
-    out.append(text(pane_x + PANE_X, dy + (BODY + 10) * 0.72, "Design", BODY + 10, PRIMARY, weight="600"))
-    dy += BODY + 28
     for line in (
         "Arkboard is a reading room for a studio that is mostly documents.",
         "Colour lives in washes, chips, dots, and rules — the things you see",
@@ -270,22 +260,8 @@ def render(path: Path) -> None:
     card_w = min(CARD_MAX, (avail - CARD_GAP * (columns - 1)) / columns)
 
     projects = [
-        (
-            "Arkboard",
-            "ARK",
-            "is Origin Ark Studio's local studio board for macOS.",
-            "local · ~/Origin Ark Studio/arkboard",
-            "github · diliprt/arkboard",
-            [("Design", ROSE, True), ("Architecture", AZURE, True), ("Mockups", MAGENTA, False), ("Decisions", GOLD, True)],
-        ),
-        (
-            "Lumen",
-            "LUM",
-            "paints light for rooms that do not have any.",
-            "local · ~/Origin Ark Studio/lumen",
-            "",
-            [("Design", ROSE, True), ("Architecture", AZURE, False), ("Mockups", MAGENTA, True), ("Decisions", GOLD, False)],
-        ),
+        ("Arkboard", "ARK", "Origin Ark Studio's local studio board for macOS.", INDIGO, True),
+        ("Lumen", "LUM", "Paints light for rooms that do not have any.", MAGENTA, False),
     ]
 
     cx0 = pane_x + PANE_X
@@ -293,10 +269,10 @@ def render(path: Path) -> None:
     for start in range(0, len(projects), columns):
         row_h = 0.0
         for col, spec in enumerate(projects[start : start + columns]):
-            name, key, summary, local, remote, docs = spec
+            name, key, summary, brand, has_poster = spec
             svg, height_used = card(
                 cx0 + col * (card_w + CARD_GAP), row_y, card_w,
-                name, key, summary, local, remote, docs,
+                name, key, summary, brand, has_poster,
             )
             body.extend(svg)
             row_h = max(row_h, height_used)

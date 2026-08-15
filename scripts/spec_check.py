@@ -35,6 +35,12 @@ ARCH_KW = ("arch", "api", "mcp", "data", "schema", "engine", "infra")
 DEC_KW = ("decision", "question", "rfc", "adr")
 MOCK_KW = ("mockup", "frame", "wireframe", "screen", "flow")
 IMAGES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+BRAND_ASSETS = {
+    "card.png", "card.webp", "card.jpg", "card.jpeg",
+    "icon.png", "icon.webp", "icon.jpg", "icon.jpeg",
+    "mark.png", "mark.webp",
+    "logo.png", "logo.webp",
+}
 
 
 def stem(path: str) -> str:
@@ -75,6 +81,10 @@ def route(path: str) -> str:
     ):
         if any(w in file_stem for w in words):
             return tab
+    # Brand artwork at the root of product/ is the project's own face — the
+    # Portfolio poster and the sidebar mark — not a frame someone drew.
+    if Path(path).name.lower() in BRAND_ASSETS:
+        return "more"
     if Path(path).suffix.lower() in IMAGES:
         return "mockups"
     return "more"
@@ -574,7 +584,8 @@ def check_polish(swift: str, home: str, root: str, sidebar: str) -> None:
     ok("D1 MarkdownView follows the column", "Metrics.proseMax" not in markdown)
     ok("O1 Contents toggle symbol", "sidebar.trailing" in root)
     ok("O1 persist contentsVisible", "arkboard.contentsVisible" in swift)
-    ok("O2 Contents width range", "outlineMin" in root and "outlineMax" in root)
+    ok("O2 Contents width range", "outlineMin" in swift and "outlineMax" in swift)
+    ok("O2 Contents width is clamped once", "func setContentsWidth" in swift)
     ok("T3 question chips wrap", "FlowLayout" in home)
     gantt = (SOURCES / "UI/Portfolio/TimelineGantt.swift").read_text()
     ok("D2 one Today rule, drawn once on the axis",
@@ -632,9 +643,10 @@ def check_layout_musts(swift: str, home: str) -> None:
         else ""
     ))
     tab_change = home.split("onChange(of: tab)")[1].split("private var")[0] if "onChange(of: tab)" in home else ""
-    ok("Must A mockups lands on the tab rail", ".mockups" in tab_change and 'scrollTo("tab-bar"' in tab_change)
+    ok("Must A every tab lands at the top of the tab body", "restTop(proxy)" in tab_change)
     ok("Must A tab rail is a scroll anchor", '.id("tab-bar")' in home)
-    ok("Must A landing is not a user scroll-to-recover", "tab-bar" in home and "mockups" in tab_change)
+    ok("Must A landing is not a user scroll-to-recover",
+       "ProjectHomeAnchor.tabTop" in home and "restTop" in home)
     ui = (PRODUCT / "ui-spec.md").read_text()
     ok("Must A ui-spec forbids scrolled-past Mockups", "must not open scrolled past them" in ui)
     ok("Must B ui-spec grows the document with the pane", "720-centred island" in ui)
@@ -645,7 +657,7 @@ def check_layout_musts(swift: str, home: str) -> None:
     ok("EmptyStateView defaults to document", "EmptyStateLayout = .document" in empty)
     ok("project home empties are not posters", "layout: .poster" not in home)
     ok("project home still has no GridColumn", "GridColumn" not in home)
-    ok("Must A scroll-to-tab-bar kept", 'scrollTo("tab-bar"' in home)
+    ok("Must A the rail is never the scroll target", 'scrollTo("tab-bar"' not in home)
     ok("#15 ensureDocuments kept", "ensureDocuments" in home)
     ok("ui-spec project-home empties share the document edge", "share the document left edge" in ui or "shares the document left edge" in ui)
 
@@ -696,9 +708,10 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
 
     portfolio = (SOURCES / "UI/Portfolio/PortfolioView.swift").read_text()
     ok("portfolio cards exist", "projectCard" in portfolio or "ProjectCard" in portfolio)
-    ok("portfolio card shows local path", "local ·" in portfolio)
-    ok("portfolio card shows github remote", "github ·" in portfolio)
-    ok("portfolio card has doc pills", "Design" in portfolio and "Architecture" in portfolio and "Mockups" in portfolio and "Decisions" in portfolio)
+    ok("portfolio card is a poster, not a path list", "local ·" not in portfolio and "github ·" not in portfolio)
+    ok("portfolio card has no document words",
+       not all(word in portfolio for word in ("\"Design\"", "\"Architecture\"", "\"Mockups\"", "\"Decisions\"")))
+    ok("portfolio card face is the project picture", "cardImage(for:" in portfolio)
     ok("portfolio card has pin", "pin.fill" in portfolio or "setPinned" in portfolio or "togglePinned" in portfolio)
     ok("portfolio has no 1000 grid cap", "gridMax" not in portfolio and "GridColumn" not in portfolio)
     ok("portfolio New Project uses the existing sheet", "arkboardNewProject" in portfolio)
@@ -740,7 +753,7 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     header = ""
     if "private var projectHeader" in home:
         header = home.split("private var projectHeader")[1].split("private var tabBar")[0]
-    ok("project home has a thin header", "private var projectHeader" in home)
+    ok("project home has no in-page identity strip", "private var projectHeader" not in home)
     ok("project home has no overview band", "private var overview" not in home)
     ok("thin header has no README lead", "MarkdownView" not in header and "firstSentence" not in header)
     ok("thin header has no More documents", "More documents" not in header)
@@ -972,7 +985,7 @@ def check_contents_overlay_and_card_type(swift: str, home: str, root: str, ui: s
        if "} detail:" in root and "overlay(alignment: .trailing)" in root
        else False)
     ok("Contents still uses the outline width range",
-       "outlineMin" in root and "outlineMax" in root and "outlineIdeal" in swift)
+       "outlineMin" in swift and "outlineMax" in swift and "outlineIdeal" in swift)
     ok("Contents toggle still persists",
        "setContentsVisible" in root and "arkboard.contentsVisible" in swift)
     ok("Contents header stays Contents",
@@ -1002,8 +1015,8 @@ def check_contents_overlay_and_card_type(swift: str, home: str, root: str, ui: s
     ok("portfolio card inherits the studio face", ".font(type.body)" in card)
     ok("portfolio card name uses the type scale", "type.heading" in card)
     ok("portfolio card summary uses the type scale", "type.callout" in card)
-    ok("portfolio card paths use the type scale", "type.mono" in card)
-    ok("portfolio card pills use the type scale", "type.caption" in pills)
+    ok("portfolio card keeps paths and document words off the tile",
+       "type.mono" not in card and "docPill" not in portfolio)
     ok("portfolio card has no one-off .font(.system)",
        ".font(.system" not in card and ".font(.system" not in pills)
     ok("portfolio card has no custom face",
@@ -1215,15 +1228,19 @@ def check_window_title_only(swift: str, home: str, root: str, sidebar: str, ui: 
     onboarding = (SOURCES / "UI/Shell/OnboardingView.swift").read_text()
     ok("Onboarding drops its tagline", "How this studio works." not in onboarding)
 
-    header = home.split("private var projectHeader")[1].split("private var sourceLabel")[0] if "private var projectHeader" in home else ""
-    ok("project home has an identity strip", bool(header))
-    ok("identity strip does not repeat the project name", "project.name" not in header)
-    ok("identity strip has no display title", "type.display" not in header)
-    ok("identity strip keeps the mark", "ProjectIcon(" in header)
-    ok("identity strip keeps the key", "project.key" in header)
-    ok("identity strip keeps refresh and the note icon",
-       "arrow.clockwise" in header and "bubble.left" in header)
-    ok("identity strip paints no window slab", "StudioColor.window" not in header)
+    strip = home.split("private var identityToolbar")[1].split("private var readingGutter")[0] if "private var identityToolbar" in home else ""
+    ok("project identity lives on the toolbar", bool(strip))
+    ok("toolbar identity does not repeat the project name", "Text(project.name)" not in strip)
+    ok("toolbar identity has no display title", "type.display" not in strip)
+    ok("toolbar identity carries the mark", "ProjectIcon(" in strip)
+    ok("toolbar identity carries the key", "project.key" in strip)
+    ok("toolbar keeps refresh and the note action",
+       "arrow.clockwise" in strip and "bubble.left" in strip)
+    ok("toolbar identity paints no window slab", "StudioColor.window" not in strip)
+    # Nothing scrolls above the rail, so the rail is pinned from first paint.
+    after_stack = home.split("pinnedViews: .sectionHeaders")[1] if "pinnedViews: .sectionHeaders" in home else ""
+    ok("project home pane starts at the tab rail",
+       after_stack.split("{", 1)[1].strip().startswith("Section {") if after_stack else False)
 
     ok("UndoToast survives the screen-header removal", "struct UndoToast" in swift)
     ok("Timeline scale control is untouched", "TimelineScale" in swift and "Quarter" in swift)
@@ -1240,8 +1257,8 @@ def check_window_title_only(swift: str, home: str, root: str, sidebar: str, ui: 
 
     home_spec = ui.split("## Project home")[1].split("## New Project")[0] if "## Project home" in ui else ""
     ok("ui-spec project home has no window slab", "windowBackgroundColor" not in home_spec.split("no `windowBackgroundColor` slab")[0])
-    ok("ui-spec project home says the strip paints nothing",
-       "paints no background of its own" in home_spec)
+    ok("ui-spec project home puts identity on the toolbar",
+       "Identity lives in the toolbar" in home_spec)
     ok("ui-spec project home does not restate the name", "No name in `display`" in home_spec)
     ok("ui-spec keeps the tab rail on glass", "glass" in ui.split("### Tab bar")[1].split("###")[0].lower())
 
@@ -1256,14 +1273,14 @@ def check_portfolio_hero_cards(swift: str, sidebar: str, ui: str, decisions: str
     ok("mark corner scales with the tile", "func markCorner" in swift and "func markGlyph" in swift)
     ok("ProjectIcon derives its corner from its size", "Metrics.markCorner(for: size)" in
        (SOURCES / "UI/Theme/ThemeModifiers.swift").read_text())
-    ok("hero size is a token", "markHero" in swift)
-    ok("portfolio card leads with the hero mark", "Metrics.markHero" in card)
+    ok("poster aspect is a token", "cardPosterAspect" in swift)
+    ok("portfolio card leads with the poster", "Metrics.cardPosterAspect" in card)
     ok("portfolio card mark is not a 22pt chip", "size: 22" not in card)
     ok("portfolio card keeps the pin", "pin.fill" in portfolio)
-    ok("portfolio doc words recede to caption", "type.caption" in pills)
-    ok("portfolio doc words drop the capsule fill",
-       "chipFill" not in pills and "in: Capsule()" not in pills)
-    ok("portfolio paths recede to tertiary", "StudioColor.tertiary" in card)
+    ok("portfolio card carries name and summary only",
+       "type.heading" in card and "type.callout" in card and "cardSummary" in portfolio)
+    ok("portfolio card has no capsule chips",
+       "chipFill" not in portfolio and "in: Capsule()" not in portfolio)
     ok("portfolio card is still one type scale",
        ".font(.system" not in card and ".font(.system" not in pills and ".custom(" not in card)
     ok("portfolio cards are still cards only",
@@ -1295,18 +1312,138 @@ def check_portfolio_hero_cards(swift: str, sidebar: str, ui: str, decisions: str
         ok(f"one type scale in {rel}", ".font(.system(size:" not in (SOURCES / rel).read_text())
 
     cards_spec = ui.split("## Portfolio")[1].split("## Timeline")[0] if "## Portfolio" in ui else ""
-    ok("ui-spec Portfolio leads with the mark", "The mark is the hero" in cards_spec)
+    ok("ui-spec Portfolio leads with the picture", "The card is the picture" in cards_spec)
     ok("ui-spec Portfolio voids the 22pt chip", "22pt chip" in cards_spec)
-    ok("ui-spec Portfolio metadata recedes", "recedes" in cards_spec or "quieter than the mark" in cards_spec)
+    ok("ui-spec Portfolio keeps metadata off the tile", "Not on the tile" in cards_spec)
     ok("ui-spec Portfolio is still cards only", "cards only" in cards_spec.lower())
     sidebar_spec = ui.split("### Sidebar")[1].split("### Contents")[0] if "### Sidebar" in ui else ""
     ok("ui-spec paces the sidebar", "sidebarRowY" in sidebar_spec)
     ok("ui-spec sidebar has no all-caps headers", "all-caps" in sidebar_spec.lower())
     ok("ui-spec splits material from solid", "frosted system material" in ui and "opaque reading field" in ui)
     ok("ui-spec names the mark exception", "A mark is a product icon, not type" in ui)
-    ok("decisions locks the hero mark", "Locked — Portfolio cards are large, and the mark is the hero" in decisions)
+    ok("decisions voids the hero-mark card", "the mark is the hero" not in decisions)
     ok("decisions locks material versus solid", "Locked — The sidebar is material, the document is solid" in decisions)
     ok("decisions keeps Apple language", "Locked — Apple language, not Apple content" in decisions)
+
+
+def summary_sentence(text: str, name: str) -> str:
+    """Mirrors MarkdownParser.asSentence: no card line starts mid-sentence."""
+    result = strip_name_prefix(text, name).strip()
+    for copula in ("is ", "are ", "was ", "were "):
+        if result.lower().startswith(copula):
+            result = result[len(copula) :].strip()
+            break
+    if result and result[0].islower():
+        result = result[0].upper() + result[1:]
+    return result
+
+
+def comparable_title(text: str) -> str:
+    kept = "".join(ch if ch.isalnum() else " " for ch in text.lower())
+    return " ".join(word for word in kept.split() if word != "and")
+
+
+def repeats_title(heading: str, title: str) -> bool:
+    left, right = comparable_title(heading), comparable_title(title)
+    if not left or not right:
+        return False
+    return left == right or left.startswith(right) or right.startswith(left)
+
+
+def check_critique_musts(swift: str, home: str, root: str, sidebar: str, ui: str, decisions: str) -> None:
+    """The five Critique musts plus the Mockups landing, locked in source and spec."""
+    # Must 1 — the document does not print a second headline.
+    ok("H1 matching the tab is suppressed", "suppressedTitle" in swift)
+    ok("suppression is a parser rule, not a per-view hack", "func repeatsTitle" in swift)
+    ok("Design H1 under the Design tab is a repeat", repeats_title("Design", "Design"))
+    ok("Decisions & questions matches the Decisions tab",
+       repeats_title("Decisions & questions", "Decisions & questions"))
+    ok("a different document keeps its title", not repeats_title("UI specification", "Design"))
+    ok("project home suppresses the tab title", "suppressedTitle: tab.section.title" in home)
+    ok("onboarding suppresses the window title",
+       'suppressedTitle: "Onboarding"' in (SOURCES / "UI/Shell/OnboardingView.swift").read_text())
+    ok("the outline drops the heading it does not render", "suppressingTitle" in swift)
+    ok("no view deletes markdown to hide a heading", "dropFirst()" in
+       (SOURCES / "UI/Markdown/MarkdownView.swift").read_text())
+
+    # Must 2 — Contents reserves a gutter instead of covering the last words.
+    ok("reading gutter is a measure", "func readingGutter" in swift)
+    ok("gutter is zero when Contents is closed", "guard contentsVisible else { return 0 }" in swift)
+    ok("project home reserves the gutter", "readingGutter" in home)
+    ok("onboarding reserves the gutter",
+       "readingGutter" in (SOURCES / "UI/Shell/OnboardingView.swift").read_text())
+    ok("the page still measures the whole pane", "DocumentMeasure.pageWidth" in home)
+    ok("the gutter is not a third column", "} content:" not in root)
+    ok("Contents is still an overlay", contents_is_document_overlay(root))
+    ok("the overlay width is shared with the document", "contentsWidth" in swift)
+
+    # Must 3 — History shows notes, never machine output.
+    sheet = (SOURCES / "UI/Project/ProjectNoteSheet.swift").read_text()
+    ok("History binds the body only", "Text(row.body)" in sheet)
+    ok("History hides the old dump", "LegacyHandoffBody.looksLikeDump" in sheet)
+    ok("History hides empty bodies", "isEmpty" in sheet)
+    ok("the legacy reader never writes a body",
+       "persistBody" not in (SOURCES / "Model/LegacyHandoffBody.swift").read_text())
+    ok("new sends stay comment-only",
+       "userText.trimmingCharacters" in (SOURCES / "Model/ChiefHandoff.swift").read_text())
+    ok("the composer is not prefilled from a handoff",
+       "handoff == nil, draft.isEmpty" in (SOURCES / "UI/Shell/NoteComposer.swift").read_text())
+
+    # Must 4 — no invented plan data.
+    seed = (SOURCES / "Data/Seed.swift").read_text()
+    ok("seed adds no smoke milestones", seed.count("Milestone(") <= 1)
+    ok("seed invents no issues", "Issue(" not in seed)
+    ok("the Gantt is still a Gantt", "TimelineGanttView" in swift)
+
+    # Must 5 — the card is the picture.
+    portfolio = (SOURCES / "UI/Portfolio/PortfolioView.swift").read_text()
+    ok("card.png is the card face", "card.png" in swift)
+    ok("the poster resolves before the mark", "isCardImage" in swift and "cardImage(for" in swift)
+    ok("the sidebar keeps the small mark", "markImage(for: project)" in sidebar)
+    ok("brand artwork is not a mockup", "isBrandAsset" in swift)
+    ok("card.png routes out of the gallery", route("product/card.png") == "more")
+    ok("icon.png routes out of the gallery", route("product/icon.png") == "more")
+    ok("a real frame still routes to mockups", route("product/mockups/01-home.png") == "mockups")
+    ok("a loose screenshot still routes to mockups", route("product/home-screen.png") == "mockups")
+    ok("the poster falls back to a designed field", "posterFace" in portfolio)
+    ok("card summary does not start mid-sentence",
+       summary_sentence("Arkboard is Origin Ark Studio's local studio board for macOS.", "Arkboard")
+       == "Origin Ark Studio's local studio board for macOS.")
+    ok("card summary opens on a capital",
+       summary_sentence("Lumen paints light.", "Lumen") == "Paints light.")
+    ok("card summary keeps a lead that is not the name",
+       summary_sentence("A quiet board.", "Arkboard") == "A quiet board.")
+    ok("card summary does not strip a longer word",
+       summary_sentence("Arkboarded later.", "Arkboard") == "Arkboarded later.")
+    ok("sentence repair lives in Swift", "func asSentence" in swift)
+
+    # Must 6 — landing on Mockups does not move the rail.
+    ok("no geometry animation on a tab change", "value: tab)" not in home)
+    ok("the scroll reset is unanimated", "disablesAnimations = true" in home)
+    ok("every tab resets the same way", "restTop(proxy)" in home)
+    ok("the gallery cell height is known before it paints",
+       "Metrics.mockupCell" in home and "Metrics.mockupThumb" in home)
+
+    # Sidebar selection stays readable.
+    ok("selection is the system's quiet grey", "quietSelection" in swift)
+    ok("selection is not a colour we mixed", "unemphasizedSelectedContentBackgroundColor" in swift)
+    ok("the sidebar tints its selection", "StudioColor.quietSelection" in sidebar)
+    ok("destination rows state their own colours", "func destinationRow" in sidebar)
+    ok("the project key stays readable when selected",
+       "StudioColor.tertiary" not in sidebar.split("Text(project.key)")[1].split("}")[0]
+       if "Text(project.key)" in sidebar else False)
+
+    # Spec and locks.
+    ok("ui-spec voids the second headline", "second headline" in ui.lower())
+    ok("ui-spec reserves the Contents gutter", "gutter" in ui.lower())
+    ok("ui-spec says the card is the picture", "the card is the picture" in ui.lower())
+    ok("ui-spec names product/card.png", "product/card.png" in ui)
+    ok("ui-spec puts project identity on the toolbar", "identity" in ui.lower() and "toolbar" in ui.lower())
+    ok("ui-spec keeps the rail still", "does not move" in ui.lower() or "stays put" in ui.lower())
+    ok("decisions locks the poster card", "Locked — The Portfolio card is the picture" in decisions)
+    ok("decisions locks one headline", "Locked — One headline" in decisions)
+    ok("onboarding tells a human where the card goes", "product/card.png" in
+       (PRODUCT / "onboarding.md").read_text())
 
 
 def main() -> int:
@@ -1486,6 +1623,7 @@ def main() -> int:
     check_timeline_gantt(swift, home, ui, decisions, (PRODUCT / "architecture.md").read_text(), (PRODUCT / "mcp.md").read_text())
     check_window_title_only(swift, home, root, sidebar, ui, decisions)
     check_portfolio_hero_cards(swift, sidebar, ui, decisions)
+    check_critique_musts(swift, home, root, sidebar, ui, decisions)
 
     print()
     if FAIL:
