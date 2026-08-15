@@ -1463,7 +1463,9 @@ def check_mac_measures(ui: str, decisions: str) -> None:
     ok("the measure presses the tabs", "kAXPressAction" in measure)
 
     # Body Y, not rail-only. This is the whole reason the script exists.
-    ok("the measure reads body Y", "body_y" in measure and "func bodyTop" in measure)
+    ok("the measure reads body Y", "body_y" in measure and "func bodyLeaf" in measure)
+    ok("the measure names the leaf it scored",
+       "body_leaf" in measure and "body.role" in measure)
     ok("the measure reads rail Y", "rail_y" in measure and "func railBounds" in measure)
     ok("body Y is not the rail in disguise",
        "originTolerance" in measure and "railTolerance" in measure)
@@ -1584,8 +1586,16 @@ def check_tab_body_origin(home: str, ui: str, decisions: str) -> None:
     ok("the poster keeps its big symbol", "Image(systemName: section.symbol)" in poster_only)
     ok("the big symbol is poster-only",
        empty.count("type.bodySize + 15") == 1 and "type.bodySize + 15" in poster_only)
+    # The first child after the poster-only branch is the title itself, so a
+    # document empty state opens on a plain line of text like a paragraph does.
+    stack = empty.split("? 12 : 8) {", 1)[1] if "? 12 : 8) {" in empty else ""
+    after_poster = stack.split("}", 1)[1] if "}" in stack else ""
     ok("a document empty state leads with its title",
-       "if layout == .document {" in empty and "Text(title)" in empty)
+       after_poster.strip().startswith("Text(title)"))
+    ok("no symbol shares the title's line",
+       "firstTextBaseline" not in empty and "if layout == .document {" not in empty)
+    ok("the empty state lays text out like prose",
+       empty.count("lineSpacing(type.lineSpacing)") >= 2)
     ok("a document empty state has no top padding",
        ".padding(.top" not in empty and "Spacer()" not in empty)
 

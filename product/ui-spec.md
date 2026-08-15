@@ -370,7 +370,7 @@ The exception, deliberate and singular: **Archive** on an issue, with undo. Gett
 
 ## Empty states
 
-One shape everywhere: the section symbol in the hue at 40% — sized from the type scale at body + 15, so it is 28pt at the default 13pt body and grows with the Settings text size — a title in `heading`, one sentence in `callout` secondary. On the project home (Mockups, Design-not-written, Issues, Timeline, and the other document tabs) that block shares the document left edge — icon, title, and sentence leading, not a centred poster in the wash. Full-pane posters (no projects, Monitor, Activity) stay centred, with 40pt of air. No buttons unless the table says so.
+Two shapes. **In a document tab** an empty state is a title in `heading` and one sentence in `callout` secondary, and that is all: two top-aligned lines of text laid out exactly the way a paragraph is, so the tab's first line starts where every other tab's first line starts. No symbol beside the title, nothing above it. The pane already carries the section's hue, which is where the identity comes from. **As a full-pane poster** — no projects at all, and nothing to line up under — it keeps the section symbol in the hue at 40%, sized from the type scale at body + 15, centred above the same title and sentence. On the project home (Mockups, Design-not-written, Issues, Timeline, and the other document tabs) that block shares the document left edge — icon, title, and sentence leading, not a centred poster in the wash. Full-pane posters (no projects, Monitor, Activity) stay centred, with 40pt of air. No buttons unless the table says so.
 
 | Where | Title | Sentence |
 | --- | --- | --- |
@@ -453,9 +453,11 @@ The measures are the three things a screenshot cannot answer:
 
 | Measure | Reported as | Fails when |
 | --- | --- | --- |
-| Content origin | `body_y` per tab | sibling tabs differ by more than 2pt |
+| Content origin | `body_y` and `body_leaf` per tab | sibling tabs differ by more than 2pt |
 | Pinned rail | `rail_y` per tab | it moves by more than 2pt across the clicks |
 | Selected row, sidebar focused | `selection_ok` | the fill is tinted rather than the system's unemphasized grey, or the mark loses its colour |
+
+`body_leaf` names the view each number came from — its role and its label. A measure that reports only a number invites a guess about what was scored, and three rounds were spent on exactly that guess. Read the leaf before diagnosing the number.
 
 The selection sample presses a **pinned project row**, not the first row in the list. The mark floor asks whether a project's mark survives selection; a destination's section symbol is not that, and sampling one fails an app that is behaving. The mark is sampled from its own frame rather than a fixed offset into the row, and the report prints the sampled rectangles and the row it pressed, so a bad number can be told from a bad sample without another run.
 | One title row | `title_ok` | a pane prints the window title again below the title bar |
