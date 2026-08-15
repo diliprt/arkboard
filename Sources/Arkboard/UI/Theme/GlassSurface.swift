@@ -42,16 +42,15 @@ extension View {
     /// effect and inherits the column's own glass rather than painting a second
     /// material over it.
     @ViewBuilder
-    func columnBottomBar<Bar: View>(@ViewBuilder _ bar: () -> Bar) -> some View {
-        let content = bar()
+    func columnBottomBar<Bar: View>(_ bar: Bar) -> some View {
         #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
-            self.safeAreaBar(edge: .bottom) { content }
+            self.safeAreaBar(edge: .bottom) { bar }
         } else {
-            self.safeAreaInset(edge: .bottom) { content.background(.bar) }
+            self.safeAreaInset(edge: .bottom) { bar.background(.bar) }
         }
         #else
-        self.safeAreaInset(edge: .bottom) { content.background(.bar) }
+        self.safeAreaInset(edge: .bottom) { bar.background(.bar) }
         #endif
     }
 

@@ -50,7 +50,7 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .navigationSplitViewColumnWidth(min: Metrics.sidebarMin, ideal: Metrics.sidebarIdeal, max: Metrics.sidebarMax)
-        .columnBottomBar { footer }
+        .columnBottomBar(footer)
     }
 
     /// Onboarding and the agent server sit on the same bar as the list, not in a
