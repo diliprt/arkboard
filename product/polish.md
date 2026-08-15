@@ -134,7 +134,7 @@ After T1, resize to exactly 1080 × 700 and confirm: all six pills visible or re
 
 **Fix.** Compute the single insertion index once over the whole ordered event list — before the first event whose date is in the future — and render exactly one rule there (after the last past event, before the first future one, even when that crosses a week header). If every event is in the past, the rule goes at the end; if every event is in the future, at the top. Also remove the duplicate `.id("today")` this currently creates.
 
-**Severity: must.**
+**Severity: must.** Shipped, then superseded: the Timeline is now a Gantt, so Today is a single vertical rule on the time axis rather than a row inserted into a list. The invariant survived the rewrite — see **Locked — Timeline is a Gantt, not a calendar** in [decisions.md](decisions.md).
 
 ### D3 — Timeline does not open at Today
 
@@ -142,7 +142,7 @@ After T1, resize to exactly 1080 × 700 and confirm: all six pills visible or re
 
 **Fix.** Drop the local `ScrollViewReader` from `TimelineSpine`. When the Timeline tab is selected, use the pane's existing `ScrollViewReader` in `ProjectHomeView` to scroll to the (now unique, per D2) `today` anchor, instantly on first appearance, respecting Reduce Motion.
 
-**Severity: must.**
+**Severity: must.** Shipped, then superseded: the Gantt has no vertical spine to scroll, and its axis window always contains Today, so there is nothing to scroll to.
 
 ### D4 — Done-issue rows repeat their identifier
 
@@ -150,7 +150,7 @@ After T1, resize to exactly 1080 × 700 and confirm: all six pills visible or re
 
 **Fix.** Per [ui-spec.md](ui-spec.md), a completed-issue row is: small moss dot, identifier, title — no chips, no description line. Drop `identifiers` from the issue events in `TimelineBuilder` and render the identifier once, in `mono` `caption`, before the title.
 
-**Severity: should.**
+**Severity: should.** Shipped, then superseded: a completed issue is no longer a row. On the Gantt it is a moss tick on its project's bar, naming the identifier and title once, on hover.
 
 ## Contents
 
