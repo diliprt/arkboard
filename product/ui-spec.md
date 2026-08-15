@@ -293,11 +293,18 @@ Each tab is a native accessory-bar capsule: an SF Symbol and a label at body siz
 
 **The rail does not move.** Switching tabs returns the scroll to the top of the tab body — every tab, the same way — and nothing about that switch is animated. The rail stays put; Design → Mockups → Design does not shift it by a pixel. The selected capsule scrolls itself into view horizontally. `⌘[` and `⌘]` move between tabs. Landing on Mockups shows the tab rail and the gallery (or its empty state) immediately — the pane must not open scrolled past them.
 
-Three rules keep that true, and all three are load-bearing:
+**Design, Mockups, and every other project tab share one content origin under the rail.** The first line of a tab body — Design's prose, an empty state's title, the first row of a filled gallery — starts at the same Y on every tab: the pane's own vertical padding, and nothing above it. No tab may lead with a decoration row, a top pad, a `Spacer`, or centred content.
+
+A still rail is not a still pane. The rail measured 93pt on Design, Mockups and back to Design while the body dropped from 197 to 249 — a 52pt shift, and 52pt is what a reader feels as the jump. Score the click, not the rail. That drop was the Mockups empty state opening with a 28pt section symbol that Design's prose has no equivalent of; the symbol now sits inline on the title's own line, at the title's own size, so it adds no height above it. A centred full-pane poster (no projects, Monitor, Activity) still leads with the big symbol, because it has no rail to line up under.
+
+Four rules keep that true, and all four are load-bearing:
 
 1. **The scroll target is never the rail.** The rail is a pinned header, which the scroll view repositions itself; scrolling *to* it chases a moving target, and that is what made the pane bounce. The anchor is the top of the tab body.
 2. **The reset is unanimated.** An eased scroll can still be in flight when the next layout pass lands, and the two fight.
 3. **The gallery's height is known before it paints.** Mockup cells are a fixed height, so the grid does not grow as thumbnails materialise and shove the pane around a frame late.
+4. **No tab leads with anything the others do not have.** The origin is a stated measure (`DocumentMeasure.tabBodyTop`), not an accident of what each tab happens to draw first.
+
+The tab section also fills the pane, so a tab's wash reaches the bottom of the window. An empty tab used to stop its wash 280pt down and leave a white band under it, which is the seam this design pack forbids.
 
 ### Document tabs
 

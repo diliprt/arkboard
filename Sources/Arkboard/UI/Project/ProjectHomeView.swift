@@ -72,7 +72,15 @@ struct ProjectHomeView: View {
                                     .padding(.trailing, readingGutter)
                                     .padding(.vertical, Metrics.paneY)
                             }
-                            .frame(maxWidth: .infinity, minHeight: Metrics.emptyPaneMin, alignment: .topLeading)
+                            .frame(
+                                maxWidth: .infinity,
+                                // Fill the pane so the tab's wash reaches the
+                                // bottom of the window. An empty tab used to
+                                // stop the wash 280pt down and leave a white
+                                // band under it.
+                                minHeight: max(Metrics.emptyPaneMin, geo.size.height),
+                                alignment: .topLeading
+                            )
                             .id(ProjectHomeAnchor.tabTop)
                         } header: {
                             tabBar

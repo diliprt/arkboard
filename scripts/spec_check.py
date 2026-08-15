@@ -35,6 +35,7 @@ ARCH_KW = ("arch", "api", "mcp", "data", "schema", "engine", "infra")
 DEC_KW = ("decision", "question", "rfc", "adr")
 MOCK_KW = ("mockup", "frame", "wireframe", "screen", "flow")
 IMAGES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+Metrics_paneY = 20.0  # Metrics.paneY
 BRAND_ASSETS = {
     "card.png", "card.webp", "card.jpg", "card.jpeg",
     "icon.png", "icon.webp", "icon.jpg", "icon.jpeg",
@@ -1354,6 +1355,61 @@ def without_comments(source: str) -> str:
     return "\n".join(lines)
 
 
+def tab_body_top(pane_y: float, leading_decoration: float = 0.0) -> float:
+    """Mirrors DocumentMeasure.tabBodyTop."""
+    return pane_y + leading_decoration
+
+
+def check_tab_body_origin(home: str, ui: str, decisions: str) -> None:
+    """Design, Mockups and every other project tab start their first line at the
+    same Y under the rail. A still rail is not a still pane."""
+    code = without_comments(home)
+    empty = without_comments((SOURCES / "UI/Shell/EmptyStateView.swift").read_text())
+    metrics = without_comments((SOURCES / "UI/Theme/Typography.swift").read_text())
+
+    ok("the origin measure lives in Swift", "func tabBodyTop" in metrics)
+    ok("a tab body starts at the pane padding", tab_body_top(Metrics_paneY) == Metrics_paneY)
+    ok("Design and an empty Mockups share one origin",
+       tab_body_top(Metrics_paneY) == tab_body_top(Metrics_paneY, 0))
+    ok("a leading decoration moves the body",
+       tab_body_top(Metrics_paneY, 52) != tab_body_top(Metrics_paneY))
+    ok("the measured 52pt drop would fail this lock",
+       tab_body_top(Metrics_paneY, 52) - tab_body_top(Metrics_paneY) == 52)
+
+    # The document empty state leads with its title line, not a decoration row.
+    poster_only = empty.split("if layout == .poster {")[1].split("}")[0] if "if layout == .poster {" in empty else ""
+    ok("the poster keeps its big symbol", "Image(systemName: section.symbol)" in poster_only)
+    ok("the big symbol is poster-only",
+       empty.count("type.bodySize + 15") == 1 and "type.bodySize + 15" in poster_only)
+    ok("a document empty state leads with its title",
+       "if layout == .document {" in empty and "Text(title)" in empty)
+    ok("a document empty state has no top padding",
+       ".padding(.top" not in empty and "Spacer()" not in empty)
+
+    # No tab branch adds a top inset the others do not share.
+    branches = {
+        "documentTab": ("private var documentTab", "private var mockupsTab"),
+        "mockupsTab": ("private var mockupsTab", "private func mockupFlow"),
+        "projectIssues": ("private var projectIssues", "private var currentDocument"),
+    }
+    for name, (start, end) in branches.items():
+        body = code.split(start)[1].split(end)[0] if start in code and end in code else ""
+        ok(f"{name} exists", bool(body))
+        ok(f"{name} adds no top inset", bool(body) and ".padding(.top" not in body)
+        ok(f"{name} does not centre its content", bool(body) and "alignment: .center" not in body)
+        ok(f"{name} opens no gap above its first line", bool(body) and "Spacer()" not in body)
+
+    ok("the tab body is padded once, outside the switch",
+       code.split("private var tabBody")[1].split("private var")[0].count(".padding(") == 0
+       if "private var tabBody" in code else False)
+    ok("the tab wash fills the pane", "max(Metrics.emptyPaneMin, geo.size.height)" in code)
+
+    ok("ui-spec locks one content origin",
+       "share one content origin under the rail" in ui)
+    ok("ui-spec scores the click, not the rail", "a still rail is not a still pane" in ui.lower())
+    ok("decisions locks the shared origin", "Locked — Every project tab shares one content origin" in decisions)
+
+
 def summary_sentence(text: str, name: str) -> str:
     """Mirrors MarkdownParser.asSentence: no card line starts mid-sentence."""
     result = strip_name_prefix(text, name).strip()
@@ -1702,6 +1758,7 @@ def main() -> int:
     check_window_title_only(swift, home, root, sidebar, ui, decisions)
     check_portfolio_hero_cards(swift, sidebar, ui, decisions)
     check_critique_musts(swift, home, root, sidebar, ui, decisions)
+    check_tab_body_origin(home, ui, decisions)
 
     print()
     if FAIL:
