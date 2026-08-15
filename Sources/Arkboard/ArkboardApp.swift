@@ -24,21 +24,12 @@ struct ArkboardApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Tell the team…") {
-                    store.goToMonitorComposer()
+                    store.goToComposer()
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
             CommandMenu("Studio") {
-                Button("Monitor") { store.sidebarSelection = .monitor }
-                    .keyboardShortcut("1", modifiers: .command)
-                Button("Issues") { store.sidebarSelection = .issues }
-                    .keyboardShortcut("2", modifiers: .command)
-                Button("Activity") { store.sidebarSelection = .activity }
-                    .keyboardShortcut("3", modifiers: .command)
-                Button("Portfolio") { store.sidebarSelection = .portfolio }
-                    .keyboardShortcut("4", modifiers: .command)
-                Divider()
-                Button("Find Issues") { store.goToIssuesSearch() }
+                Button("Find Issues") { store.goToProjectIssues() }
                     .keyboardShortcut("f", modifiers: .command)
                 Button("Reload Documents") {
                     if case let .project(id) = store.sidebarSelection {

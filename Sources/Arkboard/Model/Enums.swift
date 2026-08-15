@@ -99,33 +99,22 @@ enum FontFamilyID: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum SidebarItem: Hashable, Sendable {
-    case monitor
-    case issues
-    case activity
-    case portfolio
     case project(String)
 
-    var persistenceValue: String {
+    var projectId: String {
         switch self {
-        case .monitor: return "monitor"
-        case .issues: return "issues"
-        case .activity: return "activity"
-        case .portfolio: return "portfolio"
-        case .project(let id): return "project:\(id)"
+        case .project(let id): return id
         }
     }
 
-    static func from(persistence value: String) -> SidebarItem {
-        if value.hasPrefix("project:") {
-            let id = String(value.dropFirst("project:".count))
-            return id.isEmpty ? .monitor : .project(id)
-        }
-        switch value {
-        case "issues": return .issues
-        case "activity": return .activity
-        case "portfolio": return .portfolio
-        default: return .monitor
-        }
+    var persistenceValue: String {
+        "project:\(projectId)"
+    }
+
+    static func from(persistence value: String) -> SidebarItem? {
+        guard value.hasPrefix("project:") else { return nil }
+        let id = String(value.dropFirst("project:".count))
+        return id.isEmpty ? nil : .project(id)
     }
 }
 

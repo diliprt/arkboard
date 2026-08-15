@@ -3,26 +3,15 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppStore.self) private var store
-    @Environment(\.colorScheme) private var scheme
     @State private var showNewProject = false
 
     var body: some View {
-        Group {
-            if store.sidebarSelection == .issues {
-                NavigationSplitView {
-                    SidebarView()
-                } content: {
-                    IssueListColumn()
-                } detail: {
-                    IssueDetailColumn()
-                }
-            } else {
-                NavigationSplitView {
-                    SidebarView()
-                } detail: {
-                    detail
-                }
-            }
+        NavigationSplitView {
+            SidebarView()
+        } content: {
+            detail
+        } detail: {
+            ContentsOutline()
         }
         .navigationTitle(windowTitle)
         .navigationSubtitle(store.workspace?.name ?? "Origin Ark")
@@ -56,32 +45,21 @@ struct RootView: View {
 
     @ViewBuilder
     private var detail: some View {
-        switch store.sidebarSelection {
-        case .monitor:
-            MonitorView()
-        case .activity:
-            ActivityView()
-        case .portfolio:
-            PortfolioView()
-        case .project(let id):
-            if let project = store.project(id: id) {
-                ProjectHomeView(project: project)
-            } else {
-                EmptyStateView(section: .portfolio, title: EmptyCopy.noProjects.0, sentence: EmptyCopy.noProjects.1)
+        if case let .project(id) = store.sidebarSelection, let project = store.project(id: id) {
+            ProjectHomeView(project: project)
+                .id(project.id)
+        } else {
+            EmptyStateView(section: .portfolio, title: EmptyCopy.noProjects.0, sentence: EmptyCopy.noProjects.1, actionTitle: "New Project") {
+                showNewProject = true
             }
-        case .issues:
-            IssueListColumn()
         }
     }
 
     private var windowTitle: String {
-        switch store.sidebarSelection {
-        case .monitor: return "Monitor"
-        case .issues: return "Issues"
-        case .activity: return "Activity"
-        case .portfolio: return "Portfolio"
-        case .project(let id): return store.project(id: id)?.name ?? "Project"
+        if case let .project(id) = store.sidebarSelection {
+            return store.project(id: id)?.name ?? "Project"
         }
+        return store.workspace?.name ?? "Arkboard"
     }
 }
 

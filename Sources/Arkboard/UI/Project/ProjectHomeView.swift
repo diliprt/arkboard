@@ -48,11 +48,15 @@ struct ProjectHomeView: View {
                             .padding(.vertical, Metrics.paneY)
                             .id("tab-top")
                     } header: {
-                        VStack(spacing: 0) {
-                            tabBar
-                            outline(proxy: proxy)
-                        }
-                        .background(StudioColor.window)
+                        tabBar
+                            .background(StudioColor.window)
+                    }
+                }
+            }
+            .onChange(of: store.documentOutline.jumpToken) { _, _ in
+                if let anchor = store.documentOutline.pendingAnchor {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(anchor, anchor: .top)
                     }
                 }
             }
@@ -68,12 +72,39 @@ struct ProjectHomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .arkboardTabNext)) { _ in
             cycleTab(1)
         }
+        .onAppear {
+            if let id = store.selectedIssueID, let issue = store.issue(idOrIdentifier: id), issue.projectId != project.id {
+                store.selectedIssueID = nil
+            }
+            publishOutline()
+        }
+        .onChange(of: tab) { _, _ in publishOutline() }
+        .onChange(of: selectedPath) { _, _ in publishOutline() }
+        .onChange(of: bundle?.loadedAt) { _, _ in publishOutline() }
+        .onChange(of: store.pendingProjectTab) { _, next in
+            if let next {
+                tab = next
+                store.pendingProjectTab = nil
+            }
+        }
+        .onDisappear { store.clearOutline() }
+        .sheet(item: issueSheet) { _ in
+            IssueDetailColumn()
+                .frame(minWidth: 640, minHeight: 520)
+        }
+    }
+
+    private var issueSheet: Binding<Issue?> {
+        Binding(
+            get: { store.selectedIssueID.flatMap { store.issue(idOrIdentifier: $0) } },
+            set: { store.selectedIssueID = $0?.id }
+        )
     }
 
     private var overview: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                ProjectDot(hex: project.color, size: 10)
+                ProjectIcon(project: project, imageData: store.markImage(for: project), size: 28)
                 Text(project.name).font(type.display)
                 Chip(text: project.key, hue: .slate, mono: true)
                 Spacer()
@@ -110,6 +141,7 @@ struct ProjectHomeView: View {
                     }
                 }
             }
+            NoteComposer(projectKey: project.key)
         }
         .padding(.horizontal, Metrics.paneX)
         .padding(.vertical, Metrics.paneY)
@@ -148,20 +180,6 @@ struct ProjectHomeView: View {
             }
             .padding(.horizontal, Metrics.paneX)
             .padding(.vertical, 8)
-        }
-    }
-
-    @ViewBuilder
-    private func outline(proxy: ScrollViewProxy) -> some View {
-        if let document = currentDocument, let markdown = document.markdown {
-            let headings = MarkdownParser.headings(in: markdown)
-            if headings.count >= 2 {
-                OutlineBar(headings: headings, hue: tab.section.hue) { anchor in
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
-                        proxy.scrollTo(anchor, anchor: .top)
-                    }
-                }
-            }
         }
     }
 
@@ -218,7 +236,12 @@ struct ProjectHomeView: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack {
                                     ForEach(opens, id: \.anchor) { question in
-                                        Chip(text: question.heading, hue: .gold)
+                                        Button {
+                                            store.jumpToHeading(question.anchor)
+                                        } label: {
+                                            Chip(text: question.heading, hue: .gold)
+                                        }
+                                        .buttonStyle(.plain)
                                     }
                                 }
                             }
@@ -285,7 +308,6 @@ struct ProjectHomeView: View {
                             IssueRowView(issue: issue, showProject: false)
                                 .onTapGesture {
                                     store.selectedIssueID = issue.id
-                                    store.sidebarSelection = .issues
                                 }
                         }
                     }
@@ -314,6 +336,14 @@ struct ProjectHomeView: View {
         }
     }
 
+    private func publishOutline() {
+        if let markdown = currentDocument?.markdown {
+            store.publishOutline(headings: MarkdownParser.headings(in: markdown), hue: tab.section.hue)
+        } else {
+            store.publishOutline(headings: [], hue: tab.section.hue)
+        }
+    }
+
     private func cycleTab(_ delta: Int) {
         let all = ProjectHomeTab.allCases
         guard let index = all.firstIndex(of: tab) else { return }
@@ -327,7 +357,10 @@ struct ProjectHomeView: View {
             if let url = URL(string: destination) { NSWorkspace.shared.open(url) }
             return
         }
-        if destination.hasPrefix("#") { return }
+        if destination.hasPrefix("#") {
+            store.jumpToHeading(String(destination.dropFirst()))
+            return
+        }
         let path = destination.contains("product/") ? destination : "product/" + destination
         switch DocumentRouting.tab(for: path) {
         case .design: tab = .design

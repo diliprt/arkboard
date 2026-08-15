@@ -168,9 +168,8 @@ struct ActivityView: View {
     }
 
     private func navigate(_ row: Activity) {
-        if let issueId = row.issueId {
-            store.selectedIssueID = issueId
-            store.sidebarSelection = .issues
+        if let issueId = row.issueId, let issue = store.issue(idOrIdentifier: issueId) {
+            store.openIssue(issue)
         } else if let projectId = row.projectId {
             store.sidebarSelection = .project(projectId)
         }

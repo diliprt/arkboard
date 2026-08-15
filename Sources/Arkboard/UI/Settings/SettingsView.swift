@@ -35,6 +35,7 @@ struct SettingsView: View {
                 Text(store.workspace?.name ?? "Origin Ark")
                 ForEach(store.projects) { project in
                     HStack {
+                        ProjectIcon(project: project, imageData: store.markImage(for: project), size: 18)
                         Text(project.name)
                         Spacer()
                         Text(store.documentBundles[project.id]?.root ?? project.repoPath ?? "—")

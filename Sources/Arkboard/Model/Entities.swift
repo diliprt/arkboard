@@ -14,6 +14,7 @@ struct Project: Codable, FetchableRecord, PersistableRecord, Identifiable, Hasha
     var key: String
     var name: String
     var color: String
+    var icon: String
     var summary: String
     var repoPath: String?
     var githubRepo: String?

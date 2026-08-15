@@ -13,7 +13,8 @@ enum Seed {
             id: UUID().uuidString,
             key: "ARK",
             name: "Arkboard",
-            color: "#5A62D6",
+            color: ProjectMark.arkboardColor,
+            icon: ProjectMark.arkboardSymbol,
             summary: "Local studio board. Humans read. Agents execute.",
             repoPath: repoPath,
             githubRepo: "diliprt/arkboard",
@@ -29,7 +30,7 @@ enum Seed {
             ("ARK-C2", "Monitor", "Open questions and capabilities that are not working.", "product/ui-spec.md", "monitor"),
             ("ARK-C3", "Studio API", "Localhost MCP and REST on 127.0.0.1:7420.", "product/mcp.md", "connecting"),
             ("ARK-C4", "Type scale", "Body size and face apply from the root.", "product/design.md", "type"),
-            ("ARK-C5", "One scroll", "Project home pins the tab bar and outline in one scroll.", "product/ui-spec.md", "project-home"),
+            ("ARK-C5", "One scroll", "Project home pins the tab bar; contents live in the right outline.", "product/ui-spec.md", "project-home"),
         ]
         for (index, item) in capabilities.enumerated() {
             let capability = Capability(

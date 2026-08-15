@@ -20,7 +20,7 @@ Humans see three groups — Underway, Queued, Done — and the group is the only
 
 ## Locked — Saying something is the intake
 
-There is no New Issue button and no `⌘⇧N`. If Riyu wants something to happen, they type it into the Monitor composer, it lands in Activity attributed to them, and an agent files the issue.
+There is no New Issue button and no `⌘⇧N`. If Riyu wants something to happen, they type it into the project composer, it lands in Activity attributed to them, and an agent files the issue.
 
 This is the product thesis expressed as a missing button. Adding a quick-add form would quietly turn Arkboard back into a tracker with a reading room bolted on.
 
@@ -32,11 +32,15 @@ Humans can archive an issue, from the row's context menu or the detail toolbar, 
 
 Fixed chrome above, exactly one vertical scroll below, and never a `List` inside a `ScrollView`. Rows are a `LazyVStack`. Sticky headers come from pinned section headers in that same scroll. Horizontal scrolling within it is fine, because the axes do not fight.
 
-The project home is the proof: overview, tab bar, and document are one scroll, the overview scrolls away, and the tab bar and outline pin. It reads like a repository page, which is the right model for a project that is mostly documents.
+The project home is the proof: overview, tab bar, and document are one scroll, the overview scrolls away, and the tab bar pins. It reads like a repository page, which is the right model for a project that is mostly documents.
 
-## Locked — The outline is a pinned bar, not a side rail
+## Locked — The outline is the right Contents column
 
-Long documents get an `On this page` menu plus a row of `##` chips, pinned under the tab bar. The previous build used a left rail that was its own scroll view, which meant two scrollbars over one document and a narrower reading column. The bar keeps the prose column wide, works for a document with two headings or two hundred, and jumps within the same scroll.
+Long documents list every heading in a right-hand Contents pane. Clicking a heading jumps the document scroll to that subsection. There is one outline, and it is on the right — not a left rail, not a pinned `On this page` chip bar under the tabs. A left rail that is its own scroll of the document is still wrong; Contents is navigation, not a second copy of the page.
+
+## Locked — The left sidebar is the project portfolio
+
+The studio home is a list of every project, each with a unique brand mark. Clicking a project opens its document home. Monitor and Issues do not appear in the left chrome. Issues stay as a tab on the project page. The engine is unchanged.
 
 ## Locked — Design is the default tab
 
@@ -100,11 +104,9 @@ Capabilities are written by agents through the API, and they point at headings i
 
 > Until it is answered: a capability whose `docPath` or `docAnchor` no longer resolves still renders, just without the jump. Never hide a capability because its link went stale.
 
-## Open — Does the studio Issues screen earn its place in the sidebar?
+## Locked — Issues is a project tab, not a sidebar row
 
-Every project already has an Issues tab, and Monitor already surfaces what is broken. The studio-wide Issues screen may be the one place in the app that still smells like a tracker.
-
-> Until it is answered: build it as specified. It is the only cross-project view of work, and the three-column layout is where reading a full issue thread actually happens.
+The studio-wide Issues screen was leftover ticket chrome. Every project already has an Issues tab. That tab is where humans read tracking. The engine — SQLite, MCP `create_issue` / `update_issue` / comments — stays. There is no Issues row in the left sidebar.
 
 ## Open — What should a project with no repository on this machine do?
 

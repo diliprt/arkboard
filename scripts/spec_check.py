@@ -149,6 +149,49 @@ def actor_hue(name: str) -> str:
     return ramp[fnv1a(key) % 10]
 
 
+MARKS = [
+    "square.3.layers.3d",
+    "paintbrush.pointed.fill",
+    "cube.transparent",
+    "antenna.radiowaves.left.and.right",
+    "leaf.fill",
+    "bolt.horizontal.fill",
+    "globe.desk",
+    "camera.aperture",
+    "shippingbox.fill",
+    "waveform.path",
+    "puzzlepiece.extension.fill",
+    "compass.drawing",
+    "book.closed.fill",
+    "sparkle",
+    "hammer.fill",
+    "map.fill",
+    "theatermasks.fill",
+    "moon.stars.fill",
+    "hare.fill",
+    "tram.fill",
+]
+ARK_MARK = "square.3.layers.3d"
+ARK_COLOR = "#5A62D6"
+RAMP = ["#D4436B", "#C2661F", "#A87908", "#1F8F63", "#12908C", "#2C6FCF", "#5A62D6", "#8A54D6", "#B23FA8", "#C0392B"]
+
+
+def assign_mark(key: str, name: str, used: set[str]):
+    if key.upper() == "ARK" or name.lower() == "arkboard":
+        return ARK_MARK, ARK_COLOR
+    start = fnv1a(key.lower()) % len(MARKS)
+    symbol = MARKS[start]
+    for offset in range(len(MARKS)):
+        candidate = MARKS[(start + offset) % len(MARKS)]
+        if candidate == ARK_MARK:
+            continue
+        if candidate not in used:
+            symbol = candidate
+            break
+    color = RAMP[fnv1a(key.lower()) % len(RAMP)]
+    return symbol, color
+
+
 def human_group(status: str, archived: bool):
     if archived:
         return "Archived"
@@ -220,8 +263,11 @@ def main() -> int:
         "UI/Theme/Hue.swift",
         "UI/Theme/Typography.swift",
         "UI/Markdown/MarkdownView.swift",
+        "UI/Markdown/ContentsOutline.swift",
         "UI/Shell/RootView.swift",
         "UI/Shell/SidebarView.swift",
+        "UI/Shell/NoteComposer.swift",
+        "Model/ProjectMark.swift",
         "UI/Monitor/MonitorView.swift",
         "UI/Issues/IssuesView.swift",
         "UI/Activity/ActivityView.swift",
@@ -251,7 +297,12 @@ def main() -> int:
     ]))
     ok("director pass copy", "A director pass will write this." in swift)
     ok("Tell the team placeholder", "Tell the team…" in swift)
-    ok("On this page", "On this page" in swift)
+    ok("Contents outline", "Contents" in swift and "struct ContentsOutline" in swift)
+    ok("no On this page rail", "On this page" not in swift)
+    ok("no OutlineBar", "struct OutlineBar" not in swift)
+    ok("Arkboard mark", "square.3.layers.3d" in swift)
+    ok("project icon column", 'add(column: "icon"' in swift or "var icon: String" in swift)
+    ok("v2 project icon migration", "v2-project-icon" in swift)
     ok("Underway group", "Underway" in swift)
     ok("hue rose", "#D4436B" in swift)
     ok("hue indigo", "#5A62D6" in swift)
@@ -275,6 +326,40 @@ def main() -> int:
     readme = (ROOT / "README.md").read_text()
     ok("README is not Linear tracker", "Linear-style" not in readme)
     ok("README points at product/", "product/" in readme)
+
+    sidebar = (SOURCES / "UI/Shell/SidebarView.swift").read_text()
+    ok("sidebar has no Monitor row", "binoculars" not in sidebar and ".monitor" not in sidebar)
+    ok("sidebar has no Issues row", "tray.full" not in sidebar and "studioRow" not in sidebar)
+    ok("sidebar lists projects", "ForEach(store.projects)" in sidebar)
+    ok("sidebar uses ProjectIcon", "ProjectIcon" in sidebar)
+    root = (SOURCES / "UI/Shell/RootView.swift").read_text()
+    ok("root has ContentsOutline", "ContentsOutline()" in root)
+    ok("root has no studio Issues split", "IssueListColumn" not in root)
+    ok("root opens project home", "ProjectHomeView(project:" in root)
+    home = (SOURCES / "UI/Project/ProjectHomeView.swift").read_text()
+    ok("home has no OutlineBar", "OutlineBar" not in home)
+    ok("home publishes outline", "publishOutline" in home)
+    ok("home composer on project", "NoteComposer(projectKey:" in home)
+    ok("issues stay a project tab", "case .issues:" in home)
+
+    # Distinct marks: Arkboard reserved, others do not collide with it or each other.
+    used = set()
+    ark = assign_mark("ARK", "Arkboard", used)
+    ok("ARK mark is layered board", ark[0] == "square.3.layers.3d", ark[0])
+    used.add(ark[0])
+    other_keys = ["LUMEN", "NOVA", "RIVER", "ATLAS", "QUILL"]
+    others = []
+    for key in other_keys:
+        mark = assign_mark(key, key.title(), used)
+        others.append(mark[0])
+        used.add(mark[0])
+    ok("other marks are unique", len(set(others)) == len(others), str(others))
+    ok("others are not Arkboard mark", "square.3.layers.3d" not in others, str(others))
+    ui = (PRODUCT / "ui-spec.md").read_text()
+    design = (PRODUCT / "design.md").read_text()
+    ok("ui-spec sidebar is projects", "clean portfolio of projects" in ui)
+    ok("ui-spec contents on the right", "one outline, on the right" in ui)
+    ok("design contents column", "right-hand **Contents** column" in design or "right-hand **Contents**" in design)
 
     print()
     if FAIL:
