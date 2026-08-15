@@ -102,6 +102,16 @@ It also means the project page has no identity strip. Mark and key sit in the to
 
 And it means **Timeline has no in-page title**: that pane opens on the scale control and the Gantt. The window title bar is also pinned to the inline display mode, because a title and subtitle stacked in their own row under a sparse toolbar reads as a headline band even when no view is drawing one — which is what Timeline looked like while its code had no band at all.
 
+## Locked — Every project tab shares one content origin
+
+The first line of a tab body starts at the same Y under the rail on every tab. Design's prose, an empty state's title, the first row of a filled gallery: all of them begin at the pane's vertical padding, with nothing above them.
+
+We fixed the rail three times before understanding that a still rail is not a still pane. Measured on the click, the rail held at 93pt through Design → Mockups → Design while the body dropped from 197 to 249. Nobody feels a rail; they feel 52pt of text moving. **Score the click, not the rail.**
+
+The 52pt was the Mockups empty state opening with a 28pt section symbol above its title — a row Design's prose has no equivalent of. Section identity now rides inline on the title's own line at the title's own size, so it adds no height above it. A centred full-pane poster keeps the big symbol, because it has no rail to line up under.
+
+> An empty tab may be empty. It may not shove the pane down. If a tab needs something above its first line, the something is wrong, not the origin.
+
 ## Locked — The selected sidebar row is always the unemphasized grey
 
 One grey selected row, on every destination, focused or not. Portfolio, Timeline and the pinned projects all behave the same, and none of them ever goes accent blue.
