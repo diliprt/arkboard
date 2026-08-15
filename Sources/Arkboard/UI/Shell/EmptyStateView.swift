@@ -1,5 +1,10 @@
 import SwiftUI
 
+enum EmptyStateLayout {
+    case document
+    case poster
+}
+
 struct EmptyStateView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.typography) private var type
@@ -8,10 +13,11 @@ struct EmptyStateView: View {
     var sentence: String
     var actionTitle: String? = nil
     var minHeight: CGFloat = 0
+    var layout: EmptyStateLayout = .document
     var action: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: layout == .poster ? .center : .leading, spacing: 12) {
             Image(systemName: section.symbol)
                 .font(.system(size: 28, weight: .medium))
                 .foregroundStyle(section.hue.color(for: scheme).opacity(0.40))
@@ -21,14 +27,14 @@ struct EmptyStateView: View {
             Text(sentence)
                 .font(type.callout)
                 .foregroundStyle(StudioColor.secondary)
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(layout == .poster ? .center : .leading)
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .font(type.bodyStrong)
             }
         }
-        .padding(40)
-        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .center)
+        .padding(layout == .poster ? 40 : 0)
+        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: layout == .poster ? .center : .topLeading)
     }
 }
 

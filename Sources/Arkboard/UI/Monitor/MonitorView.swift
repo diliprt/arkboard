@@ -33,9 +33,9 @@ struct MonitorView: View {
                 .font(type.caption)
                 .foregroundStyle(StudioColor.secondary)
             if items.isEmpty && store.brokenCapabilities.isEmpty {
-                EmptyStateView(section: .monitor, title: EmptyCopy.quietStudio.0, sentence: EmptyCopy.quietStudio.1)
+                EmptyStateView(section: .monitor, title: EmptyCopy.quietStudio.0, sentence: EmptyCopy.quietStudio.1, layout: .poster)
             } else if items.isEmpty {
-                EmptyStateView(section: .decisions, title: EmptyCopy.noQuestions.0, sentence: EmptyCopy.noQuestions.1)
+                EmptyStateView(section: .decisions, title: EmptyCopy.noQuestions.0, sentence: EmptyCopy.noQuestions.1, layout: .poster)
             } else {
                 ForEach(items) { question in
                     Button {
@@ -72,7 +72,7 @@ struct MonitorView: View {
                 .font(type.caption)
                 .foregroundStyle(StudioColor.secondary)
             if items.isEmpty {
-                EmptyStateView(section: .issues, title: EmptyCopy.nothingBroken.0, sentence: EmptyCopy.nothingBroken.1)
+                EmptyStateView(section: .issues, title: EmptyCopy.nothingBroken.0, sentence: EmptyCopy.nothingBroken.1, layout: .poster)
             } else {
                 ForEach(items) { capability in
                     Button {

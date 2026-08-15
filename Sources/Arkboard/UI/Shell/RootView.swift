@@ -107,7 +107,8 @@ struct RootView: View {
                 title: EmptyCopy.noProjects.0,
                 sentence: EmptyCopy.noProjects.1,
                 actionTitle: "New Project",
-                minHeight: Metrics.emptyPaneMin
+                minHeight: Metrics.emptyPaneMin,
+                layout: .poster
             ) {
                 showNewProject = true
             }
