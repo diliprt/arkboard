@@ -199,7 +199,6 @@ struct ProjectHomeView: View {
                         }
                         .filterCapsule()
                         .tint(item.section.hue.color(for: scheme))
-                        .help(item.section.title)
                         .id(item.id)
                     }
                 }
