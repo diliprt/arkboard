@@ -7,28 +7,27 @@ struct OnboardingView: View {
     private var markdown: String { store.onboardingMarkdown() }
 
     var body: some View {
+        // No in-page title band. The window title bar says Onboarding, so the
+        // document starts directly under the toolbar.
         GeometryReader { geo in
-            VStack(spacing: 0) {
-                ScreenHeader(section: .onboarding, subtitle: "How this studio works.")
-                ScrollView {
-                    Group {
-                        if markdown.isEmpty {
-                            EmptyStateView(
-                                section: .onboarding,
-                                title: "Onboarding is not written yet",
-                                sentence: "A director pass will write this.",
-                                minHeight: Metrics.emptyPaneMin
-                            )
-                        } else {
-                            MarkdownView(markdown: markdown, hue: .indigo)
-                        }
+            ScrollView {
+                Group {
+                    if markdown.isEmpty {
+                        EmptyStateView(
+                            section: .onboarding,
+                            title: "Onboarding is not written yet",
+                            sentence: "A director pass will write this.",
+                            minHeight: Metrics.emptyPaneMin
+                        )
+                    } else {
+                        MarkdownView(markdown: markdown, hue: .indigo)
                     }
-                    .padding(Metrics.paneX)
-                    .padding(.vertical, Metrics.paneY)
-                    .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
                 }
-                .paneBackground(StudioColor.wash(.indigo, scheme: scheme))
+                .padding(Metrics.paneX)
+                .padding(.vertical, Metrics.paneY)
+                .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
             }
+            .paneBackground(StudioColor.wash(.indigo, scheme: scheme))
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
         .chiefOfStaffContextMenu()

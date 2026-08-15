@@ -12,7 +12,6 @@ struct IssueListColumn: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScreenHeader(section: .issues, subtitle: "Tracking. Agents file and update these.")
             VStack(alignment: .leading, spacing: 8) {
                 TextField("Search issues", text: $query)
                     .textFieldStyle(.roundedBorder)
@@ -139,12 +138,3 @@ struct IssueRowView: View {
     }
 }
 
-struct StudioIssuesView: View {
-    @Environment(\.typography) private var type
-    var body: some View {
-        VStack(spacing: 0) {
-            ScreenHeader(section: .issues, subtitle: "Tracking. Agents file and update these.")
-            IssueListColumn()
-        }
-    }
-}
