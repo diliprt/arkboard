@@ -1,169 +1,83 @@
 # Arkboard
 
-**Local Linear-style issue tracker for macOS** — SwiftUI + SQLite (GRDB) + agent MCP on localhost.
+Local-first studio board for macOS. Humans read and steer. Agents execute through localhost MCP.
 
-Built for Origin Ark Studio so product direction lives in a real tracker, not chat scrollback. Agents (Cursor / Grok Bot) can list, create, and update issues via a local API — and show up in an **Activity** feed when they talk.
+Documents live in Git under `product/`. Events — issues, comments, activity, milestones, capability health — live in a SQLite file on this machine. The app never writes `product/` and never copies document text into the database.
 
-## Features (v1)
+The design pack in [`product/`](product/README.md) is the specification. If a document in that folder reads badly inside the app, the renderer is wrong.
 
-- **Portfolio** — Overview cards, shared **Timeline** (Plan = milestones+done; All adds creates), and **Milestones**
-- Issue `completedAt` when status → done (cleared when leaving done); timeline Done uses it
-- **Activity** feed — multi-agent collaboration with bot↔bot visibility (`Product → Ops`), mention/handoff chips
-- Projects + Issues (status, priority, labels, comments)
-- **List** and **Board** (kanban by status) views for project/Inbox detail work
-- Quick add with **⌘N**
-- Local SQLite in Application Support
-- Local HTTP server on **`127.0.0.1:7420`**
-  - REST: `/api/projects`, `/api/issues`, `/api/activity`, `/api/milestones`
-  - MCP-shaped JSON-RPC: `POST /mcp` (`tools/list`, `tools/call`)
-- Stdio MCP bridge: `mcp/server.py` for Cursor
-- Custom macOS **AppIcon** (asset catalog)
+## What you see
 
-### Statuses
-`backlog` · `todo` · `in_progress` · `done` · `canceled`
+Sidebar: **Monitor**, **Issues**, **Activity**, **Portfolio**, then projects.
 
-### Priorities
-`none` · `low` · `medium` · `high` · `urgent`
+A project opens as a document home — overview, then Design, Architecture, Mockups, Decisions & questions, Issues, Timeline. The first four tabs render `product/` markdown as a rich preview. Issues are tracking only. Timeline is milestones.
 
-### Labels
-- An issue may carry **both** `feature` and `bug` (and any other distinct labels) at once.
-- Portfolio feature/bug counts are **independent** (an issue labeled both increments both).
-- Create/update label arrays are **deduped** (trim + case-insensitive) before insert; replace-labels deletes old links then inserts the unique set.
-- Duplicate entries like `["feature","feature","bug"]` succeed and become `feature` + `bug`.
-
-### Validation (MCP / REST)
-- Comments with multiple `@mentions` (e.g. `@Ops @Comms`) emit **one activity row** with multi-avatar targets (not N rows).
-- Empty comment body → error `"Comment cannot be empty"` (not the title error).
-- Unknown `status` / `priority` on create or update → rejected with a clear error (update does not partially apply other fields when status/priority is invalid).
-- Milestone `targetDate`: ISO8601 kept as-is; date-only `yyyy-MM-dd` stored as **noon UTC**; unparseable values (e.g. `not-a-date`) are rejected.
-- Titles collapse embedded/consecutive whitespace (including newlines) to single spaces.
-- Milestone `relatedIssueIdentifiers` must match **existing** issue identifiers (unknown IDs rejected).
-- Issue delete is **soft** (`deletedAt`); lists hide archived by default; ~10s Undo toast + Archived filter to restore.
-
-### List filters
-Status + priority chips; Canceled / Archived toggles.
+The human UI has no status, priority, or assignee controls, and no New Issue button. Say what you want in the Monitor composer. Agents file it.
 
 ## Requirements
 
 - macOS 14+
-- Xcode 15+ (Xcode 26 tested)
+- Xcode 15+
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 - Optional: Python 3 for the stdio MCP bridge
 
-## Build & run
+This repository can be edited on Linux. It cannot be compiled there. There is no `xcodebuild` on Cloud Agent hosts.
+
+## Run (Mac)
 
 ```bash
-cd "/Users/dilipreddy/Origin Ark Studio/arkboard"
 ./scripts/run.sh
-# or: open build/DerivedData/Build/Products/Debug/Arkboard.app
 ```
 
-**Important:** Launch via `open …/Arkboard.app` (or Xcode Run), not the raw Mach-O binary.
+That generates the Xcode project, builds Debug, and opens `Arkboard.app`. Launch the `.app`, not the binary inside it. `ARKBOARD_REPO_ROOT` is set to the repo so a Debug build finds this `product/` folder.
 
-On first launch the app seeds demo projects (**ARK**, **OPS**), sample issues, milestones across the next couple weeks, and a Product ↔ Ops ↔ Comms conversation (with `@mentions`) in Activity, then starts MCP on port **7420**. Existing DBs get milestones/activity auto-seeded when empty or thin; use **Seed demo agent activity** on Portfolio/Activity to re-seed the bot dialogue.
+On first launch the app seeds one real project — **Arkboard** (`ARK`) — pointed at this repository. Nothing fictional.
 
-**Click-through:** Portfolio → Overview / Timeline (Plan default) / Milestones · Activity → filter **Mentions** (default) to see multi-avatar Product → Ops rows.
-
-### Smoke test
-
-With the app running:
+## Smoke (Mac, app running)
 
 ```bash
 ./scripts/smoke.sh
 ```
 
-Verifies `/health`, MCP `tools/list`, `create_issue` (with `actor`), `list_activity`, milestone CRUD, `list_bot_thread`, and REST list.
+Proves `/health`, the nineteen MCP tools, actor attribution, soft-delete, capabilities, validation errors, and that `read_document` returns this design pack.
 
-## REST API (curl)
-
-App must be running.
+On Linux, without the app:
 
 ```bash
-# Health
-curl -s http://127.0.0.1:7420/health | jq
-
-# List projects
-curl -s http://127.0.0.1:7420/api/projects | jq
-
-# List issues
-curl -s 'http://127.0.0.1:7420/api/issues?projectKey=ARK' | jq
-
-# Activity feed
-curl -s 'http://127.0.0.1:7420/api/activity?limit=20' | jq
-
-# Milestones
-curl -s 'http://127.0.0.1:7420/api/milestones' | jq
-
-# Create issue
-curl -s -X POST http://127.0.0.1:7420/api/issues \
-  -H 'Content-Type: application/json' \
-  -d '{"projectKey":"ARK","title":"From curl","status":"todo","priority":"high","labels":["agent"],"actor":"Ops"}' | jq
-
-# Update issue
-curl -s -X PATCH http://127.0.0.1:7420/api/issues/ARK-1 \
-  -H 'Content-Type: application/json' \
-  -d '{"status":"in_progress","actor":"Product"}' | jq
+python3 scripts/spec_check.py
 ```
 
-## MCP for Cursor / agents
+## Agent API
 
-### Option A — HTTP JSON-RPC (app embedded)
+`http://127.0.0.1:7420` — not configurable. If the port is taken the server stays down and Monitor says so.
 
-While Arkboard is open:
+- Health: `GET /health`
+- REST: `/api/projects`, `/api/issues`, `/api/activity`, `/api/notes`, `/api/milestones`, `/api/capabilities`, `/api/documents`
+- MCP: `POST /mcp` (`initialize`, `ping`, `tools/list`, `tools/call`)
 
-```bash
-curl -s -X POST http://127.0.0.1:7420/mcp \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq
-```
+Mutating calls take `actor`. Default is `Agent`. Do not send `Riyu`.
 
-Tools: `list_projects`, `create_project`, `list_issues`, `search_issues`, `get_issue`, `create_issue`, `update_issue`, `delete_issue`, `restore_issue`, `add_comment`, `list_activity`, `list_milestones`, `create_milestone`, `update_milestone`, `list_bot_thread`.
-
-Mutating tools accept optional **`actor`** (string; default `"Agent"`). `add_comment` parses `@Ops` / `@Product` / `@Comms` mentions into Activity `targetActors` (shown as **Product → Ops, Comms** with multi-avatar).
-
-### Option B — Cursor stdio bridge
-
-Add to Cursor MCP settings (`~/.cursor/mcp.json` or project config):
+Stdio bridge for editors that cannot speak HTTP:
 
 ```json
 {
   "mcpServers": {
     "arkboard": {
       "command": "python3",
-      "args": [
-        "/Users/dilipreddy/Origin Ark Studio/arkboard/mcp/server.py"
-      ]
+      "args": ["<repo>/mcp/bridge.py"]
     }
   }
 }
 ```
 
-Keep the Arkboard app running — the bridge proxies to `http://127.0.0.1:7420/mcp`.
+Tool contracts: [`product/mcp.md`](product/mcp.md).
 
-### Settings UI
-
-**Arkboard → Settings** shows MCP URL, REST base, and database path.
-
-## Data location
+## Data
 
 ```
-~/Library/Application Support/Arkboard/arkboard.sqlite
-```
-
-## Architecture
-
-```
-ArkboardApp
-  AppStore (Observable, single write path + activity log)
-  GRDB DatabasePool
-  MCPServer (NWListener → 127.0.0.1:7420)
-  Views: Sidebar · Portfolio · Activity · List · Board · Detail · QuickAdd
+~/Library/Application Support/Arkboard/studio.sqlite
 ```
 
 ## License
 
 MIT
-
-## Repo
-
-https://github.com/diliprt/arkboard
