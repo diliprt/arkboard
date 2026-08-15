@@ -61,15 +61,24 @@ extension View {
         self.toggleStyle(.button).buttonStyle(.accessoryBar)
     }
 
-    /// The document pane's own fill. It runs edge to edge beneath the floating
-    /// sidebar while the scrolling content stays inside the safe area, so the
-    /// page has no hard seam against the glass.
+    /// The document pane's own fill: an opaque reading field with the section
+    /// wash over it. The sidebar beside it is frosted material, so the two
+    /// columns read as slightly different surfaces — navigation is glass,
+    /// content is solid. It runs edge to edge beneath the floating sidebar
+    /// while the scrolling content stays inside the safe area, so the page has
+    /// no hard seam against the glass.
     ///
     /// A background extension effect is the other option here, but it mirrors
     /// and blurs whatever is adjacent — right for a hero image, wrong for a
     /// column of prose, which would read as ghost text behind the sidebar.
-    func paneBackground(_ fill: Color) -> some View {
-        self.background { fill.ignoresSafeArea() }
+    func paneBackground(_ wash: Color) -> some View {
+        self.background {
+            ZStack {
+                StudioColor.documentField
+                wash
+            }
+            .ignoresSafeArea()
+        }
     }
 }
 

@@ -14,29 +14,33 @@ struct SidebarView: View {
             Section {
                 SwiftUI.Label("Portfolio", systemImage: StudioSection.portfolio.symbol)
                     .font(type.body)
+                    .padding(.vertical, Metrics.sidebarRowY)
                     .tag(SidebarItem.portfolio)
                     .contextMenu { ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText()) }
                 SwiftUI.Label("Timeline", systemImage: StudioSection.timeline.symbol)
                     .font(type.body)
+                    .padding(.vertical, Metrics.sidebarRowY)
                     .tag(SidebarItem.timeline)
                     .contextMenu { ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText()) }
             }
             Divider()
+                .padding(.vertical, Metrics.sidebarRowY)
             Section {
                 ForEach(store.pinnedProjects) { project in
-                    HStack(spacing: 8) {
+                    HStack(spacing: 10) {
                         ProjectIcon(
                             project: project,
                             imageData: store.markImage(for: project),
-                            size: 22
+                            size: Metrics.markSidebar
                         )
                         Text(project.name)
                             .font(type.body)
-                        Spacer()
+                        Spacer(minLength: 8)
                         Text(project.key)
                             .font(type.mono)
-                            .foregroundStyle(StudioColor.secondary)
+                            .foregroundStyle(StudioColor.tertiary)
                     }
+                    .padding(.vertical, Metrics.sidebarRowY)
                     .tag(SidebarItem.project(project.id))
                     .contextMenu {
                         Button(project.pinned ? "Unpin" : "Pin") {

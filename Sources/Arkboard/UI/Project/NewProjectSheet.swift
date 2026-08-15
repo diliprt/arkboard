@@ -44,12 +44,15 @@ struct NewProjectSheet: View {
                         icon = symbol
                     } label: {
                         Image(systemName: symbol)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: Metrics.markGlyph(for: Metrics.markHeader), weight: .semibold))
                             .foregroundStyle(Color(hex: color))
-                            .frame(width: 28, height: 28)
-                            .background(Color(hex: color).opacity(0.16), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .frame(width: Metrics.markHeader, height: Metrics.markHeader)
+                            .background(
+                                Color(hex: color).opacity(0.16),
+                                in: Concentric.shape(Metrics.markCorner(for: Metrics.markHeader))
+                            )
                             .overlay(
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                Concentric.shape(Metrics.markCorner(for: Metrics.markHeader))
                                     .stroke(icon == symbol ? StudioColor.primary : Color.clear, lineWidth: 1.5)
                             )
                     }

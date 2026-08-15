@@ -66,6 +66,9 @@ enum Metrics {
     static let sidebarIdeal: CGFloat = 232
     static let sidebarMin: CGFloat = 200
     static let sidebarMax: CGFloat = 300
+    /// Air above and below each sidebar row. The navigation column is paced
+    /// more loosely than the document; the system supplies the rest.
+    static let sidebarRowY: CGFloat = 5
     static let outlineIdeal: CGFloat = 220
     static let outlineMin: CGFloat = 180
     static let outlineMax: CGFloat = 280
@@ -81,7 +84,17 @@ enum Metrics {
     static let radiusSheet: CGFloat = 14
     static let radiusCard: CGFloat = 10
     static let radiusChip: CGFloat = Concentric.inner(of: radiusCard, inset: chipY)
-    static let radiusMark: CGFloat = Concentric.inner(of: radiusCard, inset: 4)
+    // A project mark is a product icon, not a nested surface, so it follows the
+    // icon grid: the corner is a fraction of the tile and the glyph is a
+    // fraction of the corner-rounded square. This is the one place a size is
+    // derived from a shape rather than from the type scale.
+    static let markCornerRatio: CGFloat = 0.2237
+    static let markGlyphRatio: CGFloat = 0.52
+    static let markSidebar: CGFloat = 22
+    static let markHeader: CGFloat = 28
+    static let markHero: CGFloat = 88
+    static func markCorner(for tile: CGFloat) -> CGFloat { (tile * markCornerRatio).rounded() }
+    static func markGlyph(for tile: CGFloat) -> CGFloat { (tile * markGlyphRatio).rounded() }
     static let proseMax: CGFloat = 720
     static let gridMax: CGFloat = 1000
     static let markerColumn: CGFloat = 18

@@ -7,30 +7,29 @@ struct PortfolioView: View {
     @Environment(\.typography) private var type
 
     var body: some View {
+        // No in-page title band. The window title bar already says Portfolio,
+        // so the cards start at the top of the pane.
         GeometryReader { geo in
-            VStack(spacing: 0) {
-                ScreenHeader(section: .portfolio, subtitle: "Every project at arm's length.")
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Metrics.sectionGap) {
-                        if store.projects.isEmpty {
-                            EmptyStateView(
-                                section: .portfolio,
-                                title: EmptyCopy.portfolioEmpty.0,
-                                sentence: EmptyCopy.portfolioEmpty.1,
-                                actionTitle: "New Project",
-                                layout: .poster
-                            ) {
-                                NotificationCenter.default.post(name: .arkboardNewProject, object: nil)
-                            }
-                        } else {
-                            cards
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.sectionGap) {
+                    if store.projects.isEmpty {
+                        EmptyStateView(
+                            section: .portfolio,
+                            title: EmptyCopy.portfolioEmpty.0,
+                            sentence: EmptyCopy.portfolioEmpty.1,
+                            actionTitle: "New Project",
+                            layout: .poster
+                        ) {
+                            NotificationCenter.default.post(name: .arkboardNewProject, object: nil)
                         }
+                    } else {
+                        cards
                     }
-                    .padding(Metrics.paneX)
-                    .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
                 }
-                .paneBackground(StudioColor.wash(.violet, scheme: scheme))
+                .padding(Metrics.paneX)
+                .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
             }
+            .paneBackground(StudioColor.wash(.violet, scheme: scheme))
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
         .toolbar {
@@ -51,13 +50,16 @@ struct PortfolioView: View {
     }
 
     private var cards: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 12)], spacing: 12) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 320, maximum: 480), spacing: Metrics.cardGap)], spacing: Metrics.cardGap) {
             ForEach(store.projects) { project in
                 projectCard(project)
             }
         }
     }
 
+    /// The mark is the hero. Name and one line of summary sit under it, and the
+    /// paths and document markers recede to a quiet footer so they never
+    /// compete with the mark.
     private func projectCard(_ project: Project) -> some View {
         let bundle = store.documentBundles[project.id]
         let summary = MarkdownParser.cardSummary(
@@ -66,47 +68,49 @@ struct PortfolioView: View {
             fallback: project.summary
         )
         return CardSurface(hue: .violet) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    ProjectIcon(project: project, imageData: store.markImage(for: project), size: 22)
-                    Text(project.name).font(type.heading)
-                    Text(project.key).font(type.mono).foregroundStyle(StudioColor.secondary)
-                    Spacer()
-                    Button {
-                        store.setProjectPinned(id: project.id, pinned: !project.pinned)
-                    } label: {
-                        Image(systemName: project.pinned ? "pin.fill" : "pin")
-                            .foregroundStyle(project.pinned ? Hue.violet.color(for: scheme) : StudioColor.tertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(project.pinned ? "Unpin" : "Pin")
-                }
-                Text(summary)
-                    .font(type.callout)
-                    .foregroundStyle(StudioColor.secondary)
-                    .lineLimit(2)
+            VStack(alignment: .leading, spacing: 16) {
+                ProjectIcon(
+                    project: project,
+                    imageData: store.markImage(for: project),
+                    size: Metrics.markHero
+                )
                 VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(project.name).font(type.heading)
+                        Text(project.key).font(type.mono).foregroundStyle(StudioColor.tertiary)
+                        Spacer(minLength: 8)
+                        pinControl(project)
+                    }
+                    Text(summary)
+                        .font(type.callout)
+                        .foregroundStyle(StudioColor.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                VStack(alignment: .leading, spacing: 6) {
                     if let path = project.repoPath, !path.isEmpty {
                         Text("local · \(Self.displayPath(path))")
                             .font(type.mono)
-                            .foregroundStyle(StudioColor.secondary)
+                            .foregroundStyle(StudioColor.tertiary)
                             .lineLimit(1)
+                            .truncationMode(.middle)
                     }
                     if let repo = project.githubRepo, !repo.isEmpty {
                         Text("github · \(repo)")
                             .font(type.mono)
-                            .foregroundStyle(StudioColor.secondary)
+                            .foregroundStyle(StudioColor.tertiary)
                             .lineLimit(1)
                     }
-                }
-                HStack(spacing: 6) {
-                    docPill("Design", .design, bundle)
-                    docPill("Architecture", .architecture, bundle)
-                    docPill("Mockups", .mockups, bundle)
-                    docPill("Decisions", .decisions, bundle)
+                    HStack(spacing: 10) {
+                        docPill("Design", .design, bundle)
+                        docPill("Architecture", .architecture, bundle)
+                        docPill("Mockups", .mockups, bundle)
+                        docPill("Decisions", .decisions, bundle)
+                    }
                 }
             }
             .font(type.body)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture {
                 store.sidebarSelection = .project(project.id)
@@ -120,6 +124,22 @@ struct PortfolioView: View {
         }
     }
 
+    private func pinControl(_ project: Project) -> some View {
+        Button {
+            store.setProjectPinned(id: project.id, pinned: !project.pinned)
+        } label: {
+            SwiftUI.Label(project.pinned ? "Unpin" : "Pin", systemImage: project.pinned ? "pin.fill" : "pin")
+                .labelStyle(.iconOnly)
+                .font(type.callout)
+                .foregroundStyle(project.pinned ? Hue.violet.color(for: scheme) : StudioColor.tertiary)
+        }
+        .buttonStyle(.plain)
+        .help(project.pinned ? "Unpin" : "Pin")
+    }
+
+    /// One quiet word per document, coloured when that document exists and
+    /// dimmed when it does not. No capsule fill — on a card led by the mark,
+    /// four filled chips are the loudest thing on screen, which is backwards.
     private func docPill(_ label: String, _ tab: DocumentTab, _ bundle: DocumentBundle?) -> some View {
         let exists: Bool
         if tab == .mockups {
@@ -129,14 +149,12 @@ struct PortfolioView: View {
         }
         return Text(label)
             .font(type.caption)
-            .foregroundStyle(exists ? tab.section.hue.color(for: scheme) : Hue.slate.color(for: scheme))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                exists ? StudioColor.chipFill(tab.section.hue, scheme: scheme) : Color.clear,
-                in: Capsule()
+            .foregroundStyle(
+                exists
+                    ? tab.section.hue.color(for: scheme)
+                    : StudioColor.tertiary
             )
-            .overlay(Capsule().stroke(exists ? Color.clear : Hue.slate.color(for: scheme).opacity(0.4), lineWidth: 1))
+            .opacity(exists ? 1 : 0.6)
     }
 
     private static func displayPath(_ path: String) -> String {
