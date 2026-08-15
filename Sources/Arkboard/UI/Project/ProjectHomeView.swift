@@ -23,6 +23,17 @@ enum ProjectHomeTab: String, CaseIterable, Identifiable {
         default: return nil
         }
     }
+
+    var handoffTitle: String {
+        switch self {
+        case .design: return "Design"
+        case .architecture: return "Architecture"
+        case .mockups: return "Mockups"
+        case .decisions: return "Decisions"
+        case .issues: return "Issues"
+        case .timeline: return "Timeline"
+        }
+    }
 }
 
 struct ProjectHomeView: View {
@@ -34,7 +45,6 @@ struct ProjectHomeView: View {
     @State private var tab: ProjectHomeTab = .design
     @State private var selectedPath: String?
     @State private var viewer: StudioDocument?
-    @State private var showNoteSheet = false
 
     var bundle: DocumentBundle? { store.documentBundles[project.id] }
 
@@ -68,13 +78,9 @@ struct ProjectHomeView: View {
                         }
                     }
                 }
-                .onChange(of: store.focusComposer) { _, _ in
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
-                        proxy.scrollTo("composer", anchor: .center)
-                    }
-                }
                 .onChange(of: tab) { _, newTab in
                     publishOutline()
+                    publishFocus()
                     if newTab == .mockups {
                         proxy.scrollTo("tab-bar", anchor: .top)
                     }
@@ -106,20 +112,22 @@ struct ProjectHomeView: View {
                 store.selectedIssueID = nil
             }
             publishOutline()
+            publishFocus()
         }
-        .onChange(of: selectedPath) { _, _ in publishOutline() }
-        .onChange(of: bundle?.loadedAt) { _, _ in publishOutline() }
+        .onChange(of: selectedPath) { _, _ in
+            publishOutline()
+            publishFocus()
+        }
+        .onChange(of: bundle?.loadedAt) { _, _ in
+            publishOutline()
+            publishFocus()
+        }
+        .chiefOfStaffContextMenu()
         .onChange(of: store.pendingProjectTab) { _, next in
             if let next {
                 tab = next
                 store.pendingProjectTab = nil
             }
-        }
-        .onChange(of: store.focusComposer) { _, _ in
-            showNoteSheet = true
-        }
-        .sheet(isPresented: $showNoteSheet) {
-            ProjectNoteSheet(project: project)
         }
         .sheet(item: issueSheet) { _ in
             IssueDetailColumn()
@@ -152,12 +160,13 @@ struct ProjectHomeView: View {
                 .buttonStyle(.plain)
                 .help("Refresh")
                 Button {
-                    showNoteSheet = true
+                    store.goToComposer()
                 } label: {
                     Image(systemName: "bubble.left")
                 }
                 .buttonStyle(.plain)
                 .help("Note")
+                // RootView presents ProjectNoteSheet for this icon and for ⌘N.
             }
         }
         .padding(.horizontal, Metrics.paneX)
@@ -226,6 +235,7 @@ struct ProjectHomeView: View {
                 .fill(StudioColor.hairline)
                 .frame(height: 1)
         }
+        .chiefOfStaffContextMenu()
     }
 
     @ViewBuilder
@@ -392,6 +402,9 @@ struct ProjectHomeView: View {
                                 .onTapGesture {
                                     store.selectedIssueID = issue.id
                                 }
+                                .contextMenu {
+                                    ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText())
+                                }
                         }
                     }
                 }
@@ -425,6 +438,17 @@ struct ProjectHomeView: View {
         } else {
             store.publishOutline(headings: [], hue: tab.section.hue)
         }
+    }
+
+    private func publishFocus() {
+        store.publishPageFocus(PageFocus(
+            destination: "project",
+            projectKey: project.key,
+            projectName: project.name,
+            tab: tab.handoffTitle,
+            documentPath: currentDocument?.path,
+            markdown: currentDocument?.markdown
+        ))
     }
 
     private func cycleTab(_ delta: Int) {

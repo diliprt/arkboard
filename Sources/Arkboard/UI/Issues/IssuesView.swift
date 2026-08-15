@@ -82,6 +82,7 @@ struct IssueListColumn: View {
                             Button("Copy identifier") { copy(issue.identifier) }
                             Button("Copy title") { copy(issue.title) }
                             Button("Archive") { store.archiveFromUI(issue) }
+                            ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText())
                         }
                 }
             } header: {

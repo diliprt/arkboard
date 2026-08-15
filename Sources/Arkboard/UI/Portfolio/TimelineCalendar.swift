@@ -103,6 +103,7 @@ struct TimelineCalendarView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .chiefOfStaffContextMenu()
     }
 
     private var controls: some View {
@@ -252,6 +253,7 @@ struct TimelineCalendarView: View {
         }
         .buttonStyle(.plain)
         .disabled(event.projectId == nil)
+        .contextMenu { ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText()) }
     }
 
     private var weekdaySymbols: [String] {

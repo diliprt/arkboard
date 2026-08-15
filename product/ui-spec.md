@@ -25,7 +25,7 @@ A single hairline `Divider` sits between those two destinations and the pinned p
 
 **Pinned projects** — under that hairline, only projects whose `pinned` flag is true, sorted by `sortOrder` then name. Clicking a pinned row opens that project's document home (Design default). Unpinning removes the row from the sidebar; the project stays on the Portfolio page. Pinning puts it back. Existing projects start pinned so Arkboard does not disappear on first launch.
 
-Each project row: the project's persisted mark (22pt), the name in `body`, and the key in `mono` `caption` trailing, right-aligned and secondary. The mark is that app's brand — an SF Symbol on a 6pt-radius square washed with the project's colour, or an image from `product/icon.png` / `product/mark.png` / `product/logo.png` when one exists. It is never the same blue dot for every project. A context menu on the row offers `Pin` / `Unpin`.
+Each project row: the project's persisted mark (22pt), the name in `body`, and the key in `mono` `caption` trailing, right-aligned and secondary. The mark is that app's brand — an SF Symbol on a 6pt-radius square washed with the project's colour, or an image from `product/icon.png` / `product/mark.png` / `product/logo.png` when one exists. It is never the same blue dot for every project. A context menu on the row offers `Pin` / `Unpin` and `Chat with Chief of Staff`.
 
 Arkboard's own mark is `square.3.layers.3d` in indigo `#5A62D6`. Other projects get a distinct symbol (and a distinct colour when they would otherwise share indigo).
 
@@ -65,11 +65,11 @@ Not a sidebar row. The engine — open questions parsed from Decisions, capabili
 
 ### Composer
 
-A compact note sheet opened from the project-home header icon (or `⌘N`), not a large box in the project scroll.
+A compact note sheet opened from the project-home header icon (or `⌘N`), not a large box in the project scroll. The same sheet opens from any page — Portfolio, Timeline, Onboarding, or a project — when the human chooses `Chat with Chief of Staff`.
 
 - A short field, placeholder `Tell the team…`, `Send` with `⌘↩`.
-- **History** of notes for this project from existing Activity. No second store.
-- Sending posts an activity note authored by `Riyu`, scoped to the current project, and clears the field.
+- **History** of notes for this project from existing Activity. No second store. On Portfolio / Timeline / Onboarding the note is studio-scoped (`projectId` empty).
+- Sending posts through the existing Activity / `post_note` engine, authored by `Riyu`, and clears the field.
 
 This is how a human asks for work. There is no issue form anywhere in the app; you say what you want and an agent files it.
 
@@ -307,6 +307,30 @@ One shape everywhere: the section symbol at 28pt in the hue at 40%, a title in `
 | `⌘,` | Settings |
 
 `⌘N` is deliberately bound to talking, not to filing. There is no shortcut that creates an issue.
+
+## Chat with Chief of Staff
+
+An AppKit / SwiftUI context menu on the entire app — sidebar, document, tabs, calendar events, cards, onboarding, empty states. The label is exactly `Chat with Chief of Staff`. Not "Chief of Agent". Not a generic Chat.
+
+Existing useful items stay. Pin / Unpin on a project row stay; this item is added. Issue rows keep `Copy identifier`, `Copy title`, and `Archive`. This menu does not offer status, priority, assignee, or issue creation. It does not open an external Grok chat. The board is the inbox.
+
+Choosing the item (with a highlight or with none) opens the compact note sheet with:
+
+- The current selection prefilled in the field (editable). If they copied, prefer the current selection in the view over the clipboard.
+- A quiet metadata line — not a wall of text — from the handoff payload.
+
+The payload always includes:
+
+- **selected text**, if any
+- **destination** — `portfolio` | `timeline` | `onboarding` | `project`
+- **project key** and project name when a project is open
+- current tab — Design / Architecture / Mockups / Decisions / Issues / Timeline
+- current **document path** when a product doc is showing
+- **nearest heading** if known
+- a one-line "what this page is" (e.g. `Arkboard · Design · product/design.md`)
+- **timestamp**
+
+Sending persists via existing Activity as kind `handoff`, targeted at `Product` (Chief of Staff), actor `Riyu`. Do not invent a second store.
 
 ## Acceptance
 

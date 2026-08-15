@@ -4,16 +4,26 @@ struct ProjectNoteSheet: View {
     @Environment(AppStore.self) private var store
     @Environment(\.typography) private var type
     @Environment(\.dismiss) private var dismiss
-    var project: Project
+    var project: Project?
+    var initialDraft: String = ""
+    var handoff: ChiefHandoff? = nil
 
     private var history: [Activity] {
-        store.activities.filter { $0.projectId == project.id && $0.kind != .system }
+        store.activities.filter { $0.kind != .system && $0.projectId == project?.id }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Note").font(type.title)
-            NoteComposer(projectKey: project.key)
+            if let handoff {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(handoff.pageLine)
+                    Text(handoff.quietMetadata)
+                }
+                .font(type.caption)
+                .foregroundStyle(StudioColor.tertiary)
+            }
+            NoteComposer(projectKey: project?.key, initialDraft: initialDraft, handoff: handoff)
             Text("History").font(type.heading)
             if history.isEmpty {
                 Text("Nothing said yet.")

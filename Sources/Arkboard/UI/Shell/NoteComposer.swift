@@ -5,6 +5,8 @@ struct NoteComposer: View {
     @Environment(\.typography) private var type
     var projectKey: String?
     var allowStudioScope: Bool = false
+    var initialDraft: String = ""
+    var handoff: ChiefHandoff? = nil
     @State private var draft = ""
     @State private var scopeKey: String = ""
     @FocusState private var composerFocused: Bool
@@ -45,6 +47,9 @@ struct NoteComposer: View {
             if scopeKey.isEmpty {
                 scopeKey = projectKey ?? "studio"
             }
+            if draft.isEmpty, !initialDraft.isEmpty {
+                draft = initialDraft
+            }
         }
         .onChange(of: store.focusComposer) { _, _ in
             composerFocused = true
@@ -60,7 +65,17 @@ struct NoteComposer: View {
         } else {
             key = projectKey
         }
-        _ = try? store.postNote(body: body, projectKey: key, actor: "Riyu")
+        if let handoff {
+            _ = try? store.postNote(
+                body: handoff.persistBody(userText: body),
+                projectKey: key,
+                actor: "Riyu",
+                kind: .handoff,
+                extraTargets: [ChiefOfStaffCopy.targetActor]
+            )
+        } else {
+            _ = try? store.postNote(body: body, projectKey: key, actor: "Riyu")
+        }
         draft = ""
     }
 }

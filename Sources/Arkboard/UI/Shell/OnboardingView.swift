@@ -31,6 +31,7 @@ struct OnboardingView: View {
             }
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
+        .chiefOfStaffContextMenu()
         .task {
             if let ark = store.project(key: "ARK") {
                 await store.ensureDocuments(projectId: ark.id)
@@ -42,5 +43,10 @@ struct OnboardingView: View {
 
     private func publish() {
         store.publishOutline(headings: MarkdownParser.headings(in: markdown), hue: .indigo)
+        store.publishPageFocus(PageFocus(
+            destination: "onboarding",
+            documentPath: "product/onboarding.md",
+            markdown: markdown
+        ))
     }
 }

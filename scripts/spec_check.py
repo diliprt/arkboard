@@ -353,6 +353,77 @@ def period_title(year: int, month: int, day: int, scale: str) -> str:
     raise ValueError(scale)
 
 
+def handoff_page_line(project_name: str | None, tab: str | None, document_path: str | None, destination: str) -> str:
+    parts: list[str] = []
+    if project_name:
+        parts.append(project_name)
+    elif destination == "timeline":
+        parts.append("Timeline")
+    elif destination == "onboarding":
+        parts.append("Onboarding")
+    else:
+        parts.append("Portfolio")
+    if tab:
+        parts.append(tab)
+    if document_path:
+        parts.append(document_path)
+    return " · ".join(parts)
+
+
+def handoff_nearest_heading(markdown: str, selected: str, fallback: str | None = None) -> str | None:
+    headings: list[tuple[int, str]] = []
+    selected_line = None
+    for index, line in enumerate(markdown.replace("\r\n", "\n").split("\n")):
+        stripped = line.lstrip()
+        hashes = 0
+        while hashes < len(stripped) and stripped[hashes] == "#":
+            hashes += 1
+        if 1 <= hashes <= 6 and hashes < len(stripped) and stripped[hashes] == " ":
+            title = stripped[hashes + 1 :].strip()
+            if title:
+                headings.append((index, title))
+        if selected_line is None and selected and selected in line:
+            selected_line = index
+    if selected_line is not None:
+        prior = [title for line_no, title in headings if line_no <= selected_line]
+        if prior:
+            return prior[-1]
+    if fallback:
+        return fallback
+    return headings[0][1] if headings else None
+
+
+def handoff_persist_body(
+    user_text: str,
+    *,
+    selected_text: str,
+    destination: str,
+    project_key: str | None,
+    project_name: str | None,
+    tab: str | None,
+    document_path: str | None,
+    nearest_heading: str | None,
+    page_line: str,
+    timestamp: str,
+) -> str:
+    lines = [user_text.strip(), ""]
+    lines.append(f"Chief of Staff handoff · {page_line}")
+    lines.append(f"destination: {destination}")
+    if project_key:
+        name = f" {project_name}" if project_name else ""
+        lines.append(f"project: {project_key}{name}")
+    if tab:
+        lines.append(f"tab: {tab}")
+    if document_path:
+        lines.append(f"doc: {document_path}")
+    if nearest_heading:
+        lines.append(f"heading: {nearest_heading}")
+    if selected_text:
+        lines.append(f"selected: {selected_text}")
+    lines.append(f"at: {timestamp}")
+    return "\n".join(lines)
+
+
 def today_index(dates: list[int], now: int) -> int:
     """Index of the single Today rule: before the first future event."""
     for i, date in enumerate(dates):
@@ -604,6 +675,106 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
        and "Milestones" not in (ui.split("## Portfolio")[1].split("## Timeline")[0] if "## Portfolio" in ui else "Milestones"))
 
 
+def check_chief_handoff(swift: str, home: str, root: str, sidebar: str, ui: str) -> None:
+    """App-wide Chat with Chief of Staff context menu and Activity handoff."""
+    markdown = (
+        "# Design\n"
+        "Lead sentence.\n"
+        "## Locked — Design is the default tab\n"
+        "A project is a design object first.\n"
+        "## Open — How should mockups be reviewed?\n"
+        "Gallery or walkthrough.\n"
+    )
+    page = handoff_page_line("Arkboard", "Design", "product/design.md", "project")
+    ok("handoff page line is project · tab · doc", page == "Arkboard · Design · product/design.md")
+    ok("handoff page line for Portfolio", handoff_page_line(None, None, None, "portfolio") == "Portfolio")
+    ok("handoff page line for Timeline", handoff_page_line(None, None, None, "timeline") == "Timeline")
+    ok(
+        "handoff page line for Onboarding",
+        handoff_page_line(None, None, "product/onboarding.md", "onboarding") == "Onboarding · product/onboarding.md",
+    )
+    ok(
+        "handoff nearest heading from highlight",
+        handoff_nearest_heading(markdown, "design object first") == "Locked — Design is the default tab",
+    )
+    ok(
+        "handoff nearest heading falls back",
+        handoff_nearest_heading("# Design\nNo match here.", "", "Design") == "Design",
+    )
+    body = handoff_persist_body(
+        "Ship the context menu.",
+        selected_text="design object first",
+        destination="project",
+        project_key="ARK",
+        project_name="Arkboard",
+        tab="Design",
+        document_path="product/design.md",
+        nearest_heading="Locked — Design is the default tab",
+        page_line=page,
+        timestamp="2026-08-15T09:10:00.000Z",
+    )
+    for field in (
+        "Chief of Staff handoff",
+        "destination: project",
+        "project: ARK Arkboard",
+        "tab: Design",
+        "doc: product/design.md",
+        "heading: Locked — Design is the default tab",
+        "selected: design object first",
+        "at: 2026-08-15T09:10:00.000Z",
+        page,
+    ):
+        ok(f"handoff body has {field}", field in body)
+
+    studio = handoff_persist_body(
+        "Look at Portfolio.",
+        selected_text="",
+        destination="portfolio",
+        project_key=None,
+        project_name=None,
+        tab=None,
+        document_path=None,
+        nearest_heading=None,
+        page_line="Portfolio",
+        timestamp="2026-08-15T09:10:00.000Z",
+    )
+    ok("studio handoff has no project field", "project:" not in studio)
+    ok("studio handoff keeps destination", "destination: portfolio" in studio)
+
+    ok("source ChiefHandoff.swift", (SOURCES / "Model/ChiefHandoff.swift").exists())
+    ok("menu label is Chat with Chief of Staff", "Chat with Chief of Staff" in swift)
+    ok("menu is not Chief of Agent", "Chief of Agent" not in swift)
+    ok("handoff capture lives in Swift", "struct ChiefHandoff" in swift and "func capture" in swift)
+    ok("handoff pageLine lives in Swift", "func pageLine" in swift or "static func pageLine" in swift)
+    ok("handoff nearestHeading lives in Swift", "func nearestHeading" in swift)
+    ok("handoff persistBody lives in Swift", "func persistBody" in swift)
+    ok("handoff fields are named", all(name in swift for name in (
+        "selectedText", "destination", "projectKey", "projectName", "documentPath",
+        "nearestHeading", "pageLine", "timestamp",
+    )))
+    ok("handoff send uses postNote", "postNote" in swift and "kind: .handoff" in swift)
+    ok("handoff targets Product", 'extraTargets: ["Product"]' in swift or 'targetActors: ["Product"]' in swift or '"Product"' in (SOURCES / "Model/ChiefHandoff.swift").read_text() if (SOURCES / "Model/ChiefHandoff.swift").exists() else False)
+    ok("handoff actor stays Riyu", 'actor: "Riyu"' in (SOURCES / "UI/Shell/NoteComposer.swift").read_text())
+    ok("root presents the note sheet", "ProjectNoteSheet" in root)
+    ok("project home still has the note icon", "bubble.left" in home and "ProjectNoteSheet" in swift)
+    ok("sidebar keeps Pin/Unpin", "Unpin" in sidebar and "Pin" in sidebar)
+    ok("sidebar adds Chief of Staff on project rows", "ChiefOfStaffMenuButton" in sidebar and "Chat with Chief of Staff" in swift)
+    ok("document column has the menu", "chiefOfStaffContextMenu" in root or "Chat with Chief of Staff" in root)
+    ok("empty states have the menu", "chiefOfStaffContextMenu" in (SOURCES / "UI/Shell/EmptyStateView.swift").read_text())
+    ok("issue rows keep copy/archive and add the menu", "Copy identifier" in swift and "ChiefOfStaffMenuButton" in (SOURCES / "UI/Issues/IssuesView.swift").read_text())
+    ok("no status in the Chief menu", "Status" not in (SOURCES / "UI/Shell/ChiefOfStaffMenu.swift").read_text() if (SOURCES / "UI/Shell/ChiefOfStaffMenu.swift").exists() else False)
+    ok("no Grok chat URL", "grok.com" not in swift.lower() and "x.com/i/grok" not in swift.lower())
+    ok("ui-spec names Chat with Chief of Staff", "Chat with Chief of Staff" in ui)
+    ok("ui-spec handoff fields", all(token in ui for token in (
+        "selected text", "destination", "project key", "document path", "nearest heading", "timestamp",
+    )))
+    decisions = (PRODUCT / "decisions.md").read_text()
+    ok("decisions locks Chief of Staff handoff", "Chat with Chief of Staff" in decisions and "Locked" in decisions)
+    ok("#15 ensureDocuments kept for handoff", "ensureDocuments" in home)
+    ok("#16 measure kept for handoff", "DocumentMeasure.pageWidth" in home)
+    ok("#18 Portfolio destination kept", "SidebarItem.portfolio" in sidebar)
+
+
 def main() -> int:
     expected_routes = {
         "product/README.md": "overview",
@@ -678,6 +849,8 @@ def main() -> int:
         "UI/Project/ProjectNoteSheet.swift",
         "UI/Shell/OnboardingView.swift",
         "UI/Settings/SettingsView.swift",
+        "Model/ChiefHandoff.swift",
+        "UI/Shell/ChiefOfStaffMenu.swift",
     ]
     for rel in required:
         ok(f"source {rel}", (SOURCES / rel).exists())
@@ -771,6 +944,7 @@ def main() -> int:
     check_document_bundle(swift)
     check_layout_musts(swift, home)
     check_studio_chrome(swift, home, root, sidebar, ui)
+    check_chief_handoff(swift, home, root, sidebar, ui)
 
     print()
     if FAIL:
