@@ -50,7 +50,7 @@ struct TimelineGanttView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(maxWidth: 260)
+            .fixedSize()
             Spacer(minLength: 0)
         }
     }
@@ -174,12 +174,8 @@ struct TimelineGanttView: View {
     @ViewBuilder
     private func todayFlag(_ plan: GanttPlan, width: CGFloat) -> some View {
         if let x = todayOffset(plan, width: width) {
-            Text("Today")
-                .font(type.caption)
-                .foregroundStyle(Hue.moss.color(for: scheme))
-                .padding(.horizontal, 5)
-                .background(StudioColor.chipFill(.moss, scheme: scheme), in: Capsule())
-                .offset(x: min(max(0, x - 2), max(0, width - Metrics.ganttTodayFlag)))
+            Chip(text: "Today", hue: .moss)
+                .offset(x: min(max(0, x - Metrics.chipX), max(0, width - Metrics.ganttTodayFlag)))
         }
     }
 

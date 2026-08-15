@@ -1122,6 +1122,16 @@ def check_timeline_gantt(swift: str, home: str, ui: str, decisions: str, archite
     ok("Gantt's only Picker is the scale", gantt.count("Picker(") == 1 and 'Picker("Scale"' in gantt)
     ok("Gantt keeps the Chief of Staff menu", "ChiefOfStaffMenuButton" in gantt and "chiefOfStaffContextMenu" in gantt)
 
+    # --- The Gantt lives under the Apple-language rules #25 locked.
+    ok("Gantt paints no window slab", "StudioColor.window" not in gantt)
+    ok("Gantt does not glass the document", "glassEffect" not in gantt and "inspectorSurface" not in gantt)
+    ok("Timeline pane keeps the edge-to-edge fill", "paneBackground" in timeline)
+    ok("Gantt takes every glyph from the type scale", ".font(.system" not in gantt)
+    ok("Gantt sizes its scale control from the control metrics",
+       ".fixedSize()" in gantt and "maxWidth: 2" not in gantt)
+    ok("Gantt reuses the house chip rather than a hand-drawn pill",
+       'Chip(text: "Today"' in gantt and "in: Capsule())" not in gantt)
+
     # --- Schema, migration, and API for dependencies.
     ok("milestone has a dependsOn column", "var dependsOn: String" in entities)
     ok("milestone decodes dependency ids", "var dependencyIds: [String]" in entities)

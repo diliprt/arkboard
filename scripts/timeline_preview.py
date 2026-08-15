@@ -26,8 +26,8 @@ spec.loader.exec_module(sc)
 
 # Metrics from Sources/Arkboard/UI/Theme/Typography.swift
 LABEL_COL = 240.0
-AXIS_H = 38.0
-TODAY_TIER = 18.0
+AXIS_H = 44.0
+TODAY_TIER = 24.0
 PROJECT_ROW = 34.0
 MILESTONE_ROW = 28.0
 PROJECT_BAR = 14.0
@@ -35,6 +35,7 @@ MILESTONE_BAR = 8.0
 DIAMOND = 10.0
 BAR_MIN = 10.0
 ELBOW = 10.0
+CHIP_X = 10.0
 PANE_X = 24.0
 PANE_Y = 20.0
 
@@ -227,13 +228,13 @@ def panel(plan: dict, pane_width: float, caption: str) -> tuple[list[str], float
     out.append(
         f'<rect x="{today_x}" y="{body_y}" width="1" height="{body_height}" fill="{MOSS}" fill-opacity="0.55"/>'
     )
-    flag_x = min(max(plot_x, today_x - 2), plot_x + visible_plot - 52)
+    flag_x = min(max(plot_x, today_x - CHIP_X), plot_x + visible_plot - 60)
     out.append(
-        f'<rect x="{flag_x}" y="{chart_y + 1}" width="45" height="16" rx="8" '
+        f'<rect x="{flag_x}" y="{chart_y + 1}" width="55" height="21" rx="10.5" '
         f'fill="{MOSS}" fill-opacity="0.12"/>'
     )
     out.append(
-        f'<text x="{flag_x + 5}" y="{chart_y + 13}" font-family="{FACE}" font-size="11" '
+        f'<text x="{flag_x + CHIP_X}" y="{chart_y + 15}" font-family="{FACE}" font-size="11" '
         f'font-weight="500" fill="{MOSS}">Today</text>'
     )
 
