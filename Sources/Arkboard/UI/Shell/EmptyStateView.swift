@@ -27,20 +27,21 @@ struct EmptyStateView: View {
                     .font(type.face(size: type.bodySize + 15, weight: .medium))
                     .foregroundStyle(section.hue.color(for: scheme).opacity(0.40))
             }
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                if layout == .document {
-                    // Section identity stays, on the title's own line, at the
-                    // title's own size, so it adds no height above it.
-                    Image(systemName: section.symbol)
-                        .font(type.heading)
-                        .foregroundStyle(section.hue.color(for: scheme).opacity(0.55))
-                }
-                Text(title)
-                    .font(type.heading)
-                    .foregroundStyle(StudioColor.primary)
-            }
+            // In a document tab the title is the first line, and it is built the
+            // way a paragraph is built: one top-aligned Text, same line spacing,
+            // nothing beside it. A baseline-aligned row with a symbol in it
+            // sizes itself to share a baseline, which lifts the row's top above
+            // where a plain line of prose would start — about ten points at
+            // these sizes, and the reason Mockups measured above Design.
+            // Section identity is already on screen: the pane carries the hue.
+            Text(title)
+                .font(type.heading)
+                .lineSpacing(type.lineSpacing)
+                .foregroundStyle(StudioColor.primary)
+                .multilineTextAlignment(layout == .poster ? .center : .leading)
             Text(sentence)
                 .font(type.callout)
+                .lineSpacing(type.lineSpacing)
                 .foregroundStyle(StudioColor.secondary)
                 .multilineTextAlignment(layout == .poster ? .center : .leading)
             if let actionTitle, let action {
