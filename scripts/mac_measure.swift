@@ -70,6 +70,11 @@ struct Report {
     var markSaturation: CGFloat?
     var selectionOK: Bool?
     var titleOK: Bool?
+    /// Where the colour samples landed, so a bad number can be told apart from
+    /// a bad sample without another run.
+    var rowLabel: String?
+    var fillSample: CGRect?
+    var markSample: CGRect?
     var failures: [String] = []
 
     func emit() {
@@ -79,6 +84,11 @@ struct Report {
         }
         lines.append("  \"rail_y\": [\(samples.map { String(format: "%.0f", $0.railY) }.joined(separator: ", "))]")
         lines.append("  \"body_y\": [\(samples.map { String(format: "%.0f", $0.bodyY) }.joined(separator: ", "))]")
+        lines.append("  \"selected_row\": \(rowLabel.map { "\"\($0)\"" } ?? "null")")
+        for (name, rect) in [("fill_sample", fillSample), ("mark_sample", markSample)] {
+            let value = rect.map { String(format: "[%.0f, %.0f, %.0f, %.0f]", $0.minX, $0.minY, $0.width, $0.height) } ?? "null"
+            lines.append("  \"\(name)\": \(value)")
+        }
         lines.append("  \"selection_saturation\": \(selectionSaturation.map { String(format: "%.3f", $0) } ?? "null")")
         lines.append("  \"mark_saturation\": \(markSaturation.map { String(format: "%.3f", $0) } ?? "null")")
         lines.append("  \"selection_ok\": \(selectionOK.map(String.init) ?? "null")")
@@ -260,8 +270,13 @@ func capture(window: CGWindowID, bounds: CGRect) -> Bitmap? {
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         return true
     }
-    guard drew else { return nil }
-    let scale = bounds.width > 0 ? CGFloat(width) / bounds.width : 1
+    guard drew, bounds.width > 0, bounds.height > 0 else { return nil }
+    let scale = CGFloat(width) / bounds.width
+    // If the capture carries framing the window bounds do not, every sample is
+    // offset and the numbers look like a colour problem instead of an
+    // alignment one. Refuse to report rather than report the wrong pixels.
+    let verticalScale = CGFloat(height) / bounds.height
+    guard abs(scale - verticalScale) < 0.02 else { return nil }
     return Bitmap(pixels: pixels, width: width, height: height, scale: scale)
 }
 
@@ -332,6 +347,16 @@ func rowLabels(_ row: AXUIElement) -> Set<String> {
     var nodes: [Node] = []
     flatten(row, into: &nodes)
     return Set(nodes.map(\.label).filter { !$0.isEmpty })
+}
+
+/// The project mark's own frame, so the sample lands on the icon rather than on
+/// a guessed offset into the row's padding. `ProjectIcon` carries the project
+/// name as its accessibility label, so it is an image the tree can find.
+func markFrame(in row: Node) -> CGRect? {
+    var nodes: [Node] = []
+    flatten(row.element, into: &nodes)
+    let images = nodes.filter { $0.role == "AXImage" && $0.frame.width > 8 && $0.frame.height > 8 }
+    return images.min { $0.frame.minX < $1.frame.minX }?.frame
 }
 
 /// A pinned project, never a destination.
@@ -455,18 +480,34 @@ do {
     var afterPress: [Node] = []
     flatten(window, into: &afterPress)
     let selected = pinnedProjectRow(in: afterPress) ?? row
-    let local = CGRect(
-        x: selected.frame.minX - bounds.minX,
-        y: selected.frame.minY - bounds.minY,
-        width: selected.frame.width,
-        height: selected.frame.height
-    )
+    // Screen coordinates into the captured window's own coordinate space.
+    func toBitmap(_ rect: CGRect) -> CGRect {
+        CGRect(x: rect.minX - bounds.minX, y: rect.minY - bounds.minY,
+               width: rect.width, height: rect.height)
+    }
+    let local = toBitmap(selected.frame)
 
-    // The fill, sampled clear of the mark on the left and the key on the right.
-    let fill = local.insetBy(dx: local.width * 0.36, dy: local.height * 0.3)
-    // The mark's own tile, at the leading edge of the row.
-    let mark = CGRect(x: local.minX + 8, y: local.minY + local.height * 0.25,
-                      width: 16, height: max(4, local.height * 0.5))
+    // The mark, sampled from its own frame and pulled well inside it, so a
+    // point or two of misalignment between the accessibility frame and the
+    // captured bitmap still lands on the glyph rather than in the padding
+    // beside it. A fixed offset into the row is what sampled grey last time.
+    let markRect = markFrame(in: selected).map(toBitmap)
+    let mark = markRect.map { $0.insetBy(dx: $0.width * 0.28, dy: $0.height * 0.28) }
+
+    // The fill, sampled between the mark and the key so neither is in the
+    // sample. Without a mark frame, fall back to the middle of the row.
+    let fill: CGRect = {
+        guard let markRect else { return local.insetBy(dx: local.width * 0.36, dy: local.height * 0.3) }
+        let leading = markRect.maxX + 6
+        let trailing = local.maxX - local.width * 0.28
+        guard trailing > leading + 4 else { return local.insetBy(dx: local.width * 0.36, dy: local.height * 0.3) }
+        return CGRect(x: leading, y: local.minY + local.height * 0.28,
+                      width: trailing - leading, height: max(4, local.height * 0.44))
+    }()
+
+    report.rowLabel = rowLabels(selected.element).sorted().joined(separator: " ")
+    report.fillSample = fill
+    report.markSample = mark
 
     if let fillHSB = bitmap.averageHSB(in: fill) {
         report.selectionSaturation = fillHSB.saturation
@@ -475,6 +516,13 @@ do {
         if tinted {
             report.failures.append("selected row is a tinted fill (saturation \(String(format: "%.2f", fillHSB.saturation))) — it must be the system's unemphasized grey while the sidebar has focus")
         }
+    }
+    guard let mark else {
+        bail("""
+        Could not find the project mark inside the selected row, so its colour
+        cannot be checked. The mark is sampled from its own frame rather than a
+        fixed offset; if the row has no image child, the sidebar changed shape.
+        """)
     }
     if let markHSB = bitmap.averageHSB(in: mark) {
         report.markSaturation = markHSB.saturation

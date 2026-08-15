@@ -1497,9 +1497,14 @@ def check_mac_measures(ui: str, decisions: str) -> None:
     wrapper_code = "\n".join(
         line for line in wrapper.split("\n") if not line.lstrip().startswith("#")
     )
-    for tool in ("xcodebuild", "worktree", "xed "):
-        ok(f"the measure does not run {tool.strip()}",
-           tool not in measure_code and tool not in wrapper_code)
+    # Token match, not substring: "xed" lives inside "fixed", and a lock that
+    # fires on a comment about a fixed offset is a lock nobody will keep.
+    def tokens(source: str) -> set[str]:
+        return set(re.split(r"[^A-Za-z0-9_]+", source))
+
+    banned = tokens(measure_code) | tokens(wrapper_code)
+    for tool in ("xcodebuild", "worktree", "xed"):
+        ok(f"the measure does not run {tool}", tool not in banned)
 
     # It samples one window to read a colour. That is a measurement, not a shot
     # set: nothing is kept, and nothing is written where the repo can see it.
@@ -1513,6 +1518,15 @@ def check_mac_measures(ui: str, decisions: str) -> None:
 
     # The mark floor is about a project mark, so it must sample a project.
     ok("the selection sample is a pinned project", "func pinnedProjectRow" in measure_code)
+    ok("the mark is sampled from its own frame", "func markFrame" in measure_code)
+    ok("the mark sample is not a fixed offset",
+       "local.minX + 8" not in measure_code and "width: 16" not in measure_code)
+    ok("the mark sample is pulled inside the icon", "insetBy(dx: $0.width * 0.28" in measure_code)
+    ok("the fill sample clears the mark", "markRect.maxX" in measure_code)
+    ok("a misaligned capture refuses to report",
+       "abs(scale - verticalScale)" in measure_code and "else { return nil }" in measure_code)
+    ok("the report says where it sampled",
+       "mark_sample" in measure and "fill_sample" in measure and "selected_row" in measure)
     ok("the sample skips the destinations",
        '"Portfolio", "Timeline"' in measure_code and "isDisjoint" in measure_code)
     ok("the sample is not just the first row",

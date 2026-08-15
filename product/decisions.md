@@ -143,6 +143,8 @@ The measure script lives in the repo at `scripts/mac_measure.swift`. Throwaway h
 
 **What the script samples, and why.** The selection check presses a **pinned project row**, never the first row in the list. The mark floor asks whether a *project's* mark keeps its colour on a selected row; Portfolio and Timeline are section symbols at the size of a line of text, so sampling one of those measures the wrong thing and fails an app that is behaving. Do not lower the floor to make a destination row pass — press a project instead.
 
+The mark is sampled **from its own accessibility frame**, pulled well inside it, not from a fixed offset into the row. A guessed rectangle lands in the padding beside the icon and reports a colour failure for an app that is fine; that is how a saturation of 0.037 was read off a mark measuring about 0.14. The fill is sampled between the mark and the key so neither is in it, and the report prints both sample rectangles and the row it pressed, so a bad number can be told from a bad sample without another run. If the captured bitmap does not line up with the window bounds, the capture refuses to report rather than sampling the wrong pixels.
+
 There is **one measure path**. `scripts/mac_measure.swift` is it. Helpers under `build/` are scratch: when the SDK moves under the script — `CGWindowListCreateImage` is unavailable in the macOS 26 SDK, so the capture shells out to `screencapture` for one window — the fix lands in the repo script, in a PR, where it can be read. A second measure path means two answers and no way to tell which is true.
 
 > Known numbers, so this lock has teeth. Rail Y **93 / 93 / 93** across Design → Mockups → Design has been correct throughout, and body Y is what keeps failing: **197 → 249** in the first pass, **145 / 134 / 145** in the second. Body Y must match across sibling tabs within 2pt. Do not add pixel numbers to this record that nobody measured, and do not loosen the tolerance to make a drift pass.
@@ -160,7 +162,9 @@ Two things have broken this, and both were invisible in a still:
 1. **A decoration row above the first line.** The Mockups empty state opened with a 28pt section symbol; the symbol now rides inline on the title's own line.
 2. **Air the first block should never have bought.** A heading buys air above itself, which is right in the middle of a document and wrong at the top, where the pane's padding is already that air. It bit hardest where a repeated opener was skipped and left the next block sitting low. The first rendered block now carries no top air, whatever it is.
 
-Design is also the only tab that shows a document chip rail, because `ui-spec.md` routes to the Design tab too. A horizontal scroll view takes more height than the capsules inside it, which seated that rail below every other tab's first line, so it is sized to its content.
+3. **A rail that only one tab has.** `ui-spec.md` routes to the Design tab and `mcp.md` to Architecture, so those two are the only tabs where more than one document lands and a rail of document capsules renders above the prose. A horizontal scroll view takes more height than the capsules inside it, seating that rail roughly 10pt below the first line of every tab without one — which is what the second measure caught, comparing Design against Mockups. The rail is now sized to its content.
+
+That third one is worth remembering when reading a measure: **the tabs are not symmetrical.** Design and Architecture carry a document rail; Mockups, Decisions, Issues and Timeline do not. A gate that compares a rail tab against a rail-less one is comparing the right thing — they must still share an origin — but the cause will live in whichever part only one of them has.
 
 > An empty tab may be empty. It may not shove the pane down. If a tab needs something above its first line, the something is wrong, not the origin.
 
