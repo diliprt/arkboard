@@ -388,7 +388,7 @@ Sources/Arkboard/
   UI/
     Theme/                       Hue, Section, Typography, Metrics, modifiers
     Markdown/                    MarkdownView, ContentsOutline, CodeBlock, TableView
-    Shell/                       RootView, Sidebar, ScreenHeader, NoteComposer, Onboarding
+    Shell/                       RootView, Sidebar, UndoToast, NoteComposer, Onboarding
     Monitor/  Issues/  Activity/  Portfolio/  Project/  Settings/
   Resources/
     Assets.xcassets              AppIcon

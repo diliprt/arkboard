@@ -144,7 +144,7 @@ struct MarkdownImage: View {
                 .frame(height: 180)
                 .overlay {
                     Image(systemName: "photo")
-                        .font(.system(size: 28))
+                        .font(type.face(size: type.bodySize + 15, weight: .regular))
                         .foregroundStyle(StudioColor.tertiary)
                 }
             if !alt.isEmpty {

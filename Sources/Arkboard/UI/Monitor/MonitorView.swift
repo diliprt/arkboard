@@ -5,22 +5,19 @@ struct MonitorView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.typography) private var type
     var body: some View {
-        VStack(spacing: 0) {
-            ScreenHeader(section: .monitor, subtitle: "What needs you, and what is broken.")
-            ScrollView {
-                VStack(alignment: .leading, spacing: Metrics.sectionGap) {
-                    NoteComposer(allowStudioScope: true)
-                    questions
-                    broken
-                    health
-                }
-                .padding(.horizontal, Metrics.paneX)
-                .padding(.vertical, Metrics.paneY)
-                .frame(maxWidth: Metrics.gridMax, alignment: .leading)
-                .frame(maxWidth: .infinity)
+        ScrollView {
+            VStack(alignment: .leading, spacing: Metrics.sectionGap) {
+                NoteComposer(allowStudioScope: true)
+                questions
+                broken
+                health
             }
-            .background(StudioColor.wash(.indigo, scheme: scheme))
+            .padding(.horizontal, Metrics.paneX)
+            .padding(.vertical, Metrics.paneY)
+            .frame(maxWidth: Metrics.gridMax, alignment: .leading)
+            .frame(maxWidth: .infinity)
         }
+        .paneBackground(StudioColor.wash(.indigo, scheme: scheme))
     }
 
     @ViewBuilder

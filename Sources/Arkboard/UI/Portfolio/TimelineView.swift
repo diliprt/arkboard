@@ -5,17 +5,16 @@ struct TimelineView: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
+        // No in-page title band. The window title bar says Timeline; the chart's
+        // own scale control is the only chrome above the rows.
         GeometryReader { geo in
-            VStack(spacing: 0) {
-                ScreenHeader(section: .timeline, subtitle: "Every project on one timeline.")
-                ScrollView {
-                    TimelineGanttView(projectId: nil)
-                        .padding(Metrics.paneX)
-                        .padding(.vertical, Metrics.paneY)
-                        .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
-                }
-                .paneBackground(StudioColor.wash(.moss, scheme: scheme))
+            ScrollView {
+                TimelineGanttView(projectId: nil)
+                    .padding(Metrics.paneX)
+                    .padding(.vertical, Metrics.paneY)
+                    .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
             }
+            .paneBackground(StudioColor.wash(.moss, scheme: scheme))
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
         .chiefOfStaffContextMenu()

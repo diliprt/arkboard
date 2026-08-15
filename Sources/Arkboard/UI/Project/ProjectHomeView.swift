@@ -142,16 +142,18 @@ struct ProjectHomeView: View {
         )
     }
 
+    /// A compact identity strip, not a title band. The window title bar already
+    /// carries the project name, so this never repeats it: mark, key, where the
+    /// documents come from, and the two actions.
     private var projectHeader: some View {
         ProseColumn {
-            HStack(alignment: .firstTextBaseline) {
-                ProjectIcon(project: project, imageData: store.markImage(for: project), size: 28)
-                Text(project.name).font(type.display)
+            HStack(spacing: 10) {
+                ProjectIcon(project: project, imageData: store.markImage(for: project), size: Metrics.markHeader)
                 Chip(text: project.key, hue: .slate, mono: true)
-                Spacer()
+                Spacer(minLength: 12)
                 Text(sourceLabel)
                     .font(type.mono)
-                    .foregroundStyle(StudioColor.secondary)
+                    .foregroundStyle(StudioColor.tertiary)
                 Button {
                     Task { await store.refreshDocuments(projectId: project.id) }
                 } label: {
@@ -174,7 +176,7 @@ struct ProjectHomeView: View {
             }
         }
         .padding(.horizontal, Metrics.paneX)
-        .padding(.vertical, Metrics.paneY)
+        .padding(.vertical, 12)
     }
 
     private var sourceLabel: String {

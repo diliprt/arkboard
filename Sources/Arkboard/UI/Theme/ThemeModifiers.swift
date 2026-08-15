@@ -50,10 +50,15 @@ struct ProjectDot: View {
     }
 }
 
+/// A project's brand mark on its tile. The corner and the glyph scale with the
+/// tile off the icon grid, so the same view reads correctly at 22pt in the
+/// sidebar and at hero size on a Portfolio card.
 struct ProjectIcon: View {
     var project: Project
     var imageData: Data? = nil
-    var size: CGFloat = 22
+    var size: CGFloat = Metrics.markSidebar
+
+    private var corner: CGFloat { Metrics.markCorner(for: size) }
 
     var body: some View {
         Group {
@@ -63,13 +68,13 @@ struct ProjectIcon: View {
                     .scaledToFill()
             } else {
                 Image(systemName: project.icon.isEmpty ? ProjectMark.symbols[0] : project.icon)
-                    .font(.system(size: size * 0.52, weight: .semibold))
+                    .font(.system(size: Metrics.markGlyph(for: size), weight: .semibold))
                     .foregroundStyle(Color(hex: project.color))
             }
         }
         .frame(width: size, height: size)
-        .background(Color(hex: project.color).opacity(0.16), in: Concentric.shape(Metrics.radiusMark))
-        .clipShape(Concentric.shape(Metrics.radiusMark))
+        .background(Color(hex: project.color).opacity(0.16), in: Concentric.shape(corner))
+        .clipShape(Concentric.shape(corner))
         .accessibilityLabel(project.name)
     }
 }

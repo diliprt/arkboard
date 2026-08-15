@@ -10,7 +10,7 @@ A single window. `NavigationSplitView` with two columns: the project portfolio a
 
 - Minimum 1080 × 700, default 1320 × 860, `.windowStyle(.automatic)`, unified toolbar.
 - The selected row is restored on launch from `arkboard.sidebarSelection`. Valid values are `portfolio`, `timeline`, `onboarding`, or `project:<id>`. Leftover studio chrome (`monitor`, `issues`, `activity`) is discarded and Portfolio is selected.
-- The window title is Portfolio, Timeline, Onboarding, or the current project name; the subtitle is the workspace name.
+- The window title is Portfolio, Timeline, Onboarding, or the current project name; the subtitle is the workspace name. **This is the only title in the app.** No screen prints its own name again in the pane below, and no screen carries a tagline under that name. Content starts directly under the toolbar.
 
 ### Materials
 
@@ -18,12 +18,14 @@ Arkboard speaks Apple's design language. It does not borrow Apple's content, scr
 
 Liquid Glass is the **navigation** layer and only the navigation layer: the sidebar, the window toolbar, the project tab rail, and the Contents inspector. The document is the **content** layer — solid, readable, and never glassed. A page of prose on glass is unreadable and is the one mistake this rule exists to prevent.
 
-- **Take the system's material, never paint your own.** A custom background behind a navigation surface sits on top of the glass and blocks it. No `windowBackgroundColor` slab under the sidebar, the tab rail, the Contents column, or a pinned header. The sidebar list hides its own scroll background so the column's material shows through. Section hue survives as a wash *over* that material, not as an opaque fill beside it.
-- **The pane fill runs edge to edge.** The document's wash ignores the safe area so it continues beneath the floating sidebar; the scrolling content stays inside the safe area, so nothing is clipped and nothing is hidden. Arkboard deliberately does not use a background extension effect: it mirrors and blurs whatever is adjacent, which is right for a hero image and wrong for a column of prose, where it reads as ghost text behind the sidebar.
+- **Take the system's material, never paint your own.** A custom background behind a navigation surface sits on top of the glass and blocks it. No `windowBackgroundColor` slab under the sidebar, the tab rail, the Contents column, a pinned header, or the project identity strip. The sidebar list hides its own scroll background so the column's material shows through. Section hue survives as a wash *over* that material, not as an opaque fill beside it.
+- **The two columns are different surfaces, on purpose.** The sidebar is frosted system material; the document is an opaque reading field with the section wash over it. Side by side they read as slightly different colours, and that difference is the whole navigation-versus-content split made visible. `StudioColor.documentField` exists for the document alone: `paneBackground` is the only caller, and painting it on a navigation surface is exactly the mistake the rule above forbids.
+- **The pane fill runs edge to edge.** The document's field and wash ignore the safe area so they continue beneath the floating sidebar; the scrolling content stays inside the safe area, so nothing is clipped and nothing is hidden. Arkboard deliberately does not use a background extension effect: it mirrors and blurs whatever is adjacent, which is right for a hero image and wrong for a column of prose, where it reads as ghost text behind the sidebar.
 - **Bars are bars.** A control strip pinned to the edge of a column is a safe-area bar, so the system insets the content and extends the scroll edge effect underneath it. It is not a floating widget carrying its own material.
 - **Filters are native capsules.** Anything that narrows what you are reading — the project tab rail, the document chip rail — is a system accessory-bar capsule with the section hue as its tint. The shape, the hit target, the hover, and the selected state are the system's. No hand-drawn pill with a hand-mixed fill; that is what makes an app look like it came from somewhere else.
 - **One radius family, concentric.** A surface nested inside another takes the container's radius less the inset between them, so the two curves share a centre. Radii are derived in `Metrics`, not typed in at each call site.
 - **One type scale, one face.** Every glyph and every label — sidebar, tab rail, toolbar, cards, empty states — takes a role from the `typography` environment. SF Symbols in chrome sit at body size and grow with the Settings text size. No `.font(.system(size:))` anywhere a human reads.
+- **A mark is a product icon, not type.** The one exception to the rule above. A project mark is a glyph on a tile, so its corner and its glyph are fractions of the tile off the icon grid (`Metrics.markCorner`, `Metrics.markGlyph`) rather than roles from the type scale. That is why the same `ProjectIcon` reads correctly at 22pt in the sidebar and at hero size on a Portfolio card. Nothing else in the app may size itself this way.
 - **Section headers are title case.** Lists and tables read `Underway`, not `UNDERWAY`.
 - **Controls size themselves.** No hard-coded control heights; the rails and bars grow with the type scale and with the platform's control metrics.
 
@@ -35,6 +37,8 @@ On macOS 14 and 15 every one of these resolves to the system material of that re
 
 The column is the system's glass and nothing else is painted behind it. The selected row is the one system highlight — not a custom capsule, not a coloured fill.
 
+**Pacing.** The navigation column is paced more loosely than the document. Every row takes `Metrics.sidebarRowY` of air above and below its content, and the hairline between the destinations and the pins takes the same, so the column reads as a short list of places rather than a dense table. Row height follows from that air plus the type scale; it is never a fixed number. There are no all-caps section headers anywhere in this column, and no section header at all above the pins.
+
 **Destinations**, in this order:
 
 1. **Portfolio** — a real row. Portfolio is a destination. Selecting it shows the Portfolio page in the document column.
@@ -44,7 +48,7 @@ A single hairline `Divider` sits between those two destinations and the pinned p
 
 **Pinned projects** — under that hairline, only projects whose `pinned` flag is true, sorted by `sortOrder` then name. Clicking a pinned row opens that project's document home (Design default). Unpinning removes the row from the sidebar; the project stays on the Portfolio page. Pinning puts it back. Existing projects start pinned so Arkboard does not disappear on first launch.
 
-Each project row: the project's persisted mark (22pt), the name in `body`, and the key in `mono` `caption` trailing, right-aligned and secondary. The mark is that app's brand — an SF Symbol on a 6pt-radius square washed with the project's colour, or an image from `product/icon.png` / `product/mark.png` / `product/logo.png` when one exists. It is never the same blue dot for every project. A context menu on the row offers `Pin` / `Unpin` and `Chat with Chief of Staff`.
+Each project row: the project's persisted mark (22pt), the name in `body`, and the key in `mono` trailing, right-aligned and tertiary so it never competes with the name. The mark is that app's brand — an SF Symbol on a colour-washed tile whose corner comes off the icon grid, or an image from `product/icon.png` / `product/mark.png` / `product/logo.png` when one exists. It is never the same blue dot for every project. A context menu on the row offers `Pin` / `Unpin` and `Chat with Chief of Staff`.
 
 Arkboard's own mark is `square.3.layers.3d` in indigo `#5A62D6`. Other projects get a distinct symbol (and a distinct colour when they would otherwise share indigo).
 
@@ -68,21 +72,28 @@ The toggle lives in the window toolbar, on toolbar glass: a `sidebar.trailing` c
 - Clicking a heading scrolls the current page to that subsection, landing it at the top, over 0.2s.
 - Shown when the current document tab has two or more headings. Otherwise a quiet `This page has no subsections.` in `callout` tertiary. Issues, Timeline, and Mockups without headings use that empty line.
 
-### Screen header
+### Titles
 
-Every studio screen opens the same way, fixed above the scroll:
+**There is no in-page screen header.** The window title bar carries the title and the subtitle, and that is the whole of it. A screen that printed its own name again — a section symbol, a large title, a tagline, a hue divider — said the same word twice, one above the other, and spent the top of every pane doing it. That band is void. Do not bring it back on any screen, and do not bring back a `ScreenHeader` view to render it.
 
-1. Section symbol at `heading` size in the section hue.
-2. Title in `title`.
-3. A one-line subtitle in `callout`, secondary.
-4. Optional trailing controls.
-5. A 1pt divider in the section hue at 22%.
+What replaces it, per screen:
 
-The pane below carries the section wash. Everything under the header lives in exactly one vertical scroll.
+| Screen | Window title | What starts the pane |
+| --- | --- | --- |
+| Portfolio | `Portfolio` | the cards |
+| Timeline | `Timeline` | the chart, with its own `Week` / `Month` / `Quarter` control |
+| Onboarding | `Onboarding` | the document |
+| A project | the project name | the identity strip, then the tab rail |
+
+Page actions belong in the window toolbar on toolbar glass — `New Project` on Portfolio, the Contents toggle everywhere. A screen-level filter or scale control may sit as a quiet native control at the top of its own content, next to the thing it filters. Neither is a headline.
+
+The pane below carries the section wash, and everything in it lives in exactly one vertical scroll.
 
 ## Monitor
 
-Not a sidebar row. The engine — open questions parsed from Decisions, capabilities that are not working — still exists for agents and for the project page. There is no studio Monitor destination in the human chrome.
+**Engine, not a screen.** Monitor is not a sidebar row and has no destination, so nothing below renders as a studio page today. The engine — open questions parsed from Decisions, capabilities that are not working — is real and stays, because agents read it and the project page uses it. The sections that follow describe what that engine computes and how those cards look *if* they are ever placed, not a screen a human can currently open.
+
+Where its output surfaces today: open questions become the gold chips above the Decisions tab, and studio health is the dot in the sidebar footer and the Agents section of Settings. Do not read this section as a brief to add a Monitor row back to the sidebar.
 
 ### Composer
 
@@ -156,9 +167,9 @@ Floating at the bottom of the window, `regularMaterial`, radius 14, the one shad
 
 ## Activity
 
-Subtitle: `Everyone talking — agents and you.`
+Not a sidebar row either. Like Monitor, this describes the engine's reading view rather than a screen a human can currently open.
 
-Fixed header with a segmented filter: `People & agents` (default), `Mentions`, `All`.
+A segmented filter sits at the top of the content — `People & agents` (default), `Mentions`, `All` — as a plain native control, not under a title band.
 
 One scroll, grouped by day with pinned day headers reading `Today`, `Yesterday`, or `Thursday, 14 August`.
 
@@ -171,32 +182,33 @@ Activity is read-only. The composer lives on the project home, on purpose — th
 
 ## Portfolio
 
-Subtitle: `Every project at arm's length.`
+The studio view of every app in one place. The window title says Portfolio, so the pane opens straight onto the cards — no symbol, no repeated title, no tagline.
 
-This is the studio view of every app in one place. Cards only — not a table, not a markdown essay, no milestone block, and no studio-wide spine. The document column uses the same left-aligned, pane-width measure as the project home. No 720 island. No 1000 grid. Contents is hidden — there is no document.
+Cards only — not a table, not a markdown essay, no milestone block, and no studio-wide spine. The document column uses the same left-aligned, pane-width measure as the project home. No 720 island. No 1000 grid. Contents is hidden — there is no document.
 
-`New Project` is a toolbar item on toolbar glass, a `plus` symbol with the help label `New Project`, contributed by this page. It is not a hand-styled button inside the screen header, and it is still not in the sidebar.
+`New Project` is a toolbar item on toolbar glass, a `plus` symbol with the help label `New Project`, contributed by this page. It is not a button inside the content, and it is still not in the sidebar.
 
 ### Project cards
 
-A grid, cards between 300 and 460pt wide, 12pt gaps. One card per project, pinned or not.
+A grid, cards between 320 and 480pt wide, 12pt gaps. One card per project, pinned or not. Cards are content, so they are a solid surface with one hairline stroke and concentric corners — never glass.
 
-Each card uses the same `typography` environment as the project home, the sidebar, and documents — one scale, one face. Name, summary, paths, and pills take roles from that environment. No one-off `.font(.system)` and no custom faces on the card. Settings text size and face flow through.
+**The mark is the hero.** Each card leads with the project's brand mark at `Metrics.markHero`, a large rounded square at the top-left: the image from `product/icon.png` / `mark.png` / `logo.png` when the project has one, otherwise its SF Symbol on the project's colour. This is the card. It is not a 22pt chip beside the name, which is what made the old tile read as a row in a table rather than a thing you want to open.
 
-Cards are library tiles: solid content surface, one hairline stroke, concentric corners, and nothing else. The chrome is quiet so the type does the work. The mark's corner radius is derived from the card's, not typed in.
+Everything else is quieter than the mark, in this order:
 
-- The project mark, name in `heading`, key in `mono` `caption`.
-- A pin control. Filled pin when pinned. Clicking the pin toggles pin and does not open the project.
-- One-line summary — the first sentence of that project's `product/README.md`, or its stored `summary` if the documents have not loaded. If the lead starts with the project name, strip that prefix so the card does not read `Arkboard Arkboard is…`. This is the only human place for that copy.
-- **Local** checkout path when `repoPath` is set, as `local · …`.
-- **GitHub** remote when `githubRepo` is set, as `github · owner/name`.
-- **Documents** — four small pills labelled `Design`, `Architecture`, `Mockups`, `Decisions`, filled in that section's hue when the document exists and hollow slate when it does not. Load from the same document bundle as the project home (local `product/` preferred when both sources exist).
+- The name in `heading` and the key in `mono`, tertiary, on one line under the mark.
+- A pin control at the end of that line. Filled pin when pinned. Clicking the pin toggles pin and does not open the project.
+- One-line summary in `callout`, secondary, clamped to two lines — the first sentence of that project's `product/README.md`, or its stored `summary` if the documents have not loaded. If the lead starts with the project name, strip that prefix so the card does not read `Arkboard Arkboard is…`. This is the only human place for that copy.
+- A footer that recedes: the **local** checkout path as `local · …` and the **GitHub** remote as `github · owner/name`, both `mono` and tertiary, one line each, middle-truncated.
+- **Documents** — one caption word each for `Design`, `Architecture`, `Mockups`, `Decisions`, in that section's hue when the document exists and dimmed tertiary when it does not. Load from the same document bundle as the project home (local `product/` preferred when both sources exist). No capsule fill: on a card led by a large mark, four filled chips become the loudest thing on the screen, which is backwards.
+
+Each card uses the same `typography` environment as the project home, the sidebar, and documents — one scale, one face. No one-off `.font(.system)` and no custom faces. Settings text size and face flow through, and the mark keeps its own icon-grid proportions.
 
 Clicking the card (not the pin) opens that project's home. This page is the only place a human creates a project. A `New Project` control opens the existing sheet. After create, the project is pinned and selected.
 
 ## Timeline
 
-Subtitle: `Every project on one timeline.`
+The window title says Timeline. The pane opens on the chart itself — no repeated title, no tagline — with the scale control as the only chrome above the rows.
 
 Timeline is a destination, and it is a Gantt: a project plan, not a month grid of days. Rows are the studio's broader projects; each project's milestones sit underneath it. Bars run left to right across one shared time axis, and dependency links join a milestone to the ones it waits on. This is the studio rollup — the view that answers "what is every project doing between now and Christmas", which a grid of dated cells cannot.
 
@@ -233,22 +245,21 @@ Clicking a project row or its bar opens that project's Timeline tab. Same left-a
 
 ## Onboarding
 
-Subtitle: `How this studio works.`
-
-Opened from the footer `sparkles` icon, not from Settings. The page renders `product/onboarding.md` as rich markdown. Thin header only — no article band, no composer. Contents lists that document's headings. This is the operating manual, not a settings duplicate.
+Opened from the footer `sparkles` icon, not from Settings. The window title says Onboarding, so the document starts directly under the toolbar — no title band, no tagline, no article band, no composer. The page renders `product/onboarding.md` as rich markdown, and Contents lists that document's headings. This is the operating manual, not a settings duplicate.
 
 ## Project home
 
 The most important screen in the app, and the one that must not look like a tracker.
 
-Everything is inside **one** vertical scroll: the thin header scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab. The thin header sits on plain `windowBackgroundColor` so it reads as chrome rather than as part of the section. The outline is the right Contents overlay, not a bar in this scroll. Header, tab rail, markdown, and project-home empty states share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar is hidden, that measure grows with the pane. Contents covers the document and does not change the measure — not a 720-centred island, and not a 1000 grid.
+Everything is inside **one** vertical scroll: the identity strip scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab over the document field. The outline is the right Contents overlay, not a bar in this scroll. Strip, tab rail, markdown, and project-home empty states share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar is hidden, that measure grows with the pane. Contents covers the document and does not change the measure — not a 720-centred island, and not a 1000 grid.
 
-### Thin header
+### Identity strip
 
-- The project mark at 28pt, the name in `display`, the key in a `mono` `caption` capsule.
-- Trailing: the document source in `mono` `caption` — `local · product/` or `github · diliprt/arkboard` — a `Refresh` button with `arrow.clockwise`, and a note icon (`bubble.left`) that opens the compact composer sheet. Both are borderless system buttons with SF Symbols at body size and a help label; neither draws its own bezel.
-- The header takes no background of its own. It is content at the top of the scroll and scrolls away like content.
-- No README lead. No article summary. No `More documents` chip row. Those documents stay reachable via tabs. The long description lives on Portfolio.
+The window title bar already says the project's name, so this strip never repeats it. It is a thin line of identity and actions, not a title band, and it paints no background of its own — no `windowBackgroundColor` slab, which Materials forbids. It is content at the top of the scroll and it scrolls away like content.
+
+- Leading: the project mark at `Metrics.markHeader` and the key in a `mono` capsule.
+- Trailing: the document source in `mono`, tertiary — `local · product/` or `github · diliprt/arkboard` — a `Refresh` button with `arrow.clockwise`, and a note icon (`bubble.left`) that opens the compact composer sheet. Both are borderless system buttons with SF Symbols at body size and a help label; neither draws its own bezel.
+- No name in `display`. No README lead. No article summary. No `More documents` chip row. Those documents stay reachable via tabs. The long description lives on Portfolio.
 
 ### Tab bar
 
@@ -397,9 +408,9 @@ Sending persists via existing Activity as kind `handoff`, targeted at `Product` 
 
 The UI is done when all of these are true on a clean machine.
 
-1. Launching from `./scripts/run.sh` restores the last sidebar row. The left sidebar is Portfolio, then Timeline, a hairline, then pinned projects — no Origin Ark row — and does not contain Monitor or Issues. Selecting a pinned project opens the document home (thin header, six tabs, Design selected, markdown preview), not empty white.
+1. Launching from `./scripts/run.sh` restores the last sidebar row. The left sidebar is Portfolio, then Timeline, a hairline, then pinned projects — no Origin Ark row — and does not contain Monitor or Issues. Selecting a pinned project opens the document home (identity strip, six tabs, Design selected, markdown preview), not empty white.
 2. The Arkboard row uses `square.3.layers.3d` in indigo, not a generic blue dot. A second project, if present, uses a different symbol.
-3. The project home shows a thin header (mark, name, key, source, refresh, note icon), six tabs, Design selected, and no article summary.
+3. The project home shows an identity strip (mark, key, source, refresh, note icon), six tabs, Design selected, and no article summary. The project's name appears once, in the window title bar, and nowhere else on the screen.
 4. The Design, Architecture, and Decisions tabs each render this design pack as headings, prose, tables, lists, code blocks, and quotes. No `#` characters are visible as text.
 5. The right column is labelled `Contents` and lists this page's headings. Clicking a heading scrolls the same document scroll to that subsection. There is no `On this page` chip rail.
 6. Scrolling the project home moves the overview off screen and pins the tab bar; only one scrollbar is ever visible over the document. Contents overlays the document; it is not a split column that resizes the page.
@@ -412,3 +423,5 @@ The UI is done when all of these are true on a clean machine.
 13. No screen anywhere offers a status, priority, or assignee control, and no screen offers a way to create an issue.
 14. An issue created through the API appears in the project's Issues tab without touching the app, and a note posted through the API is stored as Activity the same way.
 15. Every empty state matches the copy in the table above.
+16. No screen prints its own name in the pane. Portfolio opens on cards, Timeline on the chart, Onboarding on the document, a project on its identity strip. The window title bar is the only place a screen is named, and no screen carries a tagline under it.
+17. A Portfolio card leads with the project's mark at hero size. The name, summary, paths, and document words are all quieter than that mark, and the sidebar beside the cards reads as a visibly different surface from the pane.

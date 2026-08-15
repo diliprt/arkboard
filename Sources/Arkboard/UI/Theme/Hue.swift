@@ -134,7 +134,11 @@ enum StudioSection: String, CaseIterable, Sendable {
 }
 
 enum StudioColor {
-    static var window: Color { Color(nsColor: .windowBackgroundColor) }
+    /// The document's opaque reading field. Navigation is material and content
+    /// is solid, so the two columns read as different surfaces. Only
+    /// `paneBackground` may use this — painting it on a navigation surface is
+    /// exactly what blocks the glass.
+    static var documentField: Color { Color(nsColor: .windowBackgroundColor) }
     static var card: Color { Color(nsColor: .controlBackgroundColor) }
     static var editor: Color { Color(nsColor: .textBackgroundColor) }
     static var hairline: Color { Color(nsColor: .separatorColor) }

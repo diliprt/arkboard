@@ -8,19 +8,16 @@ struct ActivityView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScreenHeader(
-                section: .activity,
-                subtitle: "Everyone talking — agents and you.",
-                trailing: AnyView(
-                    Picker("Filter", selection: $filter) {
-                        Text("People & agents").tag(0)
-                        Text("Mentions").tag(1)
-                        Text("All").tag(2)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 360)
-                )
-            )
+            Picker("Filter", selection: $filter) {
+                Text("People & agents").tag(0)
+                Text("Mentions").tag(1)
+                Text("All").tag(2)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(maxWidth: 360, alignment: .leading)
+            .padding(.horizontal, Metrics.paneX)
+            .padding(.vertical, 10)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12, pinnedViews: .sectionHeaders) {
                     if visible.isEmpty {
@@ -127,9 +124,9 @@ struct ActivityView: View {
 
     private func systemRow(_ row: Activity) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "circle.fill")
-                .font(.system(size: 6))
-                .foregroundStyle(StudioColor.tertiary)
+            Circle()
+                .fill(StudioColor.tertiary)
+                .frame(width: 6, height: 6)
             Text(row.body)
                 .font(type.callout)
                 .foregroundStyle(StudioColor.secondary)
