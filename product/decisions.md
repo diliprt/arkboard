@@ -1,25 +1,119 @@
 # Decisions & questions
 
-Locked calls and the questions still open. This file is the source of truth; notes in the app are extras.
+What is settled, and what is still open. This file is the source of truth for both. A note typed into the app is a sticky; this is the record.
 
-## Locked — Product docs live in the repo
+The headings here are load-bearing. Arkboard parses this document to build Monitor's open-questions lane, and the rule is simple: a heading starting with **Locked** or **Decided** is settled, and a heading starting with **Open** or ending in a question mark is not. Keep the convention when you add to this file, and Monitor stays honest for free.
 
-Design, architecture, mockups, and decisions are files under `product/`. The app surfaces them. It does not duplicate them in SQLite.
+## Locked — `product/` in Git is the source of truth
 
-> If `product/` is missing, show a calm empty state. A director pass will write it. Do not prompt anyone to `create_requirement`.
+Design, architecture, mockups, and decisions are files in the repository. Arkboard reads them and renders them. It does not copy them into SQLite, does not cache their text in a table, and offers no way to edit them.
 
-## Locked — Human UI has no status pickers
+The database holds what documents cannot hold: what has happened. Issues, comments, activity, milestones, capability health. That is the entire split, and every architectural question resolves against it.
 
-Status, priority, and assignee stay in the engine for agents. The human chrome does not grow Linear-style pickers.
+> A missing `product/` folder is a calm empty state, not a prompt. "A director pass will write this." No wizard, no button, no MCP tool name.
+
+## Locked — The human UI has no status, priority, or assignee
+
+Riyu does not groom a backlog and does not assign work. So there is no status dropdown, no priority flag, no assignee picker, and no board to drag cards across. Those fields exist in the database because agents need them; they never surface as controls.
+
+Humans see three groups — Underway, Queued, Done — and the group is the only status indication on screen. No pills on rows.
+
+## Locked — Saying something is the intake
+
+There is no New Issue button and no `⌘⇧N`. If Riyu wants something to happen, they type it into the Monitor composer, it lands in Activity attributed to them, and an agent files the issue.
+
+This is the product thesis expressed as a missing button. Adding a quick-add form would quietly turn Arkboard back into a tracker with a reading room bolted on.
+
+## Locked — Archive with undo is the one exception
+
+Humans can archive an issue, from the row's context menu or the detail toolbar, with a ten-second undo toast. Archiving is reading hygiene — getting a stale row out of your view — not work management. It is the only mutation a human can make to an issue besides commenting.
 
 ## Locked — One scroll per pane
 
-Nested `List` inside `ScrollView` is out. Long documents get an outline that jumps in the same scroll.
+Fixed chrome above, exactly one vertical scroll below, and never a `List` inside a `ScrollView`. Rows are a `LazyVStack`. Sticky headers come from pinned section headers in that same scroll. Horizontal scrolling within it is fine, because the axes do not fight.
+
+The project home is the proof: overview, tab bar, and document are one scroll, the overview scrolls away, and the tab bar and outline pin. It reads like a repository page, which is the right model for a project that is mostly documents.
+
+## Locked — The outline is a pinned bar, not a side rail
+
+Long documents get an `On this page` menu plus a row of `##` chips, pinned under the tab bar. The previous build used a left rail that was its own scroll view, which meant two scrollbars over one document and a narrower reading column. The bar keeps the prose column wide, works for a document with two headings or two hundred, and jumps within the same scroll.
+
+## Locked — Design is the default tab
+
+Opening a project lands on Design, not on Overview and not on Issues. A project is a design object first. The overview is always visible above the tabs anyway, so making it a tab would show it twice.
+
+## Locked — Requirements become capabilities, and stay thin
+
+The previous build had a `requirement` table that grew a markdown body, then a comment thread, then took over Monitor — a second document store by accident, which is exactly what this app must not have.
+
+A capability is a title, a one-line note capped at 280 characters, and two independent signals: `state` for is-it-built, `health` for does-it-work. It exists to answer Monitor's second question and nothing else. When a capability needs explaining, the explanation goes in `product/`, and the capability points at that heading with `docPath` and `docAnchor`.
+
+## Locked — GitHub issue sync is cut
+
+Four MCP tools and three issue columns existed to mirror issues into GitHub. Nobody needs two trackers. GitHub now does exactly one job: serving a remote repository's `product/` folder when there is no local checkout.
+
+## Locked — Port 7420, no fallback
+
+Agents hard-code the address. If 7420 is taken, the server stays down and says so on Monitor and in Settings, with the reason. Silently moving to another port is worse than being offline, because everything keeps half-working.
+
+## Locked — 13pt body, eight real faces, applied from the root
+
+Default body is 13pt. Settings offers 12, 14, and 16, and eight faces that ship with macOS. Every piece of text derives from the body size through one type scale — no hard-coded `.title2` anywhere. Half the previous build's chrome ignored the setting, which made the setting feel broken even though it worked.
+
+## Locked — Ten hues, one ramp
+
+Sections claim a hue, states borrow three, agent avatars hash into the same set. Every colour in the app comes from one table with a light and a dark value. Colour appears as washes, chips, dots, and rules — never as body text.
+
+## Locked — Seed one real project and nothing fictional
+
+First run creates the workspace and the Arkboard project pointed at this repository. No demo project, no invented issues, no scripted three-bot conversation. The previous build seeded a fake dialogue and the first task on opening it was working out which rows were true.
+
+## Locked — Clean slate, not a refactor
+
+The rebuild deletes the old `Sources/`, `mcp/`, and project file and writes a new app against this pack. Old views are not wrapped, adapted, or kept "just for reference". The old tree is a graveyard; the git history is the reference.
+
+## Locked — The design pack is the render test corpus
+
+These six documents use every block the renderer must support: headings to four levels, prose, bullet and ordered lists, nested lists, tables, fenced code with a language, inline code, block quotes, horizontal rules, and relative links. If a document in this folder reads badly inside Arkboard, the renderer is wrong, not the document.
 
 ## Open — How should mockups be reviewed?
 
-Should a mockup page be a gallery of images, a written walkthrough, or both? Drop files in `product/mockups/` and we will learn by using it.
+The Mockups tab currently specifies an image grid with a viewer sheet and any notes rendered underneath. Whether review actually wants a gallery, an ordered walkthrough with commentary between frames, or side-by-side comparison is unknown until there are real frames in the folder.
 
-## Open — When does a requirement graduate off Monitor?
+> Until it is answered: build the grid and the viewer as specified in [ui-spec.md](ui-spec.md). It is the cheapest thing that is useful, and it does not block a walkthrough later.
 
-Monitor shows requirements that are not working. Once something is working, does it disappear, or stay as a quiet check?
+## Open — When does a capability leave Monitor?
+
+Monitor shows capabilities whose health is `not_working`. Once an agent flips one to `working`, it vanishes. That is clean, but it means Monitor never shows you the things that were recently broken and are now fine, which is exactly what you want to know the morning after.
+
+> Until it is answered: broken things only. If it turns out we want a memory, the field to use is `checkedAt` — recently healed capabilities sorted by it.
+
+## Open — Should Arkboard watch `product/` for changes, or is Refresh enough?
+
+Reloading on app activation plus a Refresh button covers the common case: edit in an editor, switch to Arkboard, see the change. A real file watcher would make it live, at the cost of an FSEvents stream per project and a class of bugs where the app reads a half-written file.
+
+> Until it is answered: activation plus Refresh, both required. The watcher is optional and goes in last, if at all.
+
+## Open — Who writes capabilities, and how do they stay in step with the documents?
+
+Capabilities are written by agents through the API, and they point at headings in `product/`. Nothing keeps those pointers valid when a heading is renamed. It may not matter at this size, or it may rot within a month.
+
+> Until it is answered: a capability whose `docPath` or `docAnchor` no longer resolves still renders, just without the jump. Never hide a capability because its link went stale.
+
+## Open — Does the studio Issues screen earn its place in the sidebar?
+
+Every project already has an Issues tab, and Monitor already surfaces what is broken. The studio-wide Issues screen may be the one place in the app that still smells like a tracker.
+
+> Until it is answered: build it as specified. It is the only cross-project view of work, and the three-column layout is where reading a full issue thread actually happens.
+
+## Open — What should a project with no repository on this machine do?
+
+A project can have a `githubRepo` and no local checkout, in which case documents are fetched with the `gh` CLI — which may be missing, unauthenticated, or offline. The failure is currently a message in the project header and a line in Monitor's health strip.
+
+> Until it is answered: fail loudly and specifically. Never show the "a director pass will write this" empty state when the truth is that the documents could not be read. Those two states must never be confused.
+
+## Open — Is the root `README.md` part of the rebuild?
+
+The repository root README still describes the previous build as a "local Linear-style issue tracker" with statuses, priorities, and GitHub sync. It contradicts everything in this folder and it is the first thing anyone opening the repository reads.
+
+> Until it is answered: the rebuild replaces it with a short README that describes the app in this pack and points here for detail. Nothing in the old one is worth keeping.
