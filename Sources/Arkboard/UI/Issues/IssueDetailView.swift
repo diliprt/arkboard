@@ -82,7 +82,7 @@ struct IssueDetailColumn: View {
                     .keyboardShortcut(.return, modifiers: .command)
             }
             .padding(12)
-            .background(StudioColor.card)
+            .background(.bar)
         }
     }
 

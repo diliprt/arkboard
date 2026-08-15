@@ -1,5 +1,8 @@
 import SwiftUI
 
+/// The navigation column. It is a plain `.sidebar` list and nothing else: the
+/// glass, the row insets, and the selection highlight all come from the system.
+/// Anything painted behind this list blocks that glass, so nothing is.
 struct SidebarView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.colorScheme) private var scheme
@@ -45,43 +48,47 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
         .navigationSplitViewColumnWidth(min: Metrics.sidebarMin, ideal: Metrics.sidebarIdeal, max: Metrics.sidebarMax)
-        .safeAreaInset(edge: .bottom) {
-            HStack(spacing: 8) {
-                Button {
-                    store.sidebarSelection = .onboarding
-                } label: {
-                    Image(systemName: "sparkles")
-                        .font(type.body)
-                        .foregroundStyle(
-                            store.sidebarSelection == .onboarding
-                                ? Hue.indigo.color(for: scheme)
-                                : StudioColor.secondary
-                        )
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Onboarding")
-                .contextMenu { ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText()) }
-                Button {
-                    NotificationCenter.default.post(name: .arkboardOpenSettings, object: nil)
-                } label: {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill((store.serverState.isListening ? Hue.moss : Hue.crimson).color(for: scheme))
-                            .frame(width: 7, height: 7)
-                        Text(store.serverState.isListening ? "Agents · :7420" : "Agents offline")
-                            .font(type.caption)
-                            .foregroundStyle(StudioColor.secondary)
-                        Spacer()
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+        .columnBottomBar { footer }
+    }
+
+    /// Onboarding and the agent server sit on the same bar as the list, not in a
+    /// widget with its own material.
+    private var footer: some View {
+        HStack(spacing: 8) {
+            Button {
+                store.sidebarSelection = .onboarding
+            } label: {
+                SwiftUI.Label("Onboarding", systemImage: "sparkles")
+                    .labelStyle(.iconOnly)
+                    .font(type.body)
+                    .foregroundStyle(
+                        store.sidebarSelection == .onboarding
+                            ? Hue.indigo.color(for: scheme)
+                            : StudioColor.secondary
+                    )
             }
-            .padding(12)
-            .background(.bar)
+            .buttonStyle(.borderless)
+            .help("Onboarding")
+            .contextMenu { ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText()) }
+            Button {
+                NotificationCenter.default.post(name: .arkboardOpenSettings, object: nil)
+            } label: {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill((store.serverState.isListening ? Hue.moss : Hue.crimson).color(for: scheme))
+                        .frame(width: 7, height: 7)
+                    Text(store.serverState.isListening ? "Agents · :7420" : "Agents offline")
+                        .font(type.caption)
+                        .foregroundStyle(StudioColor.secondary)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 }

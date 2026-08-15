@@ -155,23 +155,26 @@ struct ProjectHomeView: View {
                 Button {
                     Task { await store.refreshDocuments(projectId: project.id) }
                 } label: {
-                    Image(systemName: "arrow.clockwise")
+                    SwiftUI.Label("Refresh", systemImage: "arrow.clockwise")
+                        .labelStyle(.iconOnly)
+                        .font(type.body)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .help("Refresh")
                 Button {
                     store.goToComposer()
                 } label: {
-                    Image(systemName: "bubble.left")
+                    SwiftUI.Label("Note", systemImage: "bubble.left")
+                        .labelStyle(.iconOnly)
+                        .font(type.body)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .help("Note")
                 // RootView presents ProjectNoteSheet for this icon and for ⌘N.
             }
         }
         .padding(.horizontal, Metrics.paneX)
         .padding(.vertical, Metrics.paneY)
-        .background(StudioColor.window)
     }
 
     private var sourceLabel: String {
@@ -181,61 +184,62 @@ struct ProjectHomeView: View {
         return "local · product/"
     }
 
+    /// The tab rail is navigation, so it is a row of native accessory-bar
+    /// capsules on the glass layer — one system selected state per tab, no
+    /// hand-drawn pill. The section wash tints that glass and nothing opaque
+    /// sits behind it.
     private var tabBar: some View {
-        GeometryReader { geo in
-            let compact = geo.size.width < Metrics.tabCompactWidth
-            ScrollViewReader { tabProxy in
-                FadingHScroll {
-                    HStack(spacing: 6) {
-                        ForEach(ProjectHomeTab.allCases) { item in
-                            Button {
-                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
-                                    tab = item
-                                    selectedPath = nil
-                                }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    if tab == item || !compact {
-                                        Image(systemName: item.section.symbol)
-                                    }
-                                    Text(item.section.title)
-                                }
-                                .font(type.caption)
-                                .foregroundStyle(tab == item ? item.section.hue.color(for: scheme) : StudioColor.secondary)
-                                .padding(.horizontal, Metrics.tabPillX)
-                                .padding(.vertical, 6)
-                                .background(tab == item ? StudioColor.selectedTab(item.section.hue, scheme: scheme) : Color.clear, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .id(item.id)
+        ScrollViewReader { tabProxy in
+            FadingHScroll {
+                HStack(spacing: 6) {
+                    ForEach(ProjectHomeTab.allCases) { item in
+                        Toggle(isOn: selection(for: item)) {
+                            SwiftUI.Label(item.section.title, systemImage: item.section.symbol)
+                                .font(type.body)
                         }
-                    }
-                    .padding(.horizontal, Metrics.paneX)
-                    .padding(.vertical, 8)
-                }
-                .onChange(of: tab) { _, newTab in
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
-                        tabProxy.scrollTo(newTab.id, anchor: .center)
+                        .filterCapsule()
+                        .tint(item.section.hue.color(for: scheme))
+                        .help(item.section.title)
+                        .id(item.id)
                     }
                 }
-                .onAppear {
-                    tabProxy.scrollTo(tab.id, anchor: .center)
+                .padding(.horizontal, Metrics.paneX)
+                .padding(.vertical, 8)
+            }
+            .onChange(of: tab) { _, newTab in
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                    tabProxy.scrollTo(newTab.id, anchor: .center)
                 }
             }
-        }
-        .frame(height: Metrics.tabBarHeight)
-        .background {
-            ZStack {
-                StudioColor.window
-                StudioColor.wash(tab.section.hue, scheme: scheme)
+            .onAppear {
+                tabProxy.scrollTo(tab.id, anchor: .center)
             }
         }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(StudioColor.hairline)
-                .frame(height: 1)
-        }
+        .navigationBarSurface(tint: StudioColor.wash(tab.section.hue, scheme: scheme))
         .chiefOfStaffContextMenu()
+    }
+
+    private func selection(for item: ProjectHomeTab) -> Binding<Bool> {
+        Binding(
+            get: { tab == item },
+            set: { isSelected in
+                guard isSelected else { return }
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                    tab = item
+                    selectedPath = nil
+                }
+            }
+        )
+    }
+
+    private func selection(forDocumentAt path: String) -> Binding<Bool> {
+        Binding(
+            get: { (selectedPath ?? currentDocument?.path) == path },
+            set: { isSelected in
+                guard isSelected else { return }
+                selectedPath = path
+            }
+        )
     }
 
     @ViewBuilder
@@ -269,15 +273,12 @@ struct ProjectHomeView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     if docs.count > 1 {
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack {
+                            HStack(spacing: 6) {
                                 ForEach(docs) { doc in
-                                    Button(doc.title) { selectedPath = doc.path }
-                                        .buttonStyle(.plain)
-                                        .font(type.caption)
-                                        .foregroundStyle((selectedPath ?? currentDocument?.path) == doc.path ? tab.section.hue.color(for: scheme) : StudioColor.secondary)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 4)
-                                        .background(StudioColor.chipFill(tab.section.hue, scheme: scheme).opacity((selectedPath ?? currentDocument?.path) == doc.path ? 1 : 0), in: Capsule())
+                                    Toggle(doc.title, isOn: selection(forDocumentAt: doc.path))
+                                        .filterCapsule()
+                                        .tint(tab.section.hue.color(for: scheme))
+                                        .font(type.body)
                                 }
                             }
                         }
@@ -394,7 +395,7 @@ struct ProjectHomeView: View {
                 ForEach([HumanIssueGroup.underway, .queued, .done], id: \.self) { group in
                     let rows = grouped[group, default: []]
                     if !rows.isEmpty {
-                        Text(group.rawValue.uppercased())
+                        Text(group.rawValue)
                             .font(type.caption)
                             .foregroundStyle(Hue.teal.color(for: scheme))
                         ForEach(rows) { issue in

@@ -76,16 +76,17 @@ enum Metrics {
     static let issuesMax: CGFloat = 620
     static let windowMin = CGSize(width: 1080, height: 700)
     static let windowDefault = CGSize(width: 1320, height: 860)
-    static let radiusChip: CGFloat = 6
-    static let radiusCard: CGFloat = 10
+    // One radius family. A surface nested inside another takes the container's
+    // radius less the inset between them, so the two curves share a centre.
     static let radiusSheet: CGFloat = 14
+    static let radiusCard: CGFloat = 10
+    static let radiusChip: CGFloat = Concentric.inner(of: radiusCard, inset: chipY)
+    static let radiusMark: CGFloat = Concentric.inner(of: radiusCard, inset: 4)
     static let proseMax: CGFloat = 720
     static let gridMax: CGFloat = 1000
     static let markerColumn: CGFloat = 18
     static let tabFade: CGFloat = 24
     static let tabPillX: CGFloat = 10
-    static let tabCompactWidth: CGFloat = 700
-    static let tabBarHeight: CGFloat = 44
     static let emptyPaneMin: CGFloat = 280
 }
 

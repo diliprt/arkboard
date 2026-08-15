@@ -87,7 +87,7 @@ struct IssueListColumn: View {
                 }
             } header: {
                 HStack {
-                    Text(group.rawValue.uppercased())
+                    Text(group.rawValue)
                         .font(type.caption)
                         .foregroundStyle(Hue.teal.color(for: scheme))
                     Text("\(rows.count)")
@@ -97,7 +97,7 @@ struct IssueListColumn: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(StudioColor.window)
+                .background(.bar)
             }
         }
     }

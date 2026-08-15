@@ -35,7 +35,7 @@ struct ActivityView: View {
                                     .foregroundStyle(StudioColor.secondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.vertical, 6)
-                                    .background(StudioColor.wash(.ember, scheme: scheme))
+                                    .background(.bar)
                             }
                         }
                     }

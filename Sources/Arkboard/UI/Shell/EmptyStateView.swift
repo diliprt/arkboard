@@ -19,7 +19,7 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(alignment: layout == .poster ? .center : .leading, spacing: 12) {
             Image(systemName: section.symbol)
-                .font(.system(size: 28, weight: .medium))
+                .font(type.face(size: type.bodySize + 15, weight: .medium))
                 .foregroundStyle(section.hue.color(for: scheme).opacity(0.40))
             Text(title)
                 .font(type.heading)

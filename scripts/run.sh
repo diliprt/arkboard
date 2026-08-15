@@ -9,6 +9,8 @@ export ARKBOARD_REPO_ROOT="$ROOT"
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "Arkboard is a native macOS app."
   echo "Run ./scripts/run.sh on Riyu's Mac (Xcode 15+, XcodeGen)."
+  echo "Build with Xcode 26 on Tahoe to see the Liquid Glass navigation layer;"
+  echo "earlier toolchains fall back to system materials."
   echo "On Linux, verify the design pack and sources with:"
   echo "  python3 scripts/spec_check.py"
   exit 1

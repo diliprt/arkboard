@@ -54,6 +54,16 @@ No README article and no large composer sit above the tabs. The long description
 
 Right-click anywhere — sidebar, document, tabs, calendar, cards, onboarding, empty states — offers `Chat with Chief of Staff`. That item opens the compact note sheet with the current highlight prefilled and a quiet friendly page line. Sending writes a `handoff` Activity to `Product` through `post_note`. The Activity body is the typed note plus that friendly line — not a destination/project/ISO dump. The board is the inbox. Do not open an external chat.
 
+## Locked — Apple language, not Apple content
+
+Arkboard borrows how Apple's design team builds a Mac app. It borrows nothing else. No Apple Music screens, no playlists, no album art, no lifted copy, no branding. What we take is the grammar: system materials, system controls, one type scale, concentric corners, content edge to edge with navigation floating above it.
+
+The dividing line is Liquid Glass, and it is the whole rule. Glass is the **navigation** layer — sidebar, window toolbar, project tab rail, Contents inspector. The document is the **content** layer and stays solid, because prose on glass cannot be read. If a surface is asking "where am I / show me something else", it is glass; if it is the thing you came to read, it is not.
+
+The practical consequence is subtraction, not addition. Custom backgrounds behind navigation surfaces sit on top of the system material and block it, so the fix for a sidebar that will not look like a sidebar is to delete the paint, not to mix a better colour. Filters are native accessory-bar capsules with the section hue as their tint, not hand-drawn pills; the shape, hover, and selected state come from the system and therefore match Finder and Mail for free.
+
+> Deployment stays at macOS 14. Every Tahoe API sits behind an availability check with a system-material fallback, so the app has two appearances — this release's materials and Liquid Glass — and never a third one of our own invention.
+
 ## Locked — Onboarding, not Setup
 
 The footer `sparkles` icon opens `product/onboarding.md`. It is a handbook, not Settings and not a gear labelled Setup.
