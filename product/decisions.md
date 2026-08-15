@@ -68,6 +68,32 @@ The practical consequence is subtraction, not addition. Custom backgrounds behin
 
 > Deployment stays at macOS 14. Every Tahoe API sits behind an availability check with a system-material fallback, so the app has two appearances — this release's materials and Liquid Glass — and never a third one of our own invention.
 
+This lock still holds, and the three that follow are what it means in practice.
+
+## Locked — The window title is the only title
+
+The title bar carries the screen's name and the workspace subtitle. Nothing in the pane below repeats either one.
+
+Every screen used to open with the same band: a section symbol, a large title, a one-line tagline, a hue rule. The result was the word "Arkboard" twice on top of itself, and the top of every pane spent on saying where you already knew you were. That band is void, and so is the `ScreenHeader` view that drew it. Portfolio opens on cards, Timeline on the chart, Onboarding on the document, and a project on a compact identity strip that carries the mark, the key, the source, and the two actions — never the name again.
+
+Page actions go in the window toolbar, on toolbar glass. A filter or a scale control may sit as a quiet native control at the top of the content it governs, beside the thing it changes. Neither is a headline, and neither earns a band.
+
+> If a screen ever needs a caption to explain what it is, the screen is wrong. Fix the screen.
+
+## Locked — Portfolio cards are large, and the mark is the hero
+
+A Portfolio card leads with the project's brand mark at hero size — the image from `product/icon.png` / `mark.png` / `logo.png`, or its SF Symbol on the project's colour. Name, one-line summary, paths, and the four document words all sit under it and all stay quieter than it.
+
+The old card was a compact row: a 22pt mark chip, the name, then two path lines and four filled hue chips. The chips were the loudest thing in the pane and the mark was the smallest, so a page whose whole job is "here are the studio's apps" read as a table of metadata. Cards get taller, not more padded, and the metadata recedes to caption weight.
+
+> The mark is the one place a project gets to look like itself. Do not shrink it back to make room for fields.
+
+## Locked — The sidebar is material, the document is solid
+
+The two columns are deliberately different surfaces. The sidebar is frosted system material with loosely paced rows; the document is an opaque reading field with the section wash over it. Side by side they read as slightly different colours, and that difference *is* the navigation-versus-content split, visible without reading a word.
+
+`StudioColor.documentField` belongs to the document alone and `paneBackground` is its only caller. There is no window-background accessor for anything else, because painting one on a navigation surface is what blocked the glass in the first place.
+
 ## Locked — Onboarding, not Setup
 
 The footer `sparkles` icon opens `product/onboarding.md`. It is a handbook, not Settings and not a gear labelled Setup.

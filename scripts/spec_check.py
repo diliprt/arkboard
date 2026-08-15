@@ -1194,6 +1194,121 @@ def check_timeline_gantt(swift: str, home: str, ui: str, decisions: str, archite
        contents_is_document_overlay((SOURCES / "UI/Shell/RootView.swift").read_text()))
 
 
+def check_window_title_only(swift: str, home: str, root: str, sidebar: str, ui: str, decisions: str) -> None:
+    """The window title bar is the only title. No screen repeats it in the pane."""
+    ok("no ScreenHeader view", "struct ScreenHeader" not in swift)
+    ok("no screen renders an in-page title band", "ScreenHeader(" not in swift)
+    ok("the window still carries the title", "navigationTitle" in root and "navigationSubtitle" in root)
+
+    for rel in (
+        "UI/Portfolio/PortfolioView.swift",
+        "UI/Portfolio/TimelineView.swift",
+        "UI/Shell/OnboardingView.swift",
+    ):
+        source = (SOURCES / rel).read_text()
+        ok(f"{rel} opens on content", "ScreenHeader" not in source)
+
+    portfolio = (SOURCES / "UI/Portfolio/PortfolioView.swift").read_text()
+    ok("Portfolio drops the arm's-length tagline", "Every project at arm's length." not in portfolio)
+    timeline = (SOURCES / "UI/Portfolio/TimelineView.swift").read_text()
+    ok("Timeline drops its tagline", "Every project on one timeline." not in timeline)
+    onboarding = (SOURCES / "UI/Shell/OnboardingView.swift").read_text()
+    ok("Onboarding drops its tagline", "How this studio works." not in onboarding)
+
+    header = home.split("private var projectHeader")[1].split("private var sourceLabel")[0] if "private var projectHeader" in home else ""
+    ok("project home has an identity strip", bool(header))
+    ok("identity strip does not repeat the project name", "project.name" not in header)
+    ok("identity strip has no display title", "type.display" not in header)
+    ok("identity strip keeps the mark", "ProjectIcon(" in header)
+    ok("identity strip keeps the key", "project.key" in header)
+    ok("identity strip keeps refresh and the note icon",
+       "arrow.clockwise" in header and "bubble.left" in header)
+    ok("identity strip paints no window slab", "StudioColor.window" not in header)
+
+    ok("UndoToast survives the screen-header removal", "struct UndoToast" in swift)
+    ok("Timeline scale control is untouched", "TimelineScale" in swift and "Quarter" in swift)
+
+    ok("ui-spec voids the screen header", "### Screen header" not in ui)
+    ok("ui-spec names the window title as the only title", "the only title in the app" in ui.lower())
+    ok("ui-spec forbids a repeated screen name", "No screen prints its own name" in ui)
+    ok("ui-spec voids the ScreenHeader view", "do not bring back a `screenheader` view" in ui.lower())
+    ok("ui-spec drops the screen taglines",
+       "Subtitle: `Every project at arm's length.`" not in ui
+       and "Subtitle: `Every project on one timeline.`" not in ui
+       and "Subtitle: `How this studio works.`" not in ui)
+    ok("decisions locks the single title", "Locked — The window title is the only title" in decisions)
+
+    home_spec = ui.split("## Project home")[1].split("## New Project")[0] if "## Project home" in ui else ""
+    ok("ui-spec project home has no window slab", "windowBackgroundColor" not in home_spec.split("no `windowBackgroundColor` slab")[0])
+    ok("ui-spec project home says the strip paints nothing",
+       "paints no background of its own" in home_spec)
+    ok("ui-spec project home does not restate the name", "No name in `display`" in home_spec)
+    ok("ui-spec keeps the tab rail on glass", "glass" in ui.split("### Tab bar")[1].split("###")[0].lower())
+
+
+def check_portfolio_hero_cards(swift: str, sidebar: str, ui: str, decisions: str) -> None:
+    """The mark is the hero of a Portfolio card; the sidebar breathes; the two columns differ."""
+    portfolio = (SOURCES / "UI/Portfolio/PortfolioView.swift").read_text()
+    card = portfolio_card_source(portfolio)
+    pills = portfolio_pill_source(portfolio)
+
+    ok("mark ratios live in Metrics", "markCornerRatio" in swift and "markGlyphRatio" in swift)
+    ok("mark corner scales with the tile", "func markCorner" in swift and "func markGlyph" in swift)
+    ok("ProjectIcon derives its corner from its size", "Metrics.markCorner(for: size)" in
+       (SOURCES / "UI/Theme/ThemeModifiers.swift").read_text())
+    ok("hero size is a token", "markHero" in swift)
+    ok("portfolio card leads with the hero mark", "Metrics.markHero" in card)
+    ok("portfolio card mark is not a 22pt chip", "size: 22" not in card)
+    ok("portfolio card keeps the pin", "pin.fill" in portfolio)
+    ok("portfolio doc words recede to caption", "type.caption" in pills)
+    ok("portfolio doc words drop the capsule fill",
+       "chipFill" not in pills and "in: Capsule()" not in pills)
+    ok("portfolio paths recede to tertiary", "StudioColor.tertiary" in card)
+    ok("portfolio card is still one type scale",
+       ".font(.system" not in card and ".font(.system" not in pills and ".custom(" not in card)
+    ok("portfolio cards are still cards only",
+       "Milestones" not in portfolio and "TimelineGanttView" not in portfolio)
+
+    ok("sidebar rows take air from a token", "Metrics.sidebarRowY" in sidebar)
+    ok("sidebar row air is defined once", "static let sidebarRowY" in swift)
+    ok("sidebar mark uses the token", "Metrics.markSidebar" in sidebar)
+    ok("sidebar has no one-off font size", ".font(.system(size:" not in sidebar)
+    ok("sidebar has no all-caps header", "uppercased()" not in sidebar)
+
+    ok("document field exists for the document", "documentField" in swift)
+    ok("paneBackground is the only documentField caller",
+       "documentField" not in sidebar
+       and "documentField" not in (SOURCES / "UI/Shell/RootView.swift").read_text()
+       and "documentField" not in (SOURCES / "UI/Markdown/ContentsOutline.swift").read_text())
+    ok("no window-background accessor survives", "StudioColor.window " not in swift and "StudioColor.window\n" not in swift)
+
+    # One type scale everywhere a human reads. Mark tiles are the documented exception.
+    for rel in (
+        "UI/Shell/SidebarView.swift",
+        "UI/Shell/EmptyStateView.swift",
+        "UI/Portfolio/PortfolioView.swift",
+        "UI/Project/ProjectHomeView.swift",
+        "UI/Markdown/MarkdownView.swift",
+        "UI/Markdown/ContentsOutline.swift",
+        "UI/Activity/ActivityView.swift",
+    ):
+        ok(f"one type scale in {rel}", ".font(.system(size:" not in (SOURCES / rel).read_text())
+
+    cards_spec = ui.split("## Portfolio")[1].split("## Timeline")[0] if "## Portfolio" in ui else ""
+    ok("ui-spec Portfolio leads with the mark", "The mark is the hero" in cards_spec)
+    ok("ui-spec Portfolio voids the 22pt chip", "22pt chip" in cards_spec)
+    ok("ui-spec Portfolio metadata recedes", "recedes" in cards_spec or "quieter than the mark" in cards_spec)
+    ok("ui-spec Portfolio is still cards only", "cards only" in cards_spec.lower())
+    sidebar_spec = ui.split("### Sidebar")[1].split("### Contents")[0] if "### Sidebar" in ui else ""
+    ok("ui-spec paces the sidebar", "sidebarRowY" in sidebar_spec)
+    ok("ui-spec sidebar has no all-caps headers", "all-caps" in sidebar_spec.lower())
+    ok("ui-spec splits material from solid", "frosted system material" in ui and "opaque reading field" in ui)
+    ok("ui-spec names the mark exception", "A mark is a product icon, not type" in ui)
+    ok("decisions locks the hero mark", "Locked — Portfolio cards are large, and the mark is the hero" in decisions)
+    ok("decisions locks material versus solid", "Locked — The sidebar is material, the document is solid" in decisions)
+    ok("decisions keeps Apple language", "Locked — Apple language, not Apple content" in decisions)
+
+
 def main() -> int:
     expected_routes = {
         "product/README.md": "overview",
@@ -1369,6 +1484,8 @@ def main() -> int:
     check_chief_handoff(swift, home, root, sidebar, ui)
     check_contents_overlay_and_card_type(swift, home, root, ui)
     check_timeline_gantt(swift, home, ui, decisions, (PRODUCT / "architecture.md").read_text(), (PRODUCT / "mcp.md").read_text())
+    check_window_title_only(swift, home, root, sidebar, ui, decisions)
+    check_portfolio_hero_cards(swift, sidebar, ui, decisions)
 
     print()
     if FAIL:
