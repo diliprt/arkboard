@@ -24,6 +24,7 @@
 
 import AppKit
 import ApplicationServices
+import ImageIO
 
 // MARK: - Contract
 
@@ -219,10 +220,28 @@ struct Bitmap {
 }
 
 /// Capture the window and keep it as straight RGBA so pixels can be read back.
+///
+/// `CGWindowListCreateImage` is unavailable in the macOS 26 SDK, so this shells
+/// out to `screencapture` for the one window and reads the file back. That is
+/// still a measurement, not a shot set: one window, one temp file, deleted on
+/// the way out, and nothing written anywhere the repo can see.
 func capture(window: CGWindowID, bounds: CGRect) -> Bitmap? {
-    guard let image = CGWindowListCreateImage(.null, .optionIncludingWindow, window, [.boundsIgnoreFraming, .bestResolution]) else {
-        return nil
-    }
+    let path = NSTemporaryDirectory() + "arkboard-measure-\(getpid()).png"
+    defer { try? FileManager.default.removeItem(atPath: path) }
+
+    let task = Process()
+    task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+    // -l<id> one window, -o no shadow, -x no shutter sound.
+    task.arguments = ["-l\(window)", "-o", "-x", path]
+    do { try task.run() } catch { return nil }
+    task.waitUntilExit()
+
+    guard task.terminationStatus == 0,
+          let data = FileManager.default.contents(atPath: path),
+          let source = CGImageSourceCreateWithData(data as CFData, nil),
+          let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+    else { return nil }
+
     let width = image.width
     let height = image.height
     guard width > 0, height > 0 else { return nil }
@@ -304,6 +323,28 @@ func secondTitleBand(in nodes: [Node], windowTitle: String, railBottom: CGFloat,
 
 func sidebarRows(in nodes: [Node]) -> [Node] {
     nodes.filter { $0.role == "AXRow" }
+}
+
+/// Everything a row says about itself, including its descendants — an AXRow
+/// usually carries no label of its own.
+func rowLabels(_ row: AXUIElement) -> Set<String> {
+    var nodes: [Node] = []
+    flatten(row, into: &nodes)
+    return Set(nodes.map(\.label).filter { !$0.isEmpty })
+}
+
+/// A pinned project, never a destination.
+///
+/// The mark floor is a check on a *project's* mark keeping its colour on a
+/// selected row. Portfolio and Timeline are SF symbols in section hues at the
+/// size of a line of text: sampling one of those and asking it to clear the
+/// floor measures the wrong thing and fails an app that is behaving.
+func pinnedProjectRow(in nodes: [Node]) -> Node? {
+    let destinations: Set<String> = ["Portfolio", "Timeline", "Onboarding"]
+    return sidebarRows(in: nodes).first { row in
+        let labels = rowLabels(row.element).union(row.label.isEmpty ? [] : [row.label])
+        return !labels.isEmpty && labels.isDisjoint(with: destinations)
+    }
 }
 
 // MARK: - Run
@@ -390,8 +431,12 @@ do {
 do {
     var nodes: [Node] = []
     flatten(window, into: &nodes)
-    guard let row = sidebarRows(in: nodes).first else {
-        bail("Could not find a sidebar row to select.")
+    guard let row = pinnedProjectRow(in: nodes) else {
+        bail("""
+        Could not find a pinned project in the sidebar.
+        The selection check samples a project's row, because the mark floor is
+        about a project mark keeping its colour. Pin a project and run again.
+        """)
     }
     press(row.element)
 
@@ -408,7 +453,7 @@ do {
 
     var afterPress: [Node] = []
     flatten(window, into: &afterPress)
-    let selected = sidebarRows(in: afterPress).first ?? row
+    let selected = pinnedProjectRow(in: afterPress) ?? row
     let local = CGRect(
         x: selected.frame.minX - bounds.minX,
         y: selected.frame.minY - bounds.minY,
