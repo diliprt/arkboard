@@ -50,6 +50,10 @@ The reading view is Week / Month / Year, default Month. The master Timeline is t
 
 No README article and no large composer sit above the tabs. The long description lives on the Portfolio card. Feedback is a compact icon that opens a note plus Activity history. `⌘N` focuses that sheet.
 
+## Locked — Chat with Chief of Staff is the board inbox
+
+Right-click anywhere — sidebar, document, tabs, calendar, cards, onboarding, empty states — offers `Chat with Chief of Staff`. That item opens the compact note sheet with the current highlight prefilled and a quiet page-context payload (destination, project, tab, document path, nearest heading, timestamp). Sending writes a `handoff` Activity to `Product` through `post_note`. The board is the inbox. Do not open an external chat.
+
 ## Locked — Onboarding, not Setup
 
 The footer `sparkles` icon opens `product/onboarding.md`. It is a handbook, not Settings and not a gear labelled Setup.

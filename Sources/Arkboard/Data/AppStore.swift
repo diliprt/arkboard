@@ -19,6 +19,8 @@ final class AppStore {
     var documentBundles: [String: DocumentBundle] = [:]
     var focusComposer: Int = 0
     var focusIssueSearch: Int = 0
+    var noteSheet: NoteSheetRequest?
+    var pageFocus = PageFocus.empty
     var selectedIssueID: String?
     var undoArchive: UndoArchive?
     var documentOutline = DocumentOutline.empty
@@ -452,14 +454,17 @@ final class AppStore {
         }
     }
 
-    func postNote(body: String, projectKey: String?, actor: String) throws -> Activity {
+    func postNote(body: String, projectKey: String?, actor: String, kind: ActivityKind? = nil, extraTargets: [String] = []) throws -> Activity {
         let body = try Validation.requireBody(body, empty: .emptyNote)
-        let targets = Validation.mentions(in: body)
-        let kind = Validation.activityKind(for: body, hasMentions: !targets.isEmpty)
+        var targets = Validation.mentions(in: body)
+        for name in extraTargets where !targets.contains(name) {
+            targets.append(name)
+        }
+        let resolved = kind ?? Validation.activityKind(for: body, hasMentions: !targets.isEmpty)
         let who = Validation.actor(actor)
         return try mutate(actor: who) { db in
             let project = try projectKey.flatMap { try Project.filter(Column("key") == $0.uppercased()).fetchOne(db) }
-            let draft = ActivityDraft(kind: kind == .note && targets.isEmpty ? .note : kind, action: .noted, body: body, targetActors: targets, projectId: project?.id)
+            let draft = ActivityDraft(kind: resolved == .note && targets.isEmpty ? .note : resolved, action: .noted, body: body, targetActors: targets, projectId: project?.id)
             let row = Activity(
                 id: UUID().uuidString,
                 createdAt: Date(),
@@ -667,15 +672,49 @@ final class AppStore {
         documentBundles[project.id]?.documents.first { ProjectMark.isProductIcon(path: $0.path) }?.imageData
     }
 
+    func publishPageFocus(_ focus: PageFocus) {
+        pageFocus = focus
+    }
+
+    func resolvedFocus() -> PageFocus {
+        var focus = PageFocus.from(selection: sidebarSelection, projects: projects)
+        if focus.destination == pageFocus.destination {
+            if pageFocus.projectKey != nil { focus.projectKey = pageFocus.projectKey }
+            if pageFocus.projectName != nil { focus.projectName = pageFocus.projectName }
+            if pageFocus.tab != nil { focus.tab = pageFocus.tab }
+            if pageFocus.documentPath != nil { focus.documentPath = pageFocus.documentPath }
+            if pageFocus.markdown != nil { focus.markdown = pageFocus.markdown }
+        }
+        return focus
+    }
+
     func goToComposer() {
-        if case let .project(id) = sidebarSelection, projects.contains(where: { $0.id == id }) {
-            focusComposer += 1
-            return
-        }
-        if let first = projects.first {
-            sidebarSelection = .project(first.id)
-        }
+        noteSheet = NoteSheetRequest(project: focusedProject(), draft: "", handoff: nil)
         focusComposer += 1
+    }
+
+    func beginChiefHandoff(selectedText: String? = nil) {
+        let focus = resolvedFocus()
+        let fallback = documentOutline.headings.first(where: { $0.anchor == documentOutline.pendingAnchor })?.title
+            ?? documentOutline.headings.first?.title
+        let selected = selectedText ?? FocusedSelection.currentText()
+        let handoff = ChiefHandoff.capture(
+            focus: focus,
+            selectedText: selected,
+            headingFallback: fallback
+        )
+        noteSheet = NoteSheetRequest(project: focusedProject(), draft: handoff.selectedText, handoff: handoff)
+        focusComposer += 1
+    }
+
+    private func focusedProject() -> Project? {
+        if let key = resolvedFocus().projectKey {
+            return project(key: key)
+        }
+        if case let .project(id) = sidebarSelection {
+            return project(id: id)
+        }
+        return nil
     }
 
     func goToProjectIssues() {

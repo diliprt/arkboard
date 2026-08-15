@@ -45,7 +45,11 @@ struct PortfolioView: View {
             }
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { store.clearOutline() }
+        .chiefOfStaffContextMenu()
+        .onAppear {
+            store.clearOutline()
+            store.publishPageFocus(PageFocus(destination: "portfolio"))
+        }
     }
 
     private var cards: some View {
@@ -107,6 +111,12 @@ struct PortfolioView: View {
             .contentShape(Rectangle())
             .onTapGesture {
                 store.sidebarSelection = .project(project.id)
+            }
+            .contextMenu {
+                Button(project.pinned ? "Unpin" : "Pin") {
+                    store.setProjectPinned(id: project.id, pinned: !project.pinned)
+                }
+                ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText())
             }
         }
     }

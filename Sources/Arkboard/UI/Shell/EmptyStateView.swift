@@ -35,6 +35,7 @@ struct EmptyStateView: View {
         }
         .padding(layout == .poster ? 40 : 0)
         .frame(maxWidth: .infinity, minHeight: minHeight, alignment: layout == .poster ? .center : .topLeading)
+        .chiefOfStaffContextMenu()
     }
 }
 

@@ -57,6 +57,22 @@ struct RootView: View {
         .sheet(isPresented: $showNewProject) {
             NewProjectSheet()
         }
+        .sheet(item: Binding(
+            get: { store.noteSheet },
+            set: { store.noteSheet = $0 }
+        )) { request in
+            ProjectNoteSheet(project: request.project, initialDraft: request.draft, handoff: request.handoff)
+        }
+        .chiefOfStaffContextMenu()
+        .onAppear {
+            store.publishPageFocus(PageFocus.from(selection: store.sidebarSelection, projects: store.projects))
+            ChiefOfStaffMenuBridge.shared.install { selected in
+                store.beginChiefHandoff(selectedText: selected)
+            }
+        }
+        .onChange(of: store.sidebarSelection) { _, next in
+            store.publishPageFocus(PageFocus.from(selection: next, projects: store.projects))
+        }
         .onReceive(NotificationCenter.default.publisher(for: .arkboardNewProject)) { _ in
             showNewProject = true
         }

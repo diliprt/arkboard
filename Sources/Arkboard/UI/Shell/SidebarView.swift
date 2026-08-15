@@ -12,9 +12,11 @@ struct SidebarView: View {
                 SwiftUI.Label("Portfolio", systemImage: StudioSection.portfolio.symbol)
                     .font(type.body)
                     .tag(SidebarItem.portfolio)
+                    .contextMenu { ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText()) }
                 SwiftUI.Label("Timeline", systemImage: StudioSection.timeline.symbol)
                     .font(type.body)
                     .tag(SidebarItem.timeline)
+                    .contextMenu { ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText()) }
             }
             Divider()
             Section {
@@ -37,6 +39,7 @@ struct SidebarView: View {
                         Button(project.pinned ? "Unpin" : "Pin") {
                             store.setProjectPinned(id: project.id, pinned: !project.pinned)
                         }
+                        ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText())
                     }
                 }
             }
@@ -60,6 +63,7 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Onboarding")
+                .contextMenu { ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText()) }
                 Button {
                     NotificationCenter.default.post(name: .arkboardOpenSettings, object: nil)
                 } label: {

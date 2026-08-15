@@ -18,6 +18,10 @@ struct TimelineView: View {
             }
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { store.clearOutline() }
+        .chiefOfStaffContextMenu()
+        .onAppear {
+            store.clearOutline()
+            store.publishPageFocus(PageFocus(destination: "timeline"))
+        }
     }
 }
