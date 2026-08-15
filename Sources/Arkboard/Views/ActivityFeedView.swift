@@ -88,16 +88,14 @@ struct ActivityFeedView: View {
                 .listStyle(.plain)
             }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .sectionWash(.activity)
     }
 
     private func open(_ activity: Activity) {
         if let requirement = store.requirement(forActivity: activity) {
-            store.selection = .monitor
-            store.selectMonitorRequirement(requirement)
-            store.expandedRequirementId = requirement.id
+            store.selectProject(requirement.projectId)
         } else if let issue = store.issue(forActivity: activity) {
-            store.selection = .project(issue.projectId)
+            store.selection = .inbox
             store.selectedIssueId = issue.id
         } else if let project = store.project(forActivity: activity) {
             store.selectProject(project.id)

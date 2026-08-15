@@ -8,7 +8,7 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "building.2")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StudioSection.monitor.accent)
                 Text(store.workspace?.name ?? "Origin Ark")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
@@ -20,41 +20,64 @@ struct SidebarView: View {
             .accessibilityLabel("Workspace \(store.workspace?.name ?? "Origin Ark")")
 
             List(selection: Bindable(store).selection) {
-            Section("Views") {
-                Label("Monitor", systemImage: "dot.radiowaves.left.and.right")
+                Section("Studio") {
+                    Label {
+                        Text("Monitor")
+                    } icon: {
+                        Image(systemName: StudioSection.monitor.symbol)
+                            .foregroundStyle(StudioSection.monitor.accent)
+                    }
                     .tag(SidebarSelection.monitor)
-                Label("Inbox", systemImage: "tray")
-                    .tag(SidebarSelection.inbox)
-                Label("Activity", systemImage: "bubble.left.and.bubble.right")
-                    .tag(SidebarSelection.activity)
-                Label("Portfolio", systemImage: "square.grid.2x2")
-                    .tag(SidebarSelection.portfolio)
-            }
 
-            Section("Projects") {
-                if store.projects.isEmpty {
-                    Text("No projects yet")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(store.projects) { project in
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(Color(hex: project.color))
-                                .frame(width: 8, height: 8)
-                            Text(project.name)
-                                .lineLimit(1)
-                            Spacer()
-                            Text(project.key)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
+                    Label {
+                        Text("Issues")
+                    } icon: {
+                        Image(systemName: StudioSection.issues.symbol)
+                            .foregroundStyle(StudioSection.issues.accent)
+                    }
+                    .tag(SidebarSelection.inbox)
+
+                    Label {
+                        Text("Activity")
+                    } icon: {
+                        Image(systemName: StudioSection.activity.symbol)
+                            .foregroundStyle(StudioSection.activity.accent)
+                    }
+                    .tag(SidebarSelection.activity)
+
+                    Label {
+                        Text("Portfolio")
+                    } icon: {
+                        Image(systemName: StudioSection.portfolio.symbol)
+                            .foregroundStyle(StudioSection.portfolio.accent)
+                    }
+                    .tag(SidebarSelection.portfolio)
+                }
+
+                Section("Projects") {
+                    if store.projects.isEmpty {
+                        Text("No projects yet")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(store.projects) { project in
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(Color(hex: project.color))
+                                    .frame(width: 8, height: 8)
+                                Text(project.name)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(project.key)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                            }
+                            .tag(SidebarSelection.project(project.id))
                         }
-                        .tag(SidebarSelection.project(project.id))
                     }
                 }
             }
-        }
-        .listStyle(.sidebar)
+            .listStyle(.sidebar)
         }
         .navigationTitle("Arkboard")
         .toolbar {

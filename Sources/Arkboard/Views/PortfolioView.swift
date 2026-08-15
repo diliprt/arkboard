@@ -46,7 +46,7 @@ struct PortfolioView: View {
                 )
             }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .sectionWash(.portfolio)
         .sheet(isPresented: $showingCreate) {
             MilestoneEditorSheet(milestone: nil)
         }
@@ -275,12 +275,17 @@ struct StatusChip: View {
 
 struct PortfolioTimelineView: View {
     @Environment(AppStore.self) private var store
+    var projectId: String? = nil
     var onSelectIssue: (String) -> Void = { _ in }
     var onSelectMilestone: (String) -> Void = { _ in }
     @State private var mode: AppStore.TimelineMode = .plan
 
     private var events: [TimelineEvent] {
-        store.timelineEvents(mode: mode)
+        let all = store.timelineEvents(mode: mode)
+        guard let projectId else { return all }
+        return all.filter { event in
+            event.projectId == projectId || (event.kind == .milestone && event.projectId == nil)
+        }
     }
 
     private var weeks: [TimelineWeekBucket] {

@@ -36,6 +36,12 @@ final class AppStore {
     var monitorProjectId: String? = nil
     /// Light is the product default; user can switch in Settings.
     var appearance: AppearancePreference = .load()
+    /// Body size across the app. Default is 13 pt.
+    var fontSize: AppFontSize = .load()
+    /// Typeface across the app. System (SF Pro) is the default.
+    var fontFamily: AppFontFamily = .load()
+    /// In-memory cache of each project's repo `product/` tree.
+    let productLibrary = ProductLibrary()
     /// Soft-delete undo banner (~10s).
     var undoDelete: UndoDeleteBanner?
     /// Bumped on every successful reload so SwiftUI views refresh after MCP mutations.
@@ -85,10 +91,12 @@ final class AppStore {
                 try SeedData.seedDemoAgentActivityIfNeeded(db)
                 try SeedData.enrichBotDialogueIfThin(db)
                 try SeedData.seedRequirementsIfNeeded(db)
+                try SeedData.ensureArkGitHubRepo(db)
             }
             try await reloadAll()
             applyDefaultActivityFilter()
             startMCP()
+            Task { await productLibrary.prefetch(projects: projects) }
         } catch {
             lastError = error.localizedDescription
         }
@@ -155,9 +163,14 @@ final class AppStore {
 
     var showsIssueBrowser: Bool {
         switch selection {
-        case .inbox, .project: return true
-        case .monitor, .portfolio, .activity: return false
+        case .inbox: return true
+        case .monitor, .portfolio, .activity, .project: return false
         }
+    }
+
+    var isProjectHome: Bool {
+        if case .project = selection { return true }
+        return false
     }
 
     /// GRDB write for extensions that cannot see `db`.
@@ -176,7 +189,9 @@ final class AppStore {
     func selectProject(_ projectId: String) {
         selection = .project(projectId)
         viewMode = .list
-        selectedIssueId = filteredIssues.first?.id
+        if let project = projects.first(where: { $0.id == projectId }) {
+            Task { await productLibrary.load(for: project) }
+        }
     }
 
     // MARK: - Queries

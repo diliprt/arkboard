@@ -23,6 +23,7 @@ struct IssueDetailView: View {
     @State private var githubRepoDraft = ""
     @State private var githubBusy = false
     @State private var githubBusyLabel: String?
+    @State private var editingDescription = false
 
     private enum SaveState: Equatable {
         case idle, saving, saved, failed
@@ -95,23 +96,37 @@ struct IssueDetailView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Description")
-                        .font(.headline)
-                    TextEditor(text: $description)
-                        .font(.body)
-                        .frame(minHeight: 140)
-                        .padding(8)
-                        .background(Color(nsColor: .textBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary.opacity(0.2))
-                        )
-                        .onChange(of: description) { _, newValue in
-                            guard newValue != issue.descriptionMarkdown else { return }
-                            isDirty = true
-                            scheduleSave()
+                    HStack {
+                        Text("Description")
+                            .font(.headline)
+                        Spacer()
+                        Button(editingDescription ? "Preview" : "Edit") {
+                            editingDescription.toggle()
                         }
+                        .font(.caption)
+                    }
+                    if editingDescription {
+                        TextEditor(text: $description)
+                            .appBodyFont()
+                            .frame(minHeight: 140)
+                            .padding(8)
+                            .background(Color(nsColor: .textBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary.opacity(0.2))
+                            )
+                            .onChange(of: description) { _, newValue in
+                                guard newValue != issue.descriptionMarkdown else { return }
+                                isDirty = true
+                                scheduleSave()
+                            }
+                    } else if description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("No description yet.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        MarkdownPreview(markdown: description, accent: StudioSection.issues.accent)
+                    }
                 }
 
                 Divider()
@@ -143,8 +158,7 @@ struct IssueDetailView: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
-                                Text(comment.bodyMarkdown)
-                                    .font(.body)
+                                MarkdownPreview(markdown: comment.bodyMarkdown, accent: ActorStyle.color(for: comment.authorName))
                             }
                         }
                         .padding(10)

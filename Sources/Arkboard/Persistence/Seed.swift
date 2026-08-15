@@ -17,6 +17,7 @@ enum SeedData {
             try seedDemoAgentActivityIfNeeded(db)
             try enrichBotDialogueIfThin(db)
             try seedRequirementsIfNeeded(db)
+            try ensureArkGitHubRepo(db)
             return
         }
 
@@ -35,7 +36,8 @@ enum SeedData {
             name: "Arkboard",
             color: "#5E6AD2",
             createdAt: now,
-            issueCounter: 0
+            issueCounter: 0,
+            githubRepo: "diliprt/arkboard"
         )
         let ops = Project(
             id: UUID().uuidString,
@@ -464,5 +466,16 @@ enum ActivityLogger {
             kind: kind.rawValue
         )
         try activity.insert(db)
+    }
+}
+
+
+extension SeedData {
+    static func ensureArkGitHubRepo(_ db: Database) throws {
+        guard var ark = try Project.filter(Column("key") == "ARK").fetchOne(db) else { return }
+        if ark.githubRepo == nil || ark.githubRepo?.isEmpty == true {
+            ark.githubRepo = "diliprt/arkboard"
+            try ark.update(db)
+        }
     }
 }

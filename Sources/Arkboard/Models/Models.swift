@@ -170,7 +170,7 @@ enum ActivityKind: String, Codable, CaseIterable, Identifiable, DatabaseValueCon
     }
 }
 
-/// Top-level sidebar destinations. Monitor is the agent-first landing.
+/// Top-level sidebar destinations. Monitor is the studio bird’s-eye; inbox is the Issues list.
 enum SidebarSelection: Hashable, Identifiable {
     case monitor
     case portfolio

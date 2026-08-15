@@ -19,7 +19,9 @@
 		418923F48E2C9EAB9A0530B5 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4590B891128234CAEDD8FCC /* AppIcon.icns */; };
 		4548EBBCC0D2771E51AD09DC /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF07FAF307783853DDB64880 /* Database.swift */; };
 		55797B9B3D845C53C1EAE6AF /* ArkboardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E5EE3913CF9079E5B96E81 /* ArkboardApp.swift */; };
+		579D6287E7D24CCF77EDEF4D /* ProductLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A7E2A31B86F24FEB811A7FF /* ProductLibrary.swift */; };
 		62FF080CC01C09F03E6CF724 /* AppStore+Requirements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1B8BED752708BE223393E8 /* AppStore+Requirements.swift */; };
+		78FC848D7AA7B4BCB090A76B /* ProjectHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2B3C8E7E410C92820102F13 /* ProjectHomeView.swift */; };
 		844F4C1A7BF3841DA4C1C581 /* QuickAddSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */; };
 		8505497618D4107B6BCA63FF /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4F596266E3DE39E1947110 /* MCPServer.swift */; };
 		8789BCED0F496BB82D518193 /* IssueListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0100CADAE429735C3651EABF /* IssueListView.swift */; };
@@ -28,6 +30,7 @@
 		B3A297417464FB8DD8A50950 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E530EAE692902D376454BDC0 /* RootView.swift */; };
 		B7FF141559F1CA828EFFD8E1 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB8648EA8477A5B7ED187668 /* Models.swift */; };
 		C0A95BA632C7BFD4D3A9C175 /* ActivityFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DED51408B047CE48749C7D91 /* ActivityFeedView.swift */; };
+		E14C4864FB571BC51F2360C7 /* MarkdownDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4381C8032DBC77B1DB3A4321 /* MarkdownDocument.swift */; };
 		E9005D385404250D02DDB2D1 /* PortfolioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D58B0EE37E6A84A407B3F91 /* PortfolioView.swift */; };
 		E9020F24CE9935A0E3FD6F31 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B139EC32050FAE74A00A8216 /* AppStore.swift */; };
 		F502F378CD5B813ED894101E /* Seed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6806623E2040D5B7EF3B03FD /* Seed.swift */; };
@@ -45,15 +48,18 @@
 		36E128784F7CF9DB9F511DEA /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		3A1B8BED752708BE223393E8 /* AppStore+Requirements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Requirements.swift"; sourceTree = "<group>"; };
 		3C66B960BC6623A666AB5A3C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		4381C8032DBC77B1DB3A4321 /* MarkdownDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownDocument.swift; sourceTree = "<group>"; };
 		619C85475CA602B7E3CA8B6D /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		632C2BE37129EE7A6CC3944F /* Arkboard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Arkboard.entitlements; sourceTree = "<group>"; };
 		6806623E2040D5B7EF3B03FD /* Seed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Seed.swift; sourceTree = "<group>"; };
 		78DD03300B375A1AA94F9F24 /* LabelTokensField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelTokensField.swift; sourceTree = "<group>"; };
+		7A7E2A31B86F24FEB811A7FF /* ProductLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductLibrary.swift; sourceTree = "<group>"; };
 		7F4F596266E3DE39E1947110 /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
 		819337D1595290803F0B11C8 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		B139EC32050FAE74A00A8216 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
 		B4590B891128234CAEDD8FCC /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddSheet.swift; sourceTree = "<group>"; };
+		C2B3C8E7E410C92820102F13 /* ProjectHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectHomeView.swift; sourceTree = "<group>"; };
 		C4ADCCE22DAB9D7A78246901 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C8528C6ECEF75E8896DC0902 /* Arkboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Arkboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DB8648EA8477A5B7ED187668 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -125,8 +131,10 @@
 				16FF590965F29383224A2B13 /* IssueDetailView.swift */,
 				0100CADAE429735C3651EABF /* IssueListView.swift */,
 				78DD03300B375A1AA94F9F24 /* LabelTokensField.swift */,
+				4381C8032DBC77B1DB3A4321 /* MarkdownDocument.swift */,
 				1B43FDA22E5C24E5CCBB4798 /* MonitorView.swift */,
 				1D58B0EE37E6A84A407B3F91 /* PortfolioView.swift */,
+				C2B3C8E7E410C92820102F13 /* ProjectHomeView.swift */,
 				B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */,
 				E530EAE692902D376454BDC0 /* RootView.swift */,
 				3C66B960BC6623A666AB5A3C /* SettingsView.swift */,
@@ -167,6 +175,7 @@
 				B139EC32050FAE74A00A8216 /* AppStore.swift */,
 				0E084A75EA507ABF7EDC3B6C /* AppStore+Monitor.swift */,
 				3A1B8BED752708BE223393E8 /* AppStore+Requirements.swift */,
+				7A7E2A31B86F24FEB811A7FF /* ProductLibrary.swift */,
 			);
 			path = Store;
 			sourceTree = "<group>";
@@ -268,9 +277,12 @@
 				8789BCED0F496BB82D518193 /* IssueListView.swift in Sources */,
 				03FDD864BF4AEE42C0C2A092 /* LabelTokensField.swift in Sources */,
 				8505497618D4107B6BCA63FF /* MCPServer.swift in Sources */,
+				E14C4864FB571BC51F2360C7 /* MarkdownDocument.swift in Sources */,
 				B7FF141559F1CA828EFFD8E1 /* Models.swift in Sources */,
 				3DBCCC025669E2D64DE169DF /* MonitorView.swift in Sources */,
 				E9005D385404250D02DDB2D1 /* PortfolioView.swift in Sources */,
+				579D6287E7D24CCF77EDEF4D /* ProductLibrary.swift in Sources */,
+				78FC848D7AA7B4BCB090A76B /* ProjectHomeView.swift in Sources */,
 				844F4C1A7BF3841DA4C1C581 /* QuickAddSheet.swift in Sources */,
 				B3A297417464FB8DD8A50950 /* RootView.swift in Sources */,
 				F502F378CD5B813ED894101E /* Seed.swift in Sources */,
