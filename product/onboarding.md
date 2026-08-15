@@ -84,7 +84,7 @@ Left sidebar, top to bottom:
 2. **Timeline** — destination. Master calendar, Week / Month / Year, default Month. Cross-project milestones. Clicking an event opens that project's Timeline tab.
 3. **Pinned projects** — brand, name, key. Clicking opens the project home on Design.
 
-Footer: **New Project** (the one sheet), an **Onboarding** `sparkles` icon (this page), and **Agents · :7420**.
+Footer: an **Onboarding** `sparkles` icon (this page) and **Agents · :7420**. **New Project** lives on the Portfolio page only.
 
 Project pages: thin header (mark, name, key, source, refresh, note icon) and six tabs. No overview article. No large composer. Feedback is the compact icon with history from Activity.
 

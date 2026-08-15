@@ -356,10 +356,10 @@ def check_polish(swift: str, home: str, root: str, sidebar: str) -> None:
     ok("C1 wash is not a root background", ".background(StudioColor.wash" not in body)
     ok("C1 pane clips wash", ".clipped()" in home)
     ok("C2 pinned tab bar keeps wash", "StudioColor.wash" in tab_bar)
-    ok("SB1 New Project is not a toolbar item",
-       "folder.badge.plus" in sidebar and ".toolbar" not in sidebar and "ToolbarItem" not in sidebar)
-    ok("SB1 New Project lives in the sidebar footer",
-       "folder.badge.plus" in sidebar and "safeAreaInset" in sidebar)
+    ok("SB1 New Project is not a sidebar toolbar item",
+       ".toolbar" not in sidebar and "ToolbarItem" not in sidebar)
+    ok("SB1 New Project is not in the sidebar",
+       "folder.badge.plus" not in sidebar and "New Project" not in sidebar)
     ok("T1 tab pills scroll selected into view", "scrollTo(newTab.id" in home or "tabProxy.scrollTo" in home)
     ok("T1 tab edge fade exists", "FadingHScroll" in swift and "tabFade" in swift)
     ok("T1 tighter pill padding", "tabPillX" in swift)
@@ -475,7 +475,13 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     ok("sidebar still has no Monitor", "binoculars" not in sidebar and ".monitor" not in sidebar)
     ok("sidebar still has no Issues row", "tray.full" not in sidebar)
     ok("sidebar still has no Activity row", "bubble.left.and.bubble.right" not in sidebar)
-    ok("workspace stays a caption", "building.2" in sidebar and "Origin Ark" in sidebar)
+    ok("no Origin Ark symbol in the sidebar", "building.2" not in sidebar)
+    ok("no Origin Ark row in the sidebar", "Origin Ark" not in sidebar)
+    ok("separator between destinations and pins",
+       "Divider()" in sidebar
+       and sidebar.find("SidebarItem.timeline") < sidebar.find("Divider()") < sidebar.find("pinnedProjects"))
+    ok("sidebar has no Projects section header",
+       'Text("Projects")' not in sidebar and "Projects —" not in sidebar)
 
     ok("root opens Portfolio destination", "PortfolioView()" in root)
     ok("root opens Timeline destination", "TimelineView()" in root)
@@ -490,6 +496,8 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     ok("portfolio card has pin", "pin.fill" in portfolio or "setPinned" in portfolio or "togglePinned" in portfolio)
     ok("portfolio has no 1000 grid cap", "gridMax" not in portfolio and "GridColumn" not in portfolio)
     ok("portfolio New Project uses the existing sheet", "arkboardNewProject" in portfolio)
+    ok("Portfolio view has no milestone section",
+       "Milestones" not in portfolio and "TimelineSpine" not in portfolio)
 
     calendar = (SOURCES / "UI/Portfolio/TimelineCalendar.swift").read_text() if (SOURCES / "UI/Portfolio/TimelineCalendar.swift").exists() else ""
     ok("timeline calendar source exists", bool(calendar))
@@ -540,6 +548,12 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     state = (ROOT / "company" / "STATE.md").read_text() if (ROOT / "company" / "STATE.md").exists() else ""
     ok("company STATE points at onboarding", "product/onboarding.md" in state)
     ok("ui-spec footer names Onboarding", "Onboarding" in ui.split("**Footer**")[1].split("###")[0] if "**Footer**" in ui else "Onboarding" in ui)
+    ok("ui-spec sidebar has no Origin Ark symbol", "building.2" not in ui.split("### Sidebar")[1].split("### Contents")[0] if "### Sidebar" in ui else False)
+    ok("ui-spec New Project is not in the sidebar footer",
+       "New Project" not in ui.split("**Footer**")[1].split("###")[0] if "**Footer**" in ui else False)
+    ok("ui-spec Portfolio is cards only",
+       "cards only" in (ui.split("## Portfolio")[1].split("## Timeline")[0].lower() if "## Portfolio" in ui else "")
+       and "Milestones" not in (ui.split("## Portfolio")[1].split("## Timeline")[0] if "## Portfolio" in ui else "Milestones"))
 
 
 def main() -> int:
@@ -680,7 +694,7 @@ def main() -> int:
     ok("root is two-column split", "} content:" not in root and "} detail:" in root)
     ok("document column min width", "documentMin" in swift)
     ok("sidebar has no NavigationLink", "NavigationLink" not in sidebar)
-    ok("workspace is caption not a row", 'font(type.caption)' in sidebar and "building.2" in sidebar)
+    ok("workspace is not a sidebar row", "building.2" not in sidebar and "Origin Ark" not in sidebar)
     ok("⌘N focuses project composer", "goToComposer" in swift and "composerFocused = true" in swift)
     home = (SOURCES / "UI/Project/ProjectHomeView.swift").read_text()
     ok("home has no OutlineBar", "OutlineBar" not in home)
