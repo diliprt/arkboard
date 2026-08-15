@@ -27,6 +27,18 @@ enum HumanIssueGroup: String, CaseIterable, Sendable {
     }
 }
 
+/// Milestone status as one read-only word on the Gantt. Humans never set it; agents do, via the API.
+enum MilestoneVocabulary {
+    static func label(_ status: MilestoneStatus) -> String {
+        switch status {
+        case .planned: return "Planned"
+        case .inProgress: return "Underway"
+        case .done: return "Done"
+        case .missed: return "Missed"
+        }
+    }
+}
+
 enum RelativeTime {
     static func format(_ date: Date, now: Date = Date()) -> String {
         let seconds = now.timeIntervalSince(date)

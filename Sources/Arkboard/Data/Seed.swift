@@ -61,6 +61,7 @@ enum Seed {
             targetDate: Calendar.current.date(byAdding: .day, value: 14, to: now) ?? now,
             status: .inProgress,
             relatedIssueIdentifiers: "[]",
+            dependsOn: "[]",
             createdAt: now,
             updatedAt: now
         )

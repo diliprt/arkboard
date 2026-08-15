@@ -60,6 +60,13 @@ enum RESTRoutes {
             }
             return .json(404, ["error": "not found"])
         }
+        if path.hasPrefix("/api/milestones/") {
+            let id = String(path.dropFirst("/api/milestones/".count))
+            guard method == "PATCH" else { return .json(404, ["error": "not found"]) }
+            var args = body
+            args["id"] = id
+            return .json(200, try await ToolCatalogue.call("update_milestone", arguments: args, store: store))
+        }
         if path.hasPrefix("/api/documents/") {
             let docPath = String(path.dropFirst("/api/documents/".count))
             var args = body

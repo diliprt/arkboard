@@ -73,6 +73,8 @@ struct Milestone: Codable, FetchableRecord, PersistableRecord, Identifiable, Has
     var targetDate: Date
     var status: MilestoneStatus
     var relatedIssueIdentifiers: String
+    /// JSON array of predecessor milestone ids. Agents write it; the Gantt reads it.
+    var dependsOn: String
     var createdAt: Date
     var updatedAt: Date
 
@@ -80,9 +82,17 @@ struct Milestone: Codable, FetchableRecord, PersistableRecord, Identifiable, Has
         (try? JSONDecoder().decode([String].self, from: Data(relatedIssueIdentifiers.utf8))) ?? []
     }
 
+    var dependencyIds: [String] {
+        (try? JSONDecoder().decode([String].self, from: Data(dependsOn.utf8))) ?? []
+    }
+
     static func encodeRelated(_ identifiers: [String]) -> String {
         let data = (try? JSONEncoder().encode(identifiers)) ?? Data("[]".utf8)
         return String(data: data, encoding: .utf8) ?? "[]"
+    }
+
+    static func encodeDependencies(_ ids: [String]) -> String {
+        encodeRelated(ids)
     }
 }
 

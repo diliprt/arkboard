@@ -102,16 +102,17 @@ enum ToolCatalogue {
                 "projectKey": ["type": "string"],
                 "status": ["type": "string"],
             ]),
-            tool("create_milestone", "Create a milestone", [
+            tool("create_milestone", "Create a milestone. dependsOn holds predecessor milestone ids.", [
                 "title": ["type": "string"],
                 "body": ["type": "string"],
                 "targetDate": ["type": "string"],
                 "status": ["type": "string"],
                 "projectKey": ["type": "string"],
                 "relatedIssueIdentifiers": ["type": "array", "items": ["type": "string"]],
+                "dependsOn": ["type": "array", "items": ["type": "string"]],
                 "actor": ["type": "string"],
             ], required: ["title"]),
-            tool("update_milestone", "Update a milestone", [
+            tool("update_milestone", "Update a milestone. Write dependsOn to set predecessors; cycles are rejected.", [
                 "id": ["type": "string"],
                 "title": ["type": "string"],
                 "body": ["type": "string"],
@@ -119,6 +120,7 @@ enum ToolCatalogue {
                 "status": ["type": "string"],
                 "projectKey": ["type": "string"],
                 "relatedIssueIdentifiers": ["type": "array", "items": ["type": "string"]],
+                "dependsOn": ["type": "array", "items": ["type": "string"]],
                 "actor": ["type": "string"],
             ], required: ["id"]),
             tool("list_capabilities", "List capabilities", [
@@ -238,6 +240,7 @@ enum ToolCatalogue {
                 status: HTTPJSON.string(arguments, "status") ?? "planned",
                 projectKey: HTTPJSON.string(arguments, "projectKey"),
                 related: HTTPJSON.strings(arguments, "relatedIssueIdentifiers"),
+                dependsOn: HTTPJSON.strings(arguments, "dependsOn"),
                 actor: HTTPJSON.string(arguments, "actor") ?? "Agent"
             )
             return store.milestoneJSON(milestone)
@@ -250,6 +253,7 @@ enum ToolCatalogue {
                 status: HTTPJSON.string(arguments, "status"),
                 projectKey: HTTPJSON.string(arguments, "projectKey"),
                 related: arguments["relatedIssueIdentifiers"] == nil ? nil : HTTPJSON.strings(arguments, "relatedIssueIdentifiers"),
+                dependsOn: arguments["dependsOn"] == nil ? nil : HTTPJSON.strings(arguments, "dependsOn"),
                 actor: HTTPJSON.string(arguments, "actor") ?? "Agent"
             )
             return store.milestoneJSON(milestone)

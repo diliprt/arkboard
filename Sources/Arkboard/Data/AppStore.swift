@@ -487,13 +487,15 @@ final class AppStore {
 
     // MARK: - Milestones
 
-    func createMilestone(title: String, body: String, targetDate: String?, status: String, projectKey: String?, related: [String], actor: String) throws -> Milestone {
+    func createMilestone(title: String, body: String, targetDate: String?, status: String, projectKey: String?, related: [String], dependsOn: [String] = [], actor: String) throws -> Milestone {
         let title = try Validation.collapseTitle(title)
         let status = try Validation.milestoneStatus(status)
         let date = try targetDate.map { try Validation.date($0) } ?? Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
         let related = try Validation.studioIdentifiers(related)
+        let dependencies = Validation.milestoneDependencies(dependsOn)
         return try mutate(actor: actor) { db in
             try Self.requireExistingIssues(db, identifiers: related)
+            try Self.requireExistingMilestones(db, ids: dependencies)
             let project: Project?
             if let projectKey, !projectKey.isEmpty, projectKey.lowercased() != "studio" {
                 project = try Project.filter(Column("key") == projectKey.uppercased()).fetchOne(db)
@@ -510,6 +512,7 @@ final class AppStore {
                 targetDate: date,
                 status: status,
                 relatedIssueIdentifiers: Milestone.encodeRelated(related),
+                dependsOn: Milestone.encodeDependencies(dependencies),
                 createdAt: now,
                 updatedAt: now
             )
@@ -518,7 +521,7 @@ final class AppStore {
         }
     }
 
-    func updateMilestone(id: String, title: String?, body: String?, targetDate: String?, status: String?, projectKey: String?, related: [String]?, actor: String) throws -> Milestone {
+    func updateMilestone(id: String, title: String?, body: String?, targetDate: String?, status: String?, projectKey: String?, related: [String]?, dependsOn: [String]? = nil, actor: String) throws -> Milestone {
         if let status { _ = try Validation.milestoneStatus(status) }
         if let targetDate { _ = try Validation.date(targetDate) }
         if let title { _ = try Validation.collapseTitle(title) }
@@ -532,6 +535,16 @@ final class AppStore {
                 let identifiers = try Validation.studioIdentifiers(related)
                 try Self.requireExistingIssues(db, identifiers: identifiers)
                 milestone.relatedIssueIdentifiers = Milestone.encodeRelated(identifiers)
+            }
+            if let dependsOn {
+                let dependencies = Validation.milestoneDependencies(dependsOn)
+                if dependencies.contains(milestone.id) { throw ValidationError.selfDependency }
+                try Self.requireExistingMilestones(db, ids: dependencies)
+                let edges = try Self.dependencyEdges(db, excluding: milestone.id)
+                if GanttDependencies.createsCycle(milestoneId: milestone.id, candidates: dependencies, edges: edges) {
+                    throw ValidationError.dependencyCycle
+                }
+                milestone.dependsOn = Milestone.encodeDependencies(dependencies)
             }
             if let projectKey {
                 if projectKey.isEmpty || projectKey.lowercased() == "studio" {
@@ -769,6 +782,23 @@ final class AppStore {
                 throw ValidationError.unknownRelatedIssue(identifier)
             }
         }
+    }
+
+    private static func requireExistingMilestones(_ db: Database, ids: [String]) throws {
+        for id in ids {
+            guard try Milestone.fetchOne(db, key: id) != nil else {
+                throw ValidationError.unknownDependency(id)
+            }
+        }
+    }
+
+    /// Milestone id → the ids it already depends on, so a new edge can be checked for a loop.
+    private static func dependencyEdges(_ db: Database, excluding id: String) throws -> [String: [String]] {
+        var edges: [String: [String]] = [:]
+        for milestone in try Milestone.fetchAll(db) where milestone.id != id {
+            edges[milestone.id] = milestone.dependencyIds
+        }
+        return edges
     }
 
     private static func replaceLabels(_ db: Database, issueId: String, names: [String]) throws {

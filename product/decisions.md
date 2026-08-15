@@ -42,9 +42,13 @@ Long documents list every heading in a right-hand Contents pane. Clicking a head
 
 Portfolio is a destination. Timeline is a destination. A hairline separates those two rows from pinned projects below. The workspace name lives in the window subtitle — no Origin Ark icon or row in the sidebar. Create lives on the Portfolio page, not in the left chrome. Monitor, Issues, and Activity are not sidebar rows. Existing projects start pinned. Unpinning removes a row from the sidebar and leaves the project on the Portfolio page.
 
-## Locked — Timeline is a calendar
+## Locked — Timeline is a Gantt, not a calendar
 
-The reading view is Week / Month / Year, default Month. The master Timeline is the studio rollup. The project Timeline tab is the same calendar, scoped. The old vertical Today-spine is not the primary UI. Milestones stay in SQLite; there is no second timeline store. Humans do not edit milestones.
+The canned calendar grid is not the Timeline. A month of dated cells answers "what is on the 14th", which nobody asked; the studio needs to see broader projects, their overall timelines, and what blocks what. So the master Timeline is a Smartsheet-style project plan: rows are projects, milestones nest under them, bars run across one time axis, and dependency links join a milestone to the ones it waits on. Clicking a project row opens that project's Timeline tab, which is the same component scoped to one project.
+
+`Week` / `Month` / `Quarter` survive as *scale* — the width of a gridline column — with Month the default. They no longer change the shape of the view. Year is dropped: one column per year is not a plan.
+
+Milestones stay in SQLite; there is no second timeline store. Dependencies are one new column, `milestone.dependsOn`, a JSON array of predecessor milestone ids added in `v5-milestone-dependencies`. A milestone still holds one date, so its bar runs from its latest predecessor's target — or its project's start — to its own target. Agents write `dependsOn` through `create_milestone` / `update_milestone`; missing ids, self-references, and cycles are rejected. Humans read the links and never edit a milestone, a status, or a dependency.
 
 ## Locked — The project home is a thin header
 
@@ -52,7 +56,7 @@ No README article and no large composer sit above the tabs. The long description
 
 ## Locked — Chat with Chief of Staff is the board inbox
 
-Right-click anywhere — sidebar, document, tabs, calendar, cards, onboarding, empty states — offers `Chat with Chief of Staff`. That item opens the compact note sheet empty — placeholder only — with a quiet friendly page line in the chrome. Selection is silent context for Chief of Staff, not a message; the human writes the ask. Sending writes a `handoff` Activity to `Product` through `post_note`. The Activity body is the typed comment only. Selection, page, tab, doc, and heading live in `metadata` JSON that History does not print. The board is the inbox. Do not open an external chat.
+Right-click anywhere — sidebar, document, tabs, timeline rows, cards, onboarding, empty states — offers `Chat with Chief of Staff`. That item opens the compact note sheet empty — placeholder only — with a quiet friendly page line in the chrome. Selection is silent context for Chief of Staff, not a message; the human writes the ask. Sending writes a `handoff` Activity to `Product` through `post_note`. The Activity body is the typed comment only. Selection, page, tab, doc, and heading live in `metadata` JSON that History does not print. The board is the inbox. Do not open an external chat.
 
 ## Locked — Apple language, not Apple content
 

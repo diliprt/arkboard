@@ -12,6 +12,9 @@ enum ValidationError: LocalizedError, Equatable {
     case invalidDate
     case invalidProjectKey
     case unknownRelatedIssue(String)
+    case unknownDependency(String)
+    case selfDependency
+    case dependencyCycle
     case noteTooLong
     case pathEscape
     case missingProject
@@ -45,6 +48,12 @@ enum ValidationError: LocalizedError, Equatable {
             return "Project key must be 2 to 6 characters of A–Z and 0–9."
         case .unknownRelatedIssue(let identifier):
             return "Unknown related issue '\(identifier)'."
+        case .unknownDependency(let id):
+            return "Unknown milestone dependency '\(id)'."
+        case .selfDependency:
+            return "A milestone cannot depend on itself."
+        case .dependencyCycle:
+            return "Milestone dependencies cannot form a cycle."
         case .noteTooLong:
             return "Capability note must be 280 characters or fewer."
         case .pathEscape:
@@ -173,6 +182,10 @@ enum Validation {
             }
             return trimmed
         }
+    }
+
+    static func milestoneDependencies(_ raw: [String]) -> [String] {
+        GanttDependencies.normalise(raw)
     }
 
     static func mentions(in body: String) -> [String] {

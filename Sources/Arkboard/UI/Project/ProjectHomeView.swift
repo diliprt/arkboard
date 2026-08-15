@@ -252,7 +252,7 @@ struct ProjectHomeView: View {
             case .issues:
                 projectIssues
             case .timeline:
-                TimelineCalendarView(projectId: project.id)
+                TimelineGanttView(projectId: project.id)
             }
         }
     }

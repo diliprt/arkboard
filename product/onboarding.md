@@ -81,7 +81,7 @@ That is the Linux-runnable contract check. It does not launch the app.
 Left sidebar, top to bottom:
 
 1. **Portfolio** — destination. Cards of every app: brand, name, key, one-line description (README lead or stored summary), `local · …` and/or `github · owner/name`, four doc pills (Design, Architecture, Mockups, Decisions), and a pin. Clicking a card opens the project. Pinning puts the project on the sidebar; unpinning removes it from the sidebar and leaves it on Portfolio.
-2. **Timeline** — destination. Master calendar, Week / Month / Year, default Month. Cross-project milestones. Clicking an event opens that project's Timeline tab.
+2. **Timeline** — destination. The studio rollup as a Gantt: every project a row, its milestones underneath, bars on one time axis, and links showing which milestone waits on which. Scale is `Week` / `Month` / `Quarter`, default Month. Clicking a project row opens that project's Timeline tab, the same chart scoped to it. Read-only — agents set milestones and their `dependsOn` predecessors through the API.
 3. **Pinned projects** — brand, name, key. Clicking opens the project home on Design.
 
 Footer: an **Onboarding** `sparkles` icon (this page) and **Agents · :7420**. **New Project** lives on the Portfolio page only.

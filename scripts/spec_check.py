@@ -308,49 +308,194 @@ def document_page_width(pane_width: float) -> float:
     return max(pane_width, 560.0)
 
 
-MONTHS = (
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
+MONTH_ABBR = (
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 )
 
+# Mirrors TimelineScale in Sources/Arkboard/UI/Portfolio/TimelineModel.swift.
+GANTT_MIN_COLUMNS = {"week": 6, "month": 4, "quarter": 4}
+GANTT_MIN_COLUMN_WIDTH = {"week": 54.0, "month": 88.0, "quarter": 96.0}
+GANTT_LABEL_COLUMN = 240.0
 
-def period_start(year: int, month: int, day: int, scale: str) -> tuple[int, int, int]:
-    """Monday-start week, first of month, 1 January. Mirrors TimelineCalendarMath."""
+Day = tuple  # (year, month, day)
+
+
+def _date(value: Day):
+    from datetime import date
+    return date(value[0], value[1], value[2])
+
+
+def gantt_column_start(year: int, month: int, day: int, scale: str) -> Day:
+    """Monday-start week, first of month, first of quarter. Mirrors GanttMath.columnStart."""
     from datetime import date, timedelta
-    current = date(year, month, day)
     if scale == "week":
-        start = current - timedelta(days=current.weekday())
+        start = date(year, month, day) - timedelta(days=date(year, month, day).weekday())
         return start.year, start.month, start.day
     if scale == "month":
         return year, month, 1
-    if scale == "year":
-        return year, 1, 1
+    if scale == "quarter":
+        return year, (month - 1) // 3 * 3 + 1, 1
     raise ValueError(scale)
 
 
-def shift_period(year: int, month: int, day: int, scale: str, delta: int) -> tuple[int, int, int]:
-    from datetime import date
+def gantt_advance(year: int, month: int, day: int, scale: str, delta: int) -> Day:
+    """Mirrors GanttMath.advance."""
+    from datetime import date, timedelta
     if scale == "week":
-        from datetime import timedelta
         start = date(year, month, day) + timedelta(weeks=delta)
         return start.year, start.month, start.day
-    if scale == "month":
-        index = year * 12 + (month - 1) + delta
-        next_year, next_month = divmod(index, 12)
-        return next_year, next_month + 1, 1
-    if scale == "year":
-        return year + delta, 1, 1
-    raise ValueError(scale)
+    step = {"month": 1, "quarter": 3}[scale] * delta
+    index = year * 12 + (month - 1) + step
+    next_year, next_month = divmod(index, 12)
+    return next_year, next_month + 1, 1
 
 
-def period_title(year: int, month: int, day: int, scale: str) -> str:
+def gantt_columns(start: Day, end: Day, scale: str) -> list[Day]:
+    """Mirrors GanttMath.columns."""
+    result: list[Day] = []
+    cursor = gantt_column_start(*start, scale)
+    while _date(cursor) < _date(end) and len(result) < 512:
+        result.append(cursor)
+        cursor = gantt_advance(*cursor, scale, 1)
+    return result or [gantt_column_start(*start, scale)]
+
+
+def gantt_column_label(year: int, month: int, day: int, scale: str) -> str:
+    """Mirrors GanttMath.columnLabel."""
     if scale == "week":
-        return f"Week of {day} {MONTHS[month - 1]}"
+        return f"{day} {MONTH_ABBR[month - 1]}"
     if scale == "month":
-        return f"{MONTHS[month - 1]} {year}"
-    if scale == "year":
-        return str(year)
+        return f"{MONTH_ABBR[month - 1]} {year}"
+    if scale == "quarter":
+        return f"Q{(month - 1) // 3 + 1} {year}"
     raise ValueError(scale)
+
+
+def gantt_window(dates: list[Day], scale: str, now: Day) -> tuple[Day, Day]:
+    """One padding column each side, always wide enough to hold Today. Mirrors GanttMath.window."""
+    everything = list(dates) + [now]
+    first = min(everything, key=_date)
+    last = max(everything, key=_date)
+    start = gantt_column_start(*gantt_advance(*gantt_column_start(*first, scale), scale, -1), scale)
+    end = gantt_column_start(*gantt_advance(*gantt_column_start(*last, scale), scale, 2), scale)
+    while len(gantt_columns(start, end, scale)) < GANTT_MIN_COLUMNS[scale]:
+        end = gantt_advance(*end, scale, 1)
+    return start, end
+
+
+def gantt_fraction(point: Day, start: Day, end: Day) -> float:
+    """Horizontal position as 0…1 of the window. Mirrors GanttMath.fraction."""
+    span = max(1.0, (_date(end) - _date(start)).total_seconds())
+    return min(1.0, max(0.0, (_date(point) - _date(start)).total_seconds() / span))
+
+
+def gantt_today_in_window(dates: list[Day], scale: str, now: Day) -> bool:
+    """One Today rule, drawn on the axis. The window must always have room for it."""
+    start, end = gantt_window(dates, scale, now)
+    return _date(start) <= _date(now) <= _date(end)
+
+
+def gantt_column_width(pane_width: float, columns: int, scale: str) -> float:
+    """Columns stretch to fill the pane, but never below a legible width."""
+    available = max(0.0, pane_width - GANTT_LABEL_COLUMN)
+    return max(GANTT_MIN_COLUMN_WIDTH[scale], available / max(1, columns))
+
+
+def gantt_scrolls(pane_width: float, columns: int, scale: str) -> bool:
+    available = max(0.0, pane_width - GANTT_LABEL_COLUMN)
+    return gantt_column_width(pane_width, columns, scale) * columns > available + 0.5
+
+
+def gantt_dependencies(raw: list[str]) -> list[str]:
+    """Mirrors GanttDependencies.normalise."""
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in raw:
+        trimmed = value.strip()
+        if trimmed and trimmed not in seen:
+            seen.add(trimmed)
+            result.append(trimmed)
+    return result
+
+
+def gantt_creates_cycle(milestone_id: str, candidates: list[str], edges: dict[str, list[str]]) -> bool:
+    """Mirrors GanttDependencies.createsCycle."""
+    pending = list(candidates)
+    seen: set[str] = set()
+    while pending:
+        current = pending.pop()
+        if current == milestone_id:
+            return True
+        if current in seen:
+            continue
+        seen.add(current)
+        pending.extend(edges.get(current, []))
+    return False
+
+
+def gantt_plan(
+    projects: list[dict],
+    milestones: list[dict],
+    events: list[dict],
+    scope: str | None = None,
+    scale: str = "month",
+    now: Day = (2026, 8, 15),
+) -> dict:
+    """Project rows with milestone rows underneath, plus dependency links. Mirrors GanttPlanner.plan."""
+    scoped = [m for m in milestones if scope is None or m.get("projectId") == scope]
+    marks_in = [e for e in events if scope is None or e["projectId"] == scope]
+    window = gantt_window([m["targetDate"] for m in scoped] + [e["date"] for e in marks_in], scale, now)
+    target_by_id = {m["id"]: m["targetDate"] for m in scoped}
+
+    buckets: list[tuple[str, dict | None]] = [
+        (p["id"], p) for p in projects if scope is None or p["id"] == scope
+    ]
+    if scope is None and any(m.get("projectId") is None for m in scoped):
+        buckets.append(("studio", None))
+
+    rows: list[dict] = []
+    links: list[str] = []
+    for key, project in buckets:
+        mine = sorted(
+            [m for m in scoped if (m.get("projectId") or "studio") == key],
+            key=lambda m: (_date(m["targetDate"]), m["title"]),
+        )
+        marks = sorted([e for e in marks_in if e["projectId"] == key], key=lambda e: _date(e["date"]))
+        if not mine and not marks:
+            continue
+        dates = [m["targetDate"] for m in mine] + [e["date"] for e in marks]
+        project_start = min(dates, key=_date)
+        project_end = max(dates, key=_date)
+        rows.append({
+            "id": key,
+            "kind": "project",
+            "title": project["name"] if project else "Studio",
+            "start": project_start,
+            "end": project_end,
+            "marks": [e["id"] for e in marks],
+            "milestoneCount": len(mine),
+        })
+        for milestone in mine:
+            predecessors = [
+                d for d in milestone.get("dependsOn", [])
+                if d in target_by_id and d != milestone["id"]
+            ]
+            inherited = [target_by_id[d] for d in predecessors]
+            start = max(inherited, key=_date) if inherited else project_start
+            if _date(start) > _date(milestone["targetDate"]):
+                start = milestone["targetDate"]
+            rows.append({
+                "id": milestone["id"],
+                "kind": "milestone",
+                "title": milestone["title"],
+                "start": start,
+                "end": milestone["targetDate"],
+                "marker": milestone["targetDate"],
+                "dependsOn": predecessors,
+            })
+            links.extend(f"{d}->{milestone['id']}" for d in predecessors)
+    return {"rows": rows, "links": links, "window": window, "scale": scale}
 
 
 def handoff_page_line(project_name: str | None, tab: str | None, document_path: str | None, destination: str) -> str:
@@ -398,37 +543,16 @@ def handoff_persist_body(user_text: str, page_line: str = "") -> str:
     return user_text.strip()
 
 
-def today_index(dates: list[int], now: int) -> int:
-    """Index of the single Today rule: before the first future event."""
-    for i, date in enumerate(dates):
-        if date > now:
-            return i
-    return len(dates)
-
-
 def check_polish(swift: str, home: str, root: str, sidebar: str) -> None:
     """product/polish.md must-fix (and cheap should-fix) source checks."""
-    now = 1_000
-    ok("D2 today at top when all future", today_index([1_100, 1_200], now) == 0)
-    ok("D2 today at end when all past", today_index([800, 900], now) == 2)
-    ok("D2 today between past and future", today_index([800, 900, 1_100, 1_200], now) == 2)
-    ok("D2 today empty list", today_index([], now) == 0)
-
-    def today_marks(dates: list[int], current: int) -> list[str]:
-        insert = today_index(dates, current)
-        marks: list[str] = []
-        for i, _ in enumerate(dates):
-            if i == insert:
-                marks.append("today")
-            marks.append("event")
-        if insert == len(dates):
-            marks.append("today")
-        return marks
-
-    ok("D2 exactly one today mixed", today_marks([800, 900, 1_100, 1_200], now).count("today") == 1)
-    ok("D2 exactly one today all past", today_marks([800, 900], now).count("today") == 1)
-    ok("D2 exactly one today all future", today_marks([1_100, 1_200], now).count("today") == 1)
-    ok("D2 today before first future event", today_marks([800, 1_100], now) == ["event", "today", "event"])
+    now = (2026, 8, 15)
+    # D2 was "one Today rule in the spine". The Gantt draws it on the axis instead, so the
+    # invariant is now that the window always has room for exactly one Today line.
+    ok("D2 today fits when everything is future", gantt_today_in_window([(2026, 11, 1)], "month", now))
+    ok("D2 today fits when everything is past", gantt_today_in_window([(2026, 2, 1)], "month", now))
+    ok("D2 today fits across past and future", gantt_today_in_window([(2026, 2, 1), (2026, 11, 1)], "month", now))
+    ok("D2 today fits with no milestones at all", gantt_today_in_window([], "month", now))
+    ok("D2 today fits at every scale", all(gantt_today_in_window([(2026, 8, 20)], scale, now) for scale in GANTT_MIN_COLUMNS))
 
     body = home.split("var body")[1].split("private var overview")[0] if "var body" in home and "private var overview" in home else ""
     tab_bar = home.split("private var tabBar")[1].split("@ViewBuilder")[0] if "private var tabBar" in home else ""
@@ -452,9 +576,12 @@ def check_polish(swift: str, home: str, root: str, sidebar: str) -> None:
     ok("O1 persist contentsVisible", "arkboard.contentsVisible" in swift)
     ok("O2 Contents width range", "outlineMin" in root and "outlineMax" in root)
     ok("T3 question chips wrap", "FlowLayout" in home)
-    ok("D2 single todayIndex", "todayIndex" in swift and "shouldShowToday" not in swift)
-    ok("D3 TimelineSpine has no local ScrollViewReader", "ScrollViewReader" not in (SOURCES / "UI/Portfolio/TimelineSpine.swift").read_text())
-    ok("D3 calendar is the timeline reading view", "TimelineScale" in swift and "TimelineCalendarView" in swift)
+    gantt = (SOURCES / "UI/Portfolio/TimelineGantt.swift").read_text()
+    ok("D2 one Today rule, drawn once on the axis",
+       gantt.count("private func todayRule") == 1 and gantt.count("private func todayOffset") == 1)
+    ok("D2 the Today rule is not a per-week decision", "shouldShowToday" not in swift and "todayIndex" not in swift)
+    ok("D3 the Gantt owns no vertical scroll", "ScrollView(.horizontal)" in gantt and "ScrollView {" not in gantt)
+    ok("D3 Gantt is the timeline reading view", "TimelineScale" in swift and "TimelineGanttView" in swift)
     ok("D4 issue identifier not duplicated in title",
        "issue.identifier)  \\(issue.title)" not in swift)
     ok("E1 empty state can fill the pane", "minHeight" in (SOURCES / "UI/Shell/EmptyStateView.swift").read_text())
@@ -524,16 +651,16 @@ def check_layout_musts(swift: str, home: str) -> None:
 
 
 def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str) -> None:
-    """Portfolio destination, pins, master Timeline calendar, quiet project home."""
-    ok("week start is Monday of that week", period_start(2026, 8, 15, "week") == (2026, 8, 10))
-    ok("month start is the first", period_start(2026, 8, 15, "month") == (2026, 8, 1))
-    ok("year start is 1 January", period_start(2026, 8, 15, "year") == (2026, 1, 1))
-    ok("shift week", shift_period(2026, 8, 10, "week", 1) == (2026, 8, 17))
-    ok("shift month", shift_period(2026, 8, 1, "month", -1) == (2026, 7, 1))
-    ok("shift year", shift_period(2026, 1, 1, "year", 1) == (2027, 1, 1))
-    ok("week title", period_title(2026, 8, 10, "week") == "Week of 10 August")
-    ok("month title", period_title(2026, 8, 1, "month") == "August 2026")
-    ok("year title", period_title(2026, 1, 1, "year") == "2026")
+    """Portfolio destination, pins, the master Timeline Gantt, quiet project home."""
+    ok("week column starts Monday", gantt_column_start(2026, 8, 15, "week") == (2026, 8, 10))
+    ok("month column starts the first", gantt_column_start(2026, 8, 15, "month") == (2026, 8, 1))
+    ok("quarter column starts the quarter", gantt_column_start(2026, 8, 15, "quarter") == (2026, 7, 1))
+    ok("advance a week column", gantt_advance(2026, 8, 10, "week", 1) == (2026, 8, 17))
+    ok("advance a month column back", gantt_advance(2026, 8, 1, "month", -1) == (2026, 7, 1))
+    ok("advance a quarter column", gantt_advance(2026, 7, 1, "quarter", 1) == (2026, 10, 1))
+    ok("week column label", gantt_column_label(2026, 8, 10, "week") == "10 Aug")
+    ok("month column label", gantt_column_label(2026, 8, 1, "month") == "Aug 2026")
+    ok("quarter column label", gantt_column_label(2026, 7, 1, "quarter") == "Q3 2026")
     ok("default timeline scale is month", "TimelineScale = .month" in swift and "TimelineScale" in swift)
 
     enums = (SOURCES / "Model/Enums.swift").read_text()
@@ -592,13 +719,16 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     ok("ui-spec strips a leading project name on the card",
        "strip" in (ui.split("## Portfolio")[1].split("## Timeline")[0].lower() if "## Portfolio" in ui else ""))
 
-    calendar = (SOURCES / "UI/Portfolio/TimelineCalendar.swift").read_text() if (SOURCES / "UI/Portfolio/TimelineCalendar.swift").exists() else ""
-    ok("timeline calendar source exists", bool(calendar))
-    ok("timeline scale control Week Month Year",
-       "Week" in calendar and "Month" in calendar and "Year" in calendar)
-    ok("timeline calendar math lives in Swift", "periodStart" in calendar or "TimelineCalendarMath" in calendar)
-    ok("master timeline uses the calendar", "TimelineCalendarView" in swift)
-    ok("project timeline tab uses the calendar", "TimelineCalendarView" in home)
+    model = (SOURCES / "UI/Portfolio/TimelineModel.swift").read_text() if (SOURCES / "UI/Portfolio/TimelineModel.swift").exists() else ""
+    gantt = (SOURCES / "UI/Portfolio/TimelineGantt.swift").read_text() if (SOURCES / "UI/Portfolio/TimelineGantt.swift").exists() else ""
+    ok("timeline model source exists", bool(model))
+    ok("timeline Gantt source exists", bool(gantt))
+    ok("timeline scale control Week Month Quarter",
+       all(word in model for word in ("Week", "Month", "Quarter")))
+    ok("timeline axis math lives in Swift", "enum GanttMath" in model and "columnStart" in model)
+    ok("master timeline uses the Gantt", "TimelineGanttView(projectId: nil)" in
+       (SOURCES / "UI/Portfolio/TimelineView.swift").read_text())
+    ok("project timeline tab uses the Gantt", "TimelineGanttView(projectId: project.id)" in home)
     ok("click-through opens project Timeline", "pendingProjectTab = .timeline" in swift or "openProjectTimeline" in swift)
 
     ok("pinned column exists", "var pinned: Bool" in swift)
@@ -623,7 +753,7 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     ok("ui-spec voids sidebar-is-the-portfolio", "the sidebar *is* the portfolio" not in ui)
     ok("ui-spec voids Portfolio is not a row", "Portfolio are not rows" not in ui and "Portfolio is not a row" not in ui)
     ok("ui-spec Timeline is a sidebar destination", "Timeline is a destination" in ui or "master Timeline" in ui)
-    ok("ui-spec Timeline is a calendar", "Week / Month / Year" in ui or "Week, Month, Year" in ui)
+    ok("ui-spec Timeline scale is Week / Month / Quarter", "`Week` / `Month` / `Quarter`" in ui)
     ok("ui-spec voids spine as primary Timeline", "vertical spine" not in ui.split("## Timeline")[1].split("## ")[0] if "## Timeline" in ui else True)
     ok("ui-spec project home is a thin header", "thin" in ui.lower() and "overview band" not in ui.lower().split("## project home")[1].split("## ")[0] if "## project home" in ui.lower() else "thin header" in ui.lower())
     ok("ui-spec voids inline composer on project home", "Tell the team" not in ui.split("## Project home")[1].split("## New Project")[0] if "## Project home" in ui else True)
@@ -888,6 +1018,172 @@ def check_contents_overlay_and_card_type(swift: str, home: str, root: str, ui: s
     ok("#19 cardSummary kept for chrome", "cardSummary" in portfolio)
 
 
+def check_timeline_gantt(swift: str, home: str, ui: str, decisions: str, architecture: str, mcp: str) -> None:
+    """The master Timeline is a Gantt — project rows on a time axis with dependency links —
+    not a month grid of days."""
+    model = (SOURCES / "UI/Portfolio/TimelineModel.swift").read_text()
+    gantt = (SOURCES / "UI/Portfolio/TimelineGantt.swift").read_text()
+    timeline = (SOURCES / "UI/Portfolio/TimelineView.swift").read_text()
+    entities = (SOURCES / "Model/Entities.swift").read_text()
+    database = (SOURCES / "Data/AppDatabase.swift").read_text()
+    store = (SOURCES / "Data/AppStore.swift").read_text()
+    validation = (SOURCES / "Data/Validation.swift").read_text()
+    tools = (SOURCES / "Server/ToolCatalogue.swift").read_text()
+    payload = (SOURCES / "Data/JSONPayload.swift").read_text()
+    rest = (SOURCES / "Server/RESTRoutes.swift").read_text()
+
+    now = (2026, 8, 15)
+    projects = [
+        {"id": "p-ark", "key": "ARK", "name": "Arkboard", "color": "#5A62D6"},
+        {"id": "p-lum", "key": "LUM", "name": "Lumen", "color": "#1F8F63"},
+    ]
+    milestones = [
+        {"id": "m-design", "projectId": "p-ark", "title": "Design pack locked", "targetDate": (2026, 8, 20)},
+        {"id": "m-build", "projectId": "p-ark", "title": "Gantt ships", "targetDate": (2026, 9, 18), "dependsOn": ["m-design"]},
+        {"id": "m-ship", "projectId": "p-ark", "title": "Studio board v3", "targetDate": (2026, 10, 30), "dependsOn": ["m-build", "m-design"]},
+        {"id": "m-lum", "projectId": "p-lum", "title": "Lumen kickoff", "targetDate": (2026, 9, 4)},
+        {"id": "m-studio", "projectId": None, "title": "Studio review", "targetDate": (2026, 9, 25)},
+    ]
+    events = [{"id": "i-1", "projectId": "p-ark", "identifier": "ARK-14", "date": (2026, 8, 12)}]
+    plan = gantt_plan(projects, milestones, events, scope=None, scale="month", now=now)
+
+    # --- Shape: rows are projects, milestones nest under them, bars sit on one axis.
+    ok("Gantt rows are projects with milestones underneath",
+       [f"{r['kind']}:{r['id']}" for r in plan["rows"]] == [
+           "project:p-ark", "milestone:m-design", "milestone:m-build", "milestone:m-ship",
+           "project:p-lum", "milestone:m-lum",
+           "project:studio", "milestone:m-studio",
+       ])
+    ok("Gantt has a project row per project with work",
+       len([r for r in plan["rows"] if r["kind"] == "project"]) == 3)
+    ok("Gantt project bar spans that project's whole plan",
+       plan["rows"][0]["start"] == (2026, 8, 12) and plan["rows"][0]["end"] == (2026, 10, 30))
+    ok("Gantt project row counts its milestones", plan["rows"][0]["milestoneCount"] == 3)
+    ok("Gantt shipped work is a mark on the project bar, not a row",
+       plan["rows"][0]["marks"] == ["i-1"] and not any(r["id"] == "i-1" for r in plan["rows"]))
+    ok("Gantt milestone rows carry a diamond at the target date",
+       all(r["marker"] == r["end"] for r in plan["rows"] if r["kind"] == "milestone"))
+    ok("Gantt studio milestones get their own row",
+       any(r["id"] == "studio" and r["title"] == "Studio" for r in plan["rows"]))
+
+    # --- Dependencies drive the bars and the links.
+    ok("Gantt milestone with no predecessor starts at its project start",
+       next(r for r in plan["rows"] if r["id"] == "m-design")["start"] == (2026, 8, 12))
+    ok("Gantt milestone starts when its predecessor lands",
+       next(r for r in plan["rows"] if r["id"] == "m-build")["start"] == (2026, 8, 20))
+    ok("Gantt milestone waits for its latest predecessor",
+       next(r for r in plan["rows"] if r["id"] == "m-ship")["start"] == (2026, 9, 18))
+    ok("Gantt draws one link per dependency",
+       sorted(plan["links"]) == ["m-build->m-ship", "m-design->m-build", "m-design->m-ship"])
+    ok("Gantt drops a predecessor that is not on this chart",
+       gantt_plan(projects, [{"id": "m", "projectId": "p-ark", "title": "A", "targetDate": (2026, 9, 1), "dependsOn": ["gone"]}], [], now=now)["links"] == [])
+
+    scoped = gantt_plan(projects, milestones, events, scope="p-ark", scale="month", now=now)
+    ok("project Timeline tab is the same Gantt, filtered",
+       [r["id"] for r in scoped["rows"]] == ["p-ark", "m-design", "m-build", "m-ship"])
+    ok("project Timeline tab keeps the dependency links", len(scoped["links"]) == 3)
+    ok("project Timeline tab drops studio milestones",
+       not any(r["id"] == "studio" for r in scoped["rows"]))
+
+    # --- A time axis, not a month grid of days.
+    start, end = plan["window"]
+    columns = gantt_columns(start, end, "month")
+    ok("Gantt axis columns are periods, not days", len(columns) == 5 and all(c[2] == 1 for c in columns))
+    ok("Gantt axis holds every milestone",
+       gantt_fraction((2026, 8, 20), start, end) > 0 and gantt_fraction((2026, 10, 30), start, end) < 1)
+    ok("Gantt axis places Today once", gantt_today_in_window([m["targetDate"] for m in milestones], "month", now))
+    ok("Gantt week scale slices the same span finer",
+       len(gantt_columns(*gantt_window([m["targetDate"] for m in milestones], "week", now), "week")) >
+       len(gantt_columns(*gantt_window([m["targetDate"] for m in milestones], "quarter", now), "quarter")))
+
+    # --- Measure: pane-width and left-aligned, no 720 island and no 1000 grid.
+    ok("Gantt columns stretch to fill a wide pane", not gantt_scrolls(1280, 5, "month"))
+    ok("Gantt columns fill exactly, leaving no island",
+       abs(gantt_column_width(1280, 5, "month") * 5 - (1280 - GANTT_LABEL_COLUMN)) < 0.001)
+    ok("Gantt scrolls instead of squeezing an illegible axis", gantt_scrolls(900, 40, "week"))
+    ok("Gantt measure is the pane, not a 1000 grid", gantt_column_width(1600, 4, "month") * 4 > 1000 - GANTT_LABEL_COLUMN)
+    ok("Gantt has no GridColumn", "GridColumn" not in gantt and "GridColumn" not in timeline)
+    ok("Gantt has no 720 cap", "Metrics.proseMax" not in gantt and "Metrics.proseMax" not in timeline)
+    ok("Gantt is left-aligned", "alignment: .leading" in gantt)
+
+    # --- The month-day calendar grid is gone as the primary reading view.
+    ok("TimelineCalendar.swift is gone", not (SOURCES / "UI/Portfolio/TimelineCalendar.swift").exists())
+    ok("no TimelineCalendarView anywhere", "TimelineCalendarView" not in swift)
+    ok("no month grid of days", "monthGrid" not in swift and "weekdaySymbols" not in swift)
+    ok("no seven-column day grid", "count: 7" not in swift)
+    ok("no year grid of month cards", "monthsInYear" not in swift)
+    ok("the vertical spine is not the reading view either", "struct TimelineSpine" not in swift)
+
+    # --- Read-only for humans.
+    ok("Gantt has no milestone editor",
+       "updateMilestone" not in gantt and "update_milestone" not in gantt)
+    ok("Gantt has no status or priority control",
+       'Picker("Status"' not in gantt and "IssuePriority" not in gantt and "MilestoneStatus(" not in gantt)
+    ok("Gantt's only Picker is the scale", gantt.count("Picker(") == 1 and 'Picker("Scale"' in gantt)
+    ok("Gantt keeps the Chief of Staff menu", "ChiefOfStaffMenuButton" in gantt and "chiefOfStaffContextMenu" in gantt)
+
+    # --- Schema, migration, and API for dependencies.
+    ok("milestone has a dependsOn column", "var dependsOn: String" in entities)
+    ok("milestone decodes dependency ids", "var dependencyIds: [String]" in entities)
+    ok("activity metadata migration still ships", "v4-activity-metadata" in database)
+    ok("v5 dependency migration", "v5-milestone-dependencies" in database)
+    ok("migration adds dependsOn defaulting to empty",
+       't.add(column: "dependsOn", .text).notNull().defaults(to: "[]")' in database)
+    ok("create_milestone takes dependsOn", "dependsOn" in tools and "create_milestone" in tools)
+    ok("update_milestone takes dependsOn", 'tool("update_milestone"' in tools and '"dependsOn": ["type": "array"' in tools)
+    ok("store writes dependencies", "dependsOn: [String]? = nil" in store and "encodeDependencies" in store)
+    ok("milestone JSON exposes dependsOn", '"dependsOn": milestone.dependencyIds' in payload)
+    ok("REST can PATCH a milestone", '/api/milestones/' in rest and "update_milestone" in rest)
+    ok("unknown dependency is rejected", "unknownDependency" in validation and "unknownDependency" in store)
+    ok("self dependency is rejected", "selfDependency" in validation and "selfDependency" in store)
+    ok("dependency cycles are rejected", "dependencyCycle" in validation and "createsCycle" in store)
+    ok("dependency ids trim and dedupe", gantt_dependencies([" a ", "a", "", "b"]) == ["a", "b"])
+    ok("a back edge is a cycle", gantt_creates_cycle("a", ["b"], {"b": ["a"]}))
+    ok("a long loop is a cycle", gantt_creates_cycle("a", ["c"], {"c": ["b"], "b": ["a"]}))
+    ok("a chain is not a cycle", not gantt_creates_cycle("c", ["b"], {"b": ["a"]}))
+    ok("a diamond is not a cycle", not gantt_creates_cycle("d", ["b", "c"], {"b": ["a"], "c": ["a"]}))
+
+    # --- Spec.
+    spec = ui.split("## Timeline")[1].split("\n## ")[0] if "## Timeline" in ui else ""
+    tab_spec = ui.split("### Timeline tab")[1].split("\n## ")[0] if "### Timeline tab" in ui else ""
+    ok("ui-spec Timeline section exists", bool(spec))
+    ok("ui-spec Timeline is a Gantt", "Gantt" in spec)
+    ok("ui-spec Timeline rows are projects", "project" in spec.lower() and "row" in spec.lower())
+    ok("ui-spec Timeline has a time axis", "time axis" in spec.lower() or "axis" in spec.lower())
+    ok("ui-spec Timeline shows dependencies", "dependenc" in spec.lower())
+    ok("ui-spec Timeline voids the calendar grid",
+       "not a month grid of days" in spec and "calendar" not in spec.lower())
+    ok("ui-spec Timeline keeps the scale control", "`Week` / `Month` / `Quarter`" in spec and "Default Month" in spec)
+    ok("ui-spec Timeline is pane-width and left-aligned",
+       "No 720 island" in spec and "No 1000 grid" in spec)
+    ok("ui-spec Timeline click-through opens the project tab", "Timeline tab" in spec)
+    ok("ui-spec Timeline is read-only for humans", "read-only" in spec.lower() or "Read-only" in spec)
+    ok("ui-spec Timeline tab is the same Gantt", "Gantt" in tab_spec and "read-only" in tab_spec.lower())
+    ok("ui-spec voids calendar-grid-is-the-Timeline everywhere",
+       "cross-project calendar" not in ui and "studio calendar" not in ui and "the calendar" not in ui)
+    ok("ui-spec sidebar Timeline row names the rollup",
+       "master" in ui.split("### Sidebar")[1].split("### Contents")[0].lower() if "### Sidebar" in ui else False)
+    ok("ui-spec names milestone.dependsOn", "dependsOn" in ui)
+
+    ok("decisions locks the Gantt", "Locked — Timeline is a Gantt" in decisions)
+    ok("decisions voids Timeline-is-a-calendar", "Locked — Timeline is a calendar" not in decisions)
+    ok("decisions says calendar grid is not the Timeline", "calendar grid is not the Timeline" in decisions)
+    ok("decisions locks agent-written dependencies", "dependsOn" in decisions)
+
+    ok("architecture documents the dependsOn column", "dependsOn" in architecture)
+    ok("architecture documents the v5 migration", "v5-milestone-dependencies" in architecture)
+    ok("architecture keeps the v4 activity metadata migration", "v4-activity-metadata" in architecture)
+    ok("mcp documents dependsOn on milestones", "dependsOn" in mcp)
+
+    # Chrome landed in #15–#24 must survive this pass.
+    ok("#15 ensureDocuments kept for the Gantt", "ensureDocuments" in home)
+    ok("#16 measure kept for the Gantt", "DocumentMeasure.pageWidth" in home and "DocumentMeasure.pageWidth" in timeline)
+    ok("#18 Portfolio destination kept for the Gantt", "PortfolioView()" in (SOURCES / "UI/Shell/RootView.swift").read_text())
+    ok("#19 cardSummary kept for the Gantt", "cardSummary" in (SOURCES / "UI/Portfolio/PortfolioView.swift").read_text())
+    ok("#24 Contents overlay kept for the Gantt",
+       contents_is_document_overlay((SOURCES / "UI/Shell/RootView.swift").read_text()))
+
+
 def main() -> int:
     expected_routes = {
         "product/README.md": "overview",
@@ -956,7 +1252,8 @@ def main() -> int:
         "UI/Issues/IssuesView.swift",
         "UI/Activity/ActivityView.swift",
         "UI/Portfolio/PortfolioView.swift",
-        "UI/Portfolio/TimelineCalendar.swift",
+        "UI/Portfolio/TimelineModel.swift",
+        "UI/Portfolio/TimelineGantt.swift",
         "UI/Portfolio/TimelineView.swift",
         "UI/Project/ProjectHomeView.swift",
         "UI/Project/ProjectNoteSheet.swift",
@@ -1010,6 +1307,8 @@ def main() -> int:
         "Unknown related issue", "create_capability", "not_working",
         "Comment cannot be empty", "Invalid date", "list_documents",
         "read_document", "architecture.md",
+        "dependsOn", "Unknown milestone dependency", "cannot depend on itself",
+        "cannot form a cycle", "PATCH", "/api/milestones/",
     ):
         ok(f"smoke covers {needle}", needle in smoke)
 
@@ -1059,6 +1358,7 @@ def main() -> int:
     check_studio_chrome(swift, home, root, sidebar, ui)
     check_chief_handoff(swift, home, root, sidebar, ui)
     check_contents_overlay_and_card_type(swift, home, root, ui)
+    check_timeline_gantt(swift, home, ui, decisions, (PRODUCT / "architecture.md").read_text(), (PRODUCT / "mcp.md").read_text())
 
     print()
     if FAIL:
