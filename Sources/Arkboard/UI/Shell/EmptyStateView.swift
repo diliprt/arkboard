@@ -7,6 +7,7 @@ struct EmptyStateView: View {
     var title: String
     var sentence: String
     var actionTitle: String? = nil
+    var minHeight: CGFloat = 0
     var action: (() -> Void)? = nil
 
     var body: some View {
@@ -27,7 +28,7 @@ struct EmptyStateView: View {
             }
         }
         .padding(40)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .center)
     }
 }
 

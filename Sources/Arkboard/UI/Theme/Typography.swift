@@ -82,4 +82,9 @@ enum Metrics {
     static let proseMax: CGFloat = 720
     static let gridMax: CGFloat = 1000
     static let markerColumn: CGFloat = 18
+    static let tabFade: CGFloat = 24
+    static let tabPillX: CGFloat = 10
+    static let tabCompactWidth: CGFloat = 700
+    static let tabBarHeight: CGFloat = 44
+    static let emptyPaneMin: CGFloat = 280
 }

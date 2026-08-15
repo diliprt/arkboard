@@ -40,6 +40,9 @@ final class AppStore {
     var fontFamily: FontFamilyID {
         didSet { UserDefaults.standard.set(fontFamily.rawValue, forKey: SettingsKey.fontFamily) }
     }
+    var contentsVisible: Bool {
+        didSet { UserDefaults.standard.set(contentsVisible, forKey: SettingsKey.contentsVisible) }
+    }
 
     let pool: DatabasePool
     let documents = DocumentLibrary()
@@ -54,6 +57,11 @@ final class AppStore {
         fontFamily = FontFamilyID(rawValue: defaults.string(forKey: SettingsKey.fontFamily) ?? "system") ?? .system
         appearance = AppearancePreference(rawValue: defaults.string(forKey: SettingsKey.appearance) ?? "light") ?? .light
         sidebarSelection = SidebarItem.from(persistence: defaults.string(forKey: SettingsKey.sidebarSelection) ?? "")
+        if defaults.object(forKey: SettingsKey.contentsVisible) == nil {
+            contentsVisible = true
+        } else {
+            contentsVisible = defaults.bool(forKey: SettingsKey.contentsVisible)
+        }
     }
 
     func start() async {
@@ -651,6 +659,7 @@ enum SettingsKey {
     static let fontFamily = "arkboard.fontFamily"
     static let sidebarSelection = "arkboard.sidebarSelection"
     static let serverPort = "arkboard.serverPort"
+    static let contentsVisible = "arkboard.contentsVisible"
 }
 
 struct UndoArchive: Equatable {

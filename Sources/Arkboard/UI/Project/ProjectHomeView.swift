@@ -43,13 +43,16 @@ struct ProjectHomeView: View {
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
                     overview
                     Section {
-                        tabBody
-                            .padding(.horizontal, Metrics.paneX)
-                            .padding(.vertical, Metrics.paneY)
-                            .id("tab-top")
+                        ZStack(alignment: .topLeading) {
+                            StudioColor.wash(tab.section.hue, scheme: scheme)
+                            tabBody
+                                .padding(.horizontal, Metrics.paneX)
+                                .padding(.vertical, Metrics.paneY)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: Metrics.emptyPaneMin, alignment: .topLeading)
+                        .id("tab-top")
                     } header: {
                         tabBar
-                            .background(StudioColor.window)
                     }
                 }
             }
@@ -65,9 +68,19 @@ struct ProjectHomeView: View {
                     proxy.scrollTo("composer", anchor: .center)
                 }
             }
+            .onChange(of: tab) { _, newTab in
+                publishOutline()
+                if newTab == .timeline {
+                    DispatchQueue.main.async {
+                        DispatchQueue.main.async {
+                            proxy.scrollTo("today", anchor: .center)
+                        }
+                    }
+                }
+            }
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
-        .background(StudioColor.wash(tab.section.hue, scheme: scheme))
+        .clipped()
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: tab)
         .sheet(item: $viewer) { document in
             MockupViewer(documents: mockupImages, current: document)
@@ -84,7 +97,6 @@ struct ProjectHomeView: View {
             }
             publishOutline()
         }
-        .onChange(of: tab) { _, _ in publishOutline() }
         .onChange(of: selectedPath) { _, _ in publishOutline() }
         .onChange(of: bundle?.loadedAt) { _, _ in publishOutline() }
         .onChange(of: store.pendingProjectTab) { _, next in
@@ -107,6 +119,7 @@ struct ProjectHomeView: View {
     }
 
     private var overview: some View {
+        ProseColumn {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 ProjectIcon(project: project, imageData: store.markImage(for: project), size: 28)
@@ -149,6 +162,7 @@ struct ProjectHomeView: View {
             NoteComposer(projectKey: project.key)
                 .id("composer")
         }
+        }
         .padding(.horizontal, Metrics.paneX)
         .padding(.vertical, Metrics.paneY)
         .background(StudioColor.window)
@@ -162,30 +176,58 @@ struct ProjectHomeView: View {
     }
 
     private var tabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(ProjectHomeTab.allCases) { item in
-                    Button {
-                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
-                            tab = item
-                            selectedPath = nil
+        GeometryReader { geo in
+            let compact = geo.size.width < Metrics.tabCompactWidth
+            ScrollViewReader { tabProxy in
+                FadingHScroll {
+                    HStack(spacing: 6) {
+                        ForEach(ProjectHomeTab.allCases) { item in
+                            Button {
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                                    tab = item
+                                    selectedPath = nil
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    if tab == item || !compact {
+                                        Image(systemName: item.section.symbol)
+                                    }
+                                    Text(item.section.title)
+                                }
+                                .font(type.caption)
+                                .foregroundStyle(tab == item ? item.section.hue.color(for: scheme) : StudioColor.secondary)
+                                .padding(.horizontal, Metrics.tabPillX)
+                                .padding(.vertical, 6)
+                                .background(tab == item ? StudioColor.selectedTab(item.section.hue, scheme: scheme) : Color.clear, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .id(item.id)
                         }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: item.section.symbol)
-                            Text(item.section.title)
-                        }
-                        .font(type.caption)
-                        .foregroundStyle(tab == item ? item.section.hue.color(for: scheme) : StudioColor.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(tab == item ? StudioColor.selectedTab(item.section.hue, scheme: scheme) : Color.clear, in: Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, Metrics.paneX)
+                    .padding(.vertical, 8)
+                }
+                .onChange(of: tab) { _, newTab in
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                        tabProxy.scrollTo(newTab.id, anchor: .center)
+                    }
+                }
+                .onAppear {
+                    tabProxy.scrollTo(tab.id, anchor: .center)
                 }
             }
-            .padding(.horizontal, Metrics.paneX)
-            .padding(.vertical, 8)
+        }
+        .frame(height: Metrics.tabBarHeight)
+        .background {
+            ZStack {
+                StudioColor.window
+                StudioColor.wash(tab.section.hue, scheme: scheme)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(StudioColor.hairline)
+                .frame(height: 1)
         }
     }
 
@@ -193,32 +235,34 @@ struct ProjectHomeView: View {
     private var tabBody: some View {
         switch tab {
         case .design, .architecture, .decisions:
-            documentTab
+            ProseColumn { documentTab }
         case .mockups:
-            mockupsTab
+            GridColumn { mockupsTab }
         case .issues:
-            projectIssues
+            GridColumn { projectIssues }
         case .timeline:
-            TimelineSpine(
-                events: TimelineBuilder.events(
-                    milestones: store.milestones.filter { $0.projectId == project.id },
-                    issues: store.issues.filter { $0.projectId == project.id && $0.status == .done }
+            GridColumn {
+                TimelineSpine(
+                    events: TimelineBuilder.events(
+                        milestones: store.milestones.filter { $0.projectId == project.id },
+                        issues: store.issues.filter { $0.projectId == project.id && $0.status == .done }
+                    )
                 )
-            )
+            }
         }
     }
 
     @ViewBuilder
     private var documentTab: some View {
         if let error = bundle?.error {
-            EmptyStateView(section: tab.section, title: "Documents could not be read", sentence: error, actionTitle: "Try again") {
+            EmptyStateView(section: tab.section, title: "Documents could not be read", sentence: error, actionTitle: "Try again", minHeight: Metrics.emptyPaneMin) {
                 Task { await store.refreshDocuments(projectId: project.id) }
             }
         } else if let documentTab = tab.documentTab {
             let docs = (bundle?.documents(in: documentTab) ?? []).filter { !$0.isImage }
             if docs.isEmpty {
                 let copy = emptyCopy
-                EmptyStateView(section: tab.section, title: copy.0, sentence: copy.1)
+                EmptyStateView(section: tab.section, title: copy.0, sentence: copy.1, minHeight: Metrics.emptyPaneMin)
             } else {
                 VStack(alignment: .leading, spacing: 16) {
                     if docs.count > 1 {
@@ -239,16 +283,14 @@ struct ProjectHomeView: View {
                     if tab == .decisions, let markdown = currentDocument?.markdown {
                         let opens = QuestionParser.openQuestions(in: markdown)
                         if !opens.isEmpty {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack {
-                                    ForEach(opens, id: \.anchor) { question in
-                                        Button {
-                                            store.jumpToHeading(question.anchor)
-                                        } label: {
-                                            Chip(text: question.heading, hue: .gold)
-                                        }
-                                        .buttonStyle(.plain)
+                            FlowLayout(spacing: 8) {
+                                ForEach(opens, id: \.anchor) { question in
+                                    Button {
+                                        store.jumpToHeading(question.anchor)
+                                    } label: {
+                                        Chip(text: question.heading, hue: .gold)
                                     }
+                                    .buttonStyle(.plain)
                                 }
                             }
                         }
@@ -266,7 +308,7 @@ struct ProjectHomeView: View {
         let notes = (bundle?.documents(in: .mockups) ?? []).filter { !$0.isImage }
         return VStack(alignment: .leading, spacing: 16) {
             if images.isEmpty && notes.isEmpty {
-                EmptyStateView(section: .mockups, title: EmptyCopy.mockups.0, sentence: EmptyCopy.mockups.1)
+                EmptyStateView(section: .mockups, title: EmptyCopy.mockups.0, sentence: EmptyCopy.mockups.1, minHeight: Metrics.emptyPaneMin)
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 12)], spacing: 12) {
                     ForEach(images) { image in
@@ -302,7 +344,7 @@ struct ProjectHomeView: View {
                 .foregroundStyle(StudioColor.secondary)
             let grouped = store.humanIssues(projectId: project.id)
             if grouped.values.allSatisfy(\.isEmpty) {
-                EmptyStateView(section: .issues, title: EmptyCopy.noIssues.0, sentence: EmptyCopy.noIssues.1)
+                EmptyStateView(section: .issues, title: EmptyCopy.noIssues.0, sentence: EmptyCopy.noIssues.1, minHeight: Metrics.emptyPaneMin)
             } else {
                 ForEach([HumanIssueGroup.underway, .queued, .done], id: \.self) { group in
                     let rows = grouped[group, default: []]

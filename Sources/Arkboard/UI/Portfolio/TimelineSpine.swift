@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct TimelineEvent: Identifiable {
+struct TimelineEvent: Identifiable, Equatable {
     var id: String
     var date: Date
     var title: String
@@ -8,6 +8,51 @@ struct TimelineEvent: Identifiable {
     var identifiers: [String]
     var hue: Hue
     var isMilestone: Bool
+    var identifier: String? = nil
+}
+
+enum TimelinePlacement {
+    enum Item: Identifiable, Equatable {
+        case today
+        case week(Date)
+        case event(TimelineEvent)
+
+        var id: String {
+            switch self {
+            case .today: return "today"
+            case .week(let start): return "week-\(start.timeIntervalSince1970)"
+            case .event(let event): return event.id
+            }
+        }
+    }
+
+    /// Index of the single Today rule: before the first future event.
+    static func todayIndex(in dates: [Date], now: Date) -> Int {
+        dates.firstIndex { $0 > now } ?? dates.count
+    }
+
+    static func items(events: [TimelineEvent], now: Date = Date(), showToday: Bool = true) -> [Item] {
+        let ordered = events.sorted { $0.date < $1.date }
+        let insertAt = todayIndex(in: ordered.map(\.date), now: now)
+        var result: [Item] = []
+        var lastWeek: Date?
+        let calendar = Calendar.current
+        for (index, event) in ordered.enumerated() {
+            if showToday, index == insertAt {
+                result.append(.today)
+            }
+            let start = calendar.dateInterval(of: .weekOfYear, for: event.date)?.start ?? event.date
+            if lastWeek == nil || !calendar.isDate(start, inSameDayAs: lastWeek!) {
+                result.append(.week(start))
+                lastWeek = start
+            }
+            result.append(.event(event))
+        }
+        if showToday, insertAt == ordered.count {
+            result.append(.today)
+        }
+        return result
+    }
 }
 
 struct TimelineSpine: View {
@@ -17,27 +62,23 @@ struct TimelineSpine: View {
     var showToday: Bool = true
 
     var body: some View {
-        let ordered = events.sorted { $0.date < $1.date }
-        if ordered.isEmpty {
-            EmptyStateView(section: .timeline, title: EmptyCopy.noTimeline.0, sentence: EmptyCopy.noTimeline.1)
+        let items = TimelinePlacement.items(events: events, showToday: showToday)
+        if events.isEmpty {
+            EmptyStateView(section: .timeline, title: EmptyCopy.noTimeline.0, sentence: EmptyCopy.noTimeline.1, minHeight: Metrics.emptyPaneMin)
         } else {
-            ScrollViewReader { proxy in
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(weeks(ordered), id: \.start) { week in
-                        Text(RelativeTime.weekHeader(week.start).uppercased())
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(items) { item in
+                    switch item {
+                    case .today:
+                        todayRule
+                    case .week(let start):
+                        Text(RelativeTime.weekHeader(start).uppercased())
                             .font(type.caption)
                             .foregroundStyle(Hue.moss.color(for: scheme))
                             .padding(.vertical, 8)
-                        ForEach(week.events) { event in
-                            if showToday, shouldShowToday(before: event, in: week.events) {
-                                todayRule
-                            }
-                            eventRow(event)
-                        }
+                    case .event(let event):
+                        eventRow(event)
                     }
-                }
-                .onAppear {
-                    proxy.scrollTo("today", anchor: .center)
                 }
             }
         }
@@ -62,8 +103,15 @@ struct TimelineSpine: View {
                 .frame(width: event.isMilestone ? 10 : 6, height: event.isMilestone ? 10 : 6)
                 .padding(.top, 6)
             VStack(alignment: .leading, spacing: 4) {
-                Text(event.title)
-                    .font(event.isMilestone ? type.bodyStrong : type.body)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    if let identifier = event.identifier {
+                        Text(identifier)
+                            .font(type.mono)
+                            .foregroundStyle(StudioColor.secondary)
+                    }
+                    Text(event.title)
+                        .font(event.isMilestone ? type.bodyStrong : type.body)
+                }
                 Text(event.date, style: .date)
                     .font(type.caption)
                     .foregroundStyle(StudioColor.secondary)
@@ -73,34 +121,16 @@ struct TimelineSpine: View {
                         .foregroundStyle(StudioColor.secondary)
                         .lineLimit(1)
                 }
-                HStack {
-                    ForEach(event.identifiers, id: \.self) { ident in
-                        Chip(text: ident, hue: .teal, mono: true)
+                if !event.identifiers.isEmpty {
+                    HStack {
+                        ForEach(event.identifiers, id: \.self) { ident in
+                            Chip(text: ident, hue: .teal, mono: true)
+                        }
                     }
                 }
             }
         }
         .padding(.vertical, 8)
-    }
-
-    private func weeks(_ events: [TimelineEvent]) -> [(start: Date, events: [TimelineEvent])] {
-        let calendar = Calendar.current
-        var groups: [(Date, [TimelineEvent])] = []
-        for event in events {
-            let start = calendar.dateInterval(of: .weekOfYear, for: event.date)?.start ?? event.date
-            if let index = groups.firstIndex(where: { Calendar.current.isDate($0.0, inSameDayAs: start) }) {
-                groups[index].1.append(event)
-            } else {
-                groups.append((start, [event]))
-            }
-        }
-        return groups
-    }
-
-    private func shouldShowToday(before event: TimelineEvent, in events: [TimelineEvent]) -> Bool {
-        let now = Date()
-        guard event.date >= now else { return false }
-        return events.first(where: { $0.date >= now })?.id == event.id
     }
 }
 
@@ -133,11 +163,12 @@ enum TimelineBuilder {
                     TimelineEvent(
                         id: issue.id,
                         date: completed,
-                        title: "\(issue.identifier)  \(issue.title)",
+                        title: issue.title,
                         detail: "",
-                        identifiers: [issue.identifier],
+                        identifiers: [],
                         hue: .moss,
-                        isMilestone: false
+                        isMilestone: false,
+                        identifier: issue.identifier
                     )
                 )
             }

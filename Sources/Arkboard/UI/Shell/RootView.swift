@@ -3,7 +3,10 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showNewProject = false
+    @State private var outlineWidth = Metrics.outlineIdeal
+    @State private var outlineDragStart: CGFloat?
 
     var body: some View {
         NavigationSplitView {
@@ -12,14 +15,28 @@ struct RootView: View {
             HStack(spacing: 0) {
                 document
                     .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
-                Divider()
-                ContentsOutline()
-                    .frame(width: Metrics.outlineIdeal)
+                    .clipped()
+                if store.contentsVisible {
+                    outlineDivider
+                    ContentsOutline()
+                        .frame(width: outlineWidth)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: store.contentsVisible)
         }
         .navigationTitle(windowTitle)
         .navigationSubtitle(store.workspace?.name ?? "Origin Ark")
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    store.contentsVisible.toggle()
+                } label: {
+                    Image(systemName: "sidebar.trailing")
+                }
+                .help(store.contentsVisible ? "Hide Contents" : "Show Contents")
+            }
+        }
         .overlay(alignment: .bottom) {
             if let undo = store.undoArchive {
                 UndoToast(
@@ -48,13 +65,50 @@ struct RootView: View {
         }
     }
 
+    private var outlineDivider: some View {
+        Rectangle()
+            .fill(StudioColor.hairline)
+            .frame(width: 1)
+            .overlay {
+                Color.clear
+                    .frame(width: 8)
+                    .contentShape(Rectangle())
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        if outlineDragStart == nil {
+                            outlineDragStart = outlineWidth
+                        }
+                        let next = (outlineDragStart ?? outlineWidth) - value.translation.width
+                        outlineWidth = min(Metrics.outlineMax, max(Metrics.outlineMin, next))
+                    }
+                    .onEnded { _ in
+                        outlineDragStart = nil
+                    }
+            )
+            .onHover { hovering in
+                if hovering {
+                    NSCursor.resizeLeftRight.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+    }
+
     @ViewBuilder
     private var document: some View {
         if case let .project(id) = store.sidebarSelection, let project = store.project(id: id) {
             ProjectHomeView(project: project)
                 .id(project.id)
         } else {
-            EmptyStateView(section: .portfolio, title: EmptyCopy.noProjects.0, sentence: EmptyCopy.noProjects.1, actionTitle: "New Project") {
+            EmptyStateView(
+                section: .portfolio,
+                title: EmptyCopy.noProjects.0,
+                sentence: EmptyCopy.noProjects.1,
+                actionTitle: "New Project",
+                minHeight: Metrics.emptyPaneMin
+            ) {
                 showNewProject = true
             }
         }

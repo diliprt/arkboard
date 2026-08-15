@@ -204,6 +204,62 @@ def human_group(status: str, archived: bool):
     }[status]
 
 
+def today_index(dates: list[int], now: int) -> int:
+    """Index of the single Today rule: before the first future event."""
+    for i, date in enumerate(dates):
+        if date > now:
+            return i
+    return len(dates)
+
+
+def check_polish(swift: str, home: str, root: str, sidebar: str) -> None:
+    """product/polish.md must-fix (and cheap should-fix) source checks."""
+    now = 1_000
+    ok("D2 today at top when all future", today_index([1_100, 1_200], now) == 0)
+    ok("D2 today at end when all past", today_index([800, 900], now) == 2)
+    ok("D2 today between past and future", today_index([800, 900, 1_100, 1_200], now) == 2)
+    ok("D2 today empty list", today_index([], now) == 0)
+
+    def today_marks(dates: list[int], current: int) -> list[str]:
+        insert = today_index(dates, current)
+        marks: list[str] = []
+        for i, _ in enumerate(dates):
+            if i == insert:
+                marks.append("today")
+            marks.append("event")
+        if insert == len(dates):
+            marks.append("today")
+        return marks
+
+    ok("D2 exactly one today mixed", today_marks([800, 900, 1_100, 1_200], now).count("today") == 1)
+    ok("D2 exactly one today all past", today_marks([800, 900], now).count("today") == 1)
+    ok("D2 exactly one today all future", today_marks([1_100, 1_200], now).count("today") == 1)
+    ok("D2 today before first future event", today_marks([800, 1_100], now) == ["event", "today", "event"])
+
+    body = home.split("var body")[1].split("private var overview")[0] if "var body" in home and "private var overview" in home else ""
+    tab_bar = home.split("private var tabBar")[1].split("@ViewBuilder")[0] if "private var tabBar" in home else ""
+    ok("C1 wash is not a root background", ".background(StudioColor.wash" not in body)
+    ok("C1 pane clips wash", ".clipped()" in home)
+    ok("C2 pinned tab bar keeps wash", "StudioColor.wash" in tab_bar)
+    ok("SB1 New Project has explicit placement",
+       "ToolbarItem(placement:" in sidebar and "folder.badge.plus" in sidebar)
+    ok("T1 tab pills scroll selected into view", "scrollTo(newTab.id" in home or "tabProxy.scrollTo" in home)
+    ok("T1 tab edge fade exists", "FadingHScroll" in swift and "tabFade" in swift)
+    ok("T1 tighter pill padding", "tabPillX" in swift)
+    ok("D1 document tabs use ProseColumn", "ProseColumn" in home)
+    ok("D1 grid tabs use GridColumn", "GridColumn" in home)
+    ok("O1 Contents toggle symbol", "sidebar.trailing" in root)
+    ok("O1 persist contentsVisible", "arkboard.contentsVisible" in swift)
+    ok("O2 Contents width range", "outlineMin" in root and "outlineMax" in root)
+    ok("T3 question chips wrap", "FlowLayout" in home)
+    ok("D2 single todayIndex", "todayIndex" in swift and "shouldShowToday" not in swift)
+    ok("D3 pane scrolls to today", 'scrollTo("today"' in home)
+    ok("D3 TimelineSpine has no local ScrollViewReader", "ScrollViewReader" not in (SOURCES / "UI/Portfolio/TimelineSpine.swift").read_text())
+    ok("D4 issue identifier not duplicated in title",
+       "issue.identifier)  \\(issue.title)" not in swift)
+    ok("E1 empty state can fill the pane", "minHeight" in (SOURCES / "UI/Shell/EmptyStateView.swift").read_text())
+
+
 def main() -> int:
     expected_routes = {
         "product/README.md": "overview",
@@ -365,6 +421,8 @@ def main() -> int:
     ok("ui-spec sidebar is projects", "clean portfolio of projects" in ui)
     ok("ui-spec contents on the right", "one outline, on the right" in ui)
     ok("design contents column", "right-hand **Contents** column" in design or "right-hand **Contents**" in design)
+
+    check_polish(swift, home, root, sidebar)
 
     print()
     if FAIL:

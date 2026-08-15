@@ -34,7 +34,7 @@ Arkboard's own mark is `square.3.layers.3d` in indigo `#5A62D6`. Other projects 
 
 ### Contents
 
-A trailing pane beside the document, 220pt ideal, 180 min, 280 max. The document column itself is at least 560pt. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right.
+A trailing pane beside the document, 220pt ideal, 180 min, 280 max, user-resizable in that range. A toolbar `sidebar.trailing` toggle collapses and restores it; the choice persists as `arkboard.contentsVisible`. The document column itself is at least 560pt. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right.
 
 - Header `Contents` in `caption`, secondary.
 - One heading per row, indented 12pt per level below `#`, `bodyStrong` for `#`/`##` and `caption` deeper.

@@ -55,7 +55,7 @@ struct SidebarView: View {
             .background(.bar)
         }
         .toolbar {
-            ToolbarItem {
+            ToolbarItem(placement: .primaryAction) {
                 Button {
                     NotificationCenter.default.post(name: .arkboardNewProject, object: nil)
                 } label: {
