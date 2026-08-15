@@ -92,7 +92,11 @@ struct ActivityFeedView: View {
     }
 
     private func open(_ activity: Activity) {
-        if let issue = store.issue(forActivity: activity) {
+        if let requirement = store.requirement(forActivity: activity) {
+            store.selection = .monitor
+            store.selectMonitorRequirement(requirement)
+            store.expandedRequirementId = requirement.id
+        } else if let issue = store.issue(forActivity: activity) {
             store.selection = .project(issue.projectId)
             store.selectedIssueId = issue.id
         } else if let project = store.project(forActivity: activity) {
@@ -217,7 +221,11 @@ private struct ActivityRow: View {
                 }
 
                 HStack(spacing: 8) {
-                    if let issue = store.issue(forActivity: activity) {
+                    if let requirement = store.requirement(forActivity: activity) {
+                        Text(requirement.identifier)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    } else if let issue = store.issue(forActivity: activity) {
                         Text(issue.identifier)
                             .font(.caption.monospaced())
                             .foregroundStyle(.secondary)

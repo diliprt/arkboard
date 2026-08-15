@@ -643,6 +643,98 @@ final class MCPServer: @unchecked Sendable {
             )
             return try text(store.issueDictionary(issue))
 
+        case "list_requirements":
+            let projectKey = args["projectKey"] as? String
+            let items = store.listRequirements(projectKey: projectKey)
+            return try text(["requirements": items.map { store.requirementDictionary($0) }])
+
+        case "create_requirement":
+            let actor = Self.resolvedActor(args)
+            let implementing = try Self.parseImplementingForCreate(args)
+            let working = try Self.parseWorkingForCreate(args)
+            let sort: Double?
+            if let d = args["sortOrder"] as? Double {
+                sort = d
+            } else if let n = args["sortOrder"] as? NSNumber {
+                sort = n.doubleValue
+            } else {
+                sort = nil
+            }
+            let requirement = try await store.createRequirement(
+                projectId: args["projectId"] as? String,
+                projectKey: args["projectKey"] as? String,
+                title: args["title"] as? String ?? "",
+                body: (args["body"] as? String) ?? (args["description"] as? String) ?? "",
+                implementing: implementing,
+                working: working,
+                sortOrder: sort,
+                linkedIssueIdentifiers: args["linkedIssueIdentifiers"] as? [String] ?? [],
+                actor: actor
+            )
+            return try text(store.requirementDictionary(requirement))
+
+        case "update_requirement":
+            let actor = Self.resolvedActor(args)
+            let sort: Double?
+            if args.keys.contains("sortOrder") {
+                if let d = args["sortOrder"] as? Double {
+                    sort = d
+                } else if let n = args["sortOrder"] as? NSNumber {
+                    sort = n.doubleValue
+                } else {
+                    sort = nil
+                }
+            } else {
+                sort = nil
+            }
+            let requirement = try await store.updateRequirement(
+                id: args["id"] as? String,
+                identifier: args["identifier"] as? String,
+                title: args["title"] as? String,
+                body: (args["body"] as? String) ?? (args["description"] as? String),
+                implementing: try Self.parseOptionalImplementing(args),
+                working: try Self.parseOptionalWorking(args),
+                sortOrder: sort,
+                linkedIssueIdentifiers: args["linkedIssueIdentifiers"] as? [String],
+                actor: actor
+            )
+            return try text(store.requirementDictionary(requirement))
+
+        case "add_requirement_comment":
+            let key = (args["requirementId"] as? String) ?? (args["id"] as? String) ?? (args["identifier"] as? String) ?? ""
+            guard let requirement = store.requirements.first(where: {
+                $0.id == key || $0.identifier.caseInsensitiveCompare(key) == .orderedSame
+            }) else { throw StoreError.notFound }
+            let actor = Self.resolvedActor(args, fallbackAuthor: args["authorName"] as? String)
+            let comment = try await store.addRequirementComment(
+                requirementId: requirement.id,
+                body: args["body"] as? String ?? "",
+                authorName: actor,
+                actor: actor
+            )
+            return try text([
+                "id": comment.id,
+                "requirementId": comment.requirementId,
+                "body": comment.bodyMarkdown,
+                "authorName": comment.authorName,
+            ])
+
+        case "list_requirement_thread":
+            let key = (args["requirementId"] as? String) ?? (args["id"] as? String) ?? (args["identifier"] as? String) ?? ""
+            guard let thread = store.requirementThread(idOrIdentifier: key) else { throw StoreError.notFound }
+            return try text([
+                "requirement": store.requirementDictionary(thread.requirement),
+                "comments": thread.comments.map {
+                    [
+                        "id": $0.id,
+                        "body": $0.bodyMarkdown,
+                        "authorName": $0.authorName,
+                        "createdAt": ISO8601DateFormatter().string(from: $0.createdAt),
+                    ] as [String: Any]
+                },
+                "activities": thread.activities.map { store.activityDictionary($0) },
+            ])
+
         default:
             throw NSError(domain: "MCP", code: -32601, userInfo: [NSLocalizedDescriptionKey: "Unknown tool: \(name)"])
         }
@@ -731,6 +823,38 @@ final class MCPServer: @unchecked Sendable {
         try parseDate(value) ?? defaultDate
     }
 
+    private static func parseOptionalImplementing(_ args: [String: Any], key: String = "implementing") throws -> RequirementImplementing? {
+        guard args.keys.contains(key) else { return nil }
+        guard let raw = args[key] as? String else {
+            throw StoreError.invalidImplementing(String(describing: args[key] ?? "null"))
+        }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = RequirementImplementing(rawValue: trimmed) else {
+            throw StoreError.invalidImplementing(trimmed)
+        }
+        return value
+    }
+
+    private static func parseImplementingForCreate(_ args: [String: Any]) throws -> RequirementImplementing {
+        try parseOptionalImplementing(args) ?? .not_started
+    }
+
+    private static func parseOptionalWorking(_ args: [String: Any], key: String = "working") throws -> RequirementWorking? {
+        guard args.keys.contains(key) else { return nil }
+        guard let raw = args[key] as? String else {
+            throw StoreError.invalidWorking(String(describing: args[key] ?? "null"))
+        }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = RequirementWorking(rawValue: trimmed) else {
+            throw StoreError.invalidWorking(trimmed)
+        }
+        return value
+    }
+
+    private static func parseWorkingForCreate(_ args: [String: Any]) throws -> RequirementWorking {
+        try parseOptionalWorking(args) ?? .unknown
+    }
+
     private func jsonrpcError(id: Any?, code: Int, message: String) -> [String: Any] {
         var resp: [String: Any] = [
             "jsonrpc": "2.0",
@@ -747,6 +871,7 @@ enum MCPToolCatalog {
         "create_issue", "update_issue", "delete_issue", "restore_issue", "add_comment", "search_issues", "list_activity",
         "list_milestones", "create_milestone", "update_milestone", "list_bot_thread",
         "set_project_github_repo", "link_github_issue", "create_github_issue", "unlink_github_issue",
+        "list_requirements", "create_requirement", "update_requirement", "add_requirement_comment", "list_requirement_thread",
     ]
 
     static var tools: [[String: Any]] {
@@ -873,6 +998,46 @@ enum MCPToolCatalog {
                 "id": ["type": "string"],
                 "identifier": ["type": "string"],
                 "actor": ["type": "string"],
+            ]),
+            tool("list_requirements", "List design requirements (Monitor center) with optional project filter", [
+                "projectKey": ["type": "string", "description": "e.g. ARK"],
+            ]),
+            tool("create_requirement", "Create a design requirement (not an issue)", [
+                "title": ["type": "string"],
+                "body": ["type": "string"],
+                "description": ["type": "string", "description": "Alias for body"],
+                "projectKey": ["type": "string"],
+                "projectId": ["type": "string"],
+                "implementing": ["type": "string", "description": "not_started|implementing|implemented"],
+                "working": ["type": "string", "description": "unknown|working|not_working"],
+                "sortOrder": ["type": "number"],
+                "linkedIssueIdentifiers": ["type": "array", "items": ["type": "string"]],
+                "actor": ["type": "string", "description": "Agent name for activity feed (default Agent)"],
+            ], required: ["title"]),
+            tool("update_requirement", "Update a requirement title/body/health signals/sortOrder", [
+                "id": ["type": "string"],
+                "identifier": ["type": "string", "description": "e.g. ARK-R1"],
+                "title": ["type": "string"],
+                "body": ["type": "string"],
+                "description": ["type": "string"],
+                "implementing": ["type": "string", "description": "not_started|implementing|implemented"],
+                "working": ["type": "string", "description": "unknown|working|not_working"],
+                "sortOrder": ["type": "number"],
+                "linkedIssueIdentifiers": ["type": "array", "items": ["type": "string"]],
+                "actor": ["type": "string"],
+            ]),
+            tool("add_requirement_comment", "Add a comment on a design requirement thread", [
+                "requirementId": ["type": "string"],
+                "id": ["type": "string"],
+                "identifier": ["type": "string"],
+                "body": ["type": "string"],
+                "authorName": ["type": "string", "description": "Legacy; prefer actor"],
+                "actor": ["type": "string", "description": "Sets authorName + activity actor (default Agent)"],
+            ], required: ["body"]),
+            tool("list_requirement_thread", "Comments + activity for one requirement in chronological order", [
+                "requirementId": ["type": "string"],
+                "id": ["type": "string"],
+                "identifier": ["type": "string", "description": "e.g. ARK-R1"],
             ]),
         ]
     }

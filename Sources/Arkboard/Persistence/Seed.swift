@@ -16,6 +16,7 @@ enum SeedData {
             try seedMilestonesIfNeeded(db)
             try seedDemoAgentActivityIfNeeded(db)
             try enrichBotDialogueIfThin(db)
+            try seedRequirementsIfNeeded(db)
             return
         }
 
@@ -82,6 +83,7 @@ enum SeedData {
 
         try seedMilestonesIfNeeded(db)
         try seedDemoAgentActivity(db)
+        try seedRequirementsIfNeeded(db)
     }
 
     /// Auto-seed when the activity table is empty (fresh install or post-migration).
@@ -299,6 +301,139 @@ enum SeedData {
 
         try project.update(db)
     }
+
+    static func seedRequirementsIfNeeded(_ db: Database) throws {
+        let count = try Requirement.fetchCount(db)
+        guard count == 0 else { return }
+        try seedRequirements(db)
+    }
+
+    /// Seed design requirements from existing ARK feature titles. Does not touch issues.
+    static func seedRequirements(_ db: Database) throws {
+        guard var ark = try Project.filter(Column("key") == "ARK").fetchOne(db) else { return }
+        let now = Date()
+        struct SeedReq {
+            let title: String
+            let body: String
+            let implementing: RequirementImplementing
+            let working: RequirementWorking
+            let linked: [String]
+        }
+        let seeds: [SeedReq] = [
+            SeedReq(
+                title: "Ship Arkboard v1 overnight",
+                body: "Working Linear-style local macOS app with MCP. Human steers requirements; agents execute.",
+                implementing: .implementing,
+                working: .working,
+                linked: ["ARK-1"]
+            ),
+            SeedReq(
+                title: "List + Board views",
+                body: "Segmented list and kanban by status for Inbox and per-project browsers.",
+                implementing: .implemented,
+                working: .working,
+                linked: ["ARK-2"]
+            ),
+            SeedReq(
+                title: "Local MCP HTTP on :7420",
+                body: "Agents list/create/update issues and requirements via localhost with actor attribution.",
+                implementing: .implementing,
+                working: .working,
+                linked: ["ARK-3"]
+            ),
+            SeedReq(
+                title: "Seed demo data",
+                body: "First-launch sample projects, issues, and design requirements so Monitor is not empty.",
+                implementing: .implemented,
+                working: .working,
+                linked: ["ARK-4"]
+            ),
+            SeedReq(
+                title: "Polish empty states",
+                body: "Friendly empty project / no-issue UI that does not push New Issue as the primary action.",
+                implementing: .not_started,
+                working: .unknown,
+                linked: ["ARK-5"]
+            ),
+        ]
+
+        var inserted: [Requirement] = []
+        for (idx, seed) in seeds.enumerated() {
+            ark.requirementCounter += 1
+            let stamp = now.addingTimeInterval(Double(-idx) * 900)
+            let req = Requirement(
+                id: UUID().uuidString,
+                identifier: "\(ark.key)-R\(ark.requirementCounter)",
+                projectId: ark.id,
+                title: seed.title,
+                bodyMarkdown: seed.body,
+                implementing: seed.implementing,
+                working: seed.working,
+                sortOrder: Double(idx),
+                createdAt: now.addingTimeInterval(Double(-idx) * 1800),
+                updatedAt: stamp,
+                linkedIssueIdentifiers: Requirement.encodeIdentifiers(seed.linked)
+            )
+            try req.insert(db)
+            inserted.append(req)
+            try ActivityLogger.insert(
+                db,
+                actor: "Product",
+                action: ActivityAction.created_requirement.rawValue,
+                summary: "Product created requirement \(req.identifier): \(req.title)",
+                projectId: ark.id,
+                requirementId: req.id,
+                createdAt: stamp,
+                kind: .system
+            )
+        }
+        try ark.update(db)
+
+        if let ship = inserted.first {
+            let comment = RequirementComment(
+                id: UUID().uuidString,
+                requirementId: ship.id,
+                bodyMarkdown: "@Riyu Monitor is now centered on this requirement — implementing and working are the only health signals.",
+                authorName: "Product",
+                createdAt: now.addingTimeInterval(-120)
+            )
+            try comment.insert(db)
+            try ActivityLogger.insert(
+                db,
+                actor: "Product",
+                action: ActivityAction.commented.rawValue,
+                summary: "Product → Riyu on \(ship.identifier): Monitor centered on design requirements.",
+                projectId: ark.id,
+                requirementId: ship.id,
+                createdAt: now.addingTimeInterval(-120),
+                targetActor: "Riyu",
+                kind: .mention
+            )
+        }
+        if inserted.count > 2 {
+            let mcp = inserted[2]
+            let comment = RequirementComment(
+                id: UUID().uuidString,
+                requirementId: mcp.id,
+                bodyMarkdown: "@Ops list_requirements / update_requirement need actor so Activity shows who steered the signals.",
+                authorName: "Product",
+                createdAt: now.addingTimeInterval(-60)
+            )
+            try comment.insert(db)
+            try ActivityLogger.insert(
+                db,
+                actor: "Product",
+                action: ActivityAction.commented.rawValue,
+                summary: "Product → Ops on \(mcp.identifier): pass actor on requirement mutations.",
+                projectId: ark.id,
+                requirementId: mcp.id,
+                createdAt: now.addingTimeInterval(-60),
+                targetActor: "Ops",
+                kind: .mention
+            )
+        }
+    }
+
 }
 
 enum ActivityLogger {
@@ -309,6 +444,7 @@ enum ActivityLogger {
         summary: String,
         issueId: String? = nil,
         projectId: String? = nil,
+        requirementId: String? = nil,
         createdAt: Date = Date(),
         targetActor: String? = nil,
         kind: ActivityKind = .system
@@ -322,6 +458,7 @@ enum ActivityLogger {
             action: action,
             issueId: issueId,
             projectId: projectId,
+            requirementId: requirementId,
             summary: summary,
             targetActor: (trimmedTarget?.isEmpty == false) ? trimmedTarget : nil,
             kind: kind.rawValue

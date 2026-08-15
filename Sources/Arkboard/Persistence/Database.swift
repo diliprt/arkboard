@@ -178,6 +178,47 @@ enum AppDatabase {
                 }
             }
         }
+
+        migrator.registerMigration("v7_requirements") { db in
+            let projectColumns = try Set(db.columns(in: "project").map(\.name))
+            if !projectColumns.contains("requirementCounter") {
+                try db.alter(table: "project") { t in
+                    t.add(column: "requirementCounter", .integer).notNull().defaults(to: 0)
+                }
+            }
+
+            try db.create(table: "requirement") { t in
+                t.column("id", .text).primaryKey()
+                t.column("identifier", .text).notNull().unique()
+                t.column("projectId", .text).notNull().indexed()
+                    .references("project", onDelete: .cascade)
+                t.column("title", .text).notNull()
+                t.column("bodyMarkdown", .text).notNull().defaults(to: "")
+                t.column("implementing", .text).notNull().indexed()
+                t.column("working", .text).notNull().indexed()
+                t.column("sortOrder", .double).notNull().defaults(to: 0)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull().indexed()
+                t.column("linkedIssueIdentifiers", .text).notNull().defaults(to: "[]")
+            }
+
+            // Separate table so existing issue comments (comment.issueId NOT NULL) stay untouched.
+            try db.create(table: "requirement_comment") { t in
+                t.column("id", .text).primaryKey()
+                t.column("requirementId", .text).notNull().indexed()
+                    .references("requirement", onDelete: .cascade)
+                t.column("bodyMarkdown", .text).notNull()
+                t.column("authorName", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+            }
+
+            let activityColumns = try Set(db.columns(in: "activity").map(\.name))
+            if !activityColumns.contains("requirementId") {
+                try db.alter(table: "activity") { t in
+                    t.add(column: "requirementId", .text)
+                }
+            }
+        }
         return migrator
     }
 }

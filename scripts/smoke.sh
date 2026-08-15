@@ -357,6 +357,104 @@ if [[ -n "$IDENT" || -n "$ISSUE_ID" ]]; then
   check_json "restore_issue clears deletedAt" "$RES" '.result.structuredContent.deletedAt == null'
 fi
 
+# Design requirements (Monitor center) — first-class, not issue labels.
+info "MCP tools include requirement APIs"
+check_json "tools include list_requirements" "$TOOLS" '[.result.tools[].name] | index("list_requirements") != null'
+check_json "tools include create_requirement" "$TOOLS" '[.result.tools[].name] | index("create_requirement") != null'
+check_json "tools include update_requirement" "$TOOLS" '[.result.tools[].name] | index("update_requirement") != null'
+check_json "tools include add_requirement_comment" "$TOOLS" '[.result.tools[].name] | index("add_requirement_comment") != null'
+check_json "tools include list_requirement_thread" "$TOOLS" '[.result.tools[].name] | index("list_requirement_thread") != null'
+
+REQ_TITLE="Smoke requirement $(date +%Y%m%d-%H%M%S)"
+info "MCP create_requirement ($REQ_TITLE)"
+REQC="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg t "$REQ_TITLE" '{
+    jsonrpc:"2.0", id:30, method:"tools/call",
+    params:{
+      name:"create_requirement",
+      arguments:{ projectKey:"ARK", title:$t, body:"Smoke requirement body", implementing:"not_started", working:"unknown", actor:"Product" }
+    }
+  }')")"
+check_json "create_requirement" "$REQC" '.result.structuredContent.title == "'"$REQ_TITLE"'" or (.result.content[0].text | contains("'"$REQ_TITLE"'"))'
+REQ_IDENT="$(echo "$REQC" | jq -r '.result.structuredContent.identifier // empty')"
+REQ_ID="$(echo "$REQC" | jq -r '.result.structuredContent.id // empty')"
+if [[ -z "$REQ_IDENT" ]]; then
+  REQ_IDENT="$(echo "$REQC" | jq -r '.result.content[0].text' | jq -r '.identifier // empty' 2>/dev/null || true)"
+fi
+if [[ -z "$REQ_ID" ]]; then
+  REQ_ID="$(echo "$REQC" | jq -r '.result.content[0].text' | jq -r '.id // empty' 2>/dev/null || true)"
+fi
+info "Created requirement: ${REQ_IDENT:-unknown}"
+
+info "MCP list_requirements"
+REQL="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"list_requirements","arguments":{"projectKey":"ARK"}}}')"
+check_json "list_requirements" "$REQL" '.result.structuredContent.requirements | type == "array" and length >= 1 or (.result.content[0].text | contains("requirements"))'
+
+if [[ -n "$REQ_IDENT" || -n "$REQ_ID" ]]; then
+  info "MCP update_requirement (implementing + working)"
+  if [[ -n "$REQ_ID" ]]; then
+    REQ_UPD_ARGS="$(jq -n --arg id "$REQ_ID" '{id:$id, implementing:"implementing", working:"working", actor:"Ops"}')"
+  else
+    REQ_UPD_ARGS="$(jq -n --arg ident "$REQ_IDENT" '{identifier:$ident, implementing:"implementing", working:"working", actor:"Ops"}')"
+  fi
+  REQU="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson args "$REQ_UPD_ARGS" '{
+      jsonrpc:"2.0", id:32, method:"tools/call",
+      params:{ name:"update_requirement", arguments:$args }
+    }')")"
+  check_json "update_requirement implementing" "$REQU" '.result.structuredContent.implementing == "implementing" or (.result.content[0].text | contains("implementing"))'
+  check_json "update_requirement working" "$REQU" '.result.structuredContent.working == "working" or (.result.content[0].text | contains("working"))'
+
+  info "MCP add_requirement_comment"
+  if [[ -n "$REQ_ID" ]]; then
+    REQ_CMT_ARGS="$(jq -n --arg id "$REQ_ID" '{requirementId:$id, body:"@Riyu smoke thread on this requirement", actor:"Product"}')"
+  else
+    REQ_CMT_ARGS="$(jq -n --arg ident "$REQ_IDENT" '{identifier:$ident, body:"@Riyu smoke thread on this requirement", actor:"Product"}')"
+  fi
+  REQCM="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson args "$REQ_CMT_ARGS" '{
+      jsonrpc:"2.0", id:33, method:"tools/call",
+      params:{ name:"add_requirement_comment", arguments:$args }
+    }')")"
+  check_json "add_requirement_comment" "$REQCM" '(.error | not) and ((.result.structuredContent.body // .result.content[0].text) | test("smoke thread"))'
+
+  info "MCP list_requirement_thread"
+  if [[ -n "$REQ_IDENT" ]]; then
+    REQTH="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+      -H 'Content-Type: application/json' \
+      -d "$(jq -n --arg ident "$REQ_IDENT" '{
+        jsonrpc:"2.0", id:34, method:"tools/call",
+        params:{ name:"list_requirement_thread", arguments:{ identifier:$ident } }
+      }')")"
+  else
+    REQTH="$(curl -sfS --max-time 5 -X POST "$BASE/mcp" \
+      -H 'Content-Type: application/json' \
+      -d "$(jq -n --arg id "$REQ_ID" '{
+        jsonrpc:"2.0", id:34, method:"tools/call",
+        params:{ name:"list_requirement_thread", arguments:{ requirementId:$id } }
+      }')")"
+  fi
+  check_json "list_requirement_thread" "$REQTH" '.result.structuredContent.requirement != null or (.result.content[0].text | contains("requirement"))'
+  check_json "list_requirement_thread has comment" "$REQTH" '(.result.structuredContent.comments | length) >= 1 or (.result.content[0].text | test("smoke thread"))'
+fi
+
+info "MCP update_requirement invalid implementing must error"
+BAD_IMP="$(curl -sS --max-time 5 -X POST "$BASE/mcp" \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg id "${REQ_ID:-}" --arg ident "${REQ_IDENT:-ARK-R1}" '{
+    jsonrpc:"2.0", id:35, method:"tools/call",
+    params:{
+      name:"update_requirement",
+      arguments: (if $id != "" then {id:$id, implementing:"nope", actor:"Ops"} else {identifier:$ident, implementing:"nope", actor:"Ops"} end)
+    }
+  }')")"
+check_json "invalid implementing error" "$BAD_IMP" '.error.message | test("Invalid implementing")'
+
 # Cancel the issue this run created so overnight smokes do not clutter forever.
 if [[ "$FAIL" -eq 0 && ( -n "$IDENT" || -n "$ISSUE_ID" ) ]]; then
   info "MCP update_issue (cancel smoke issue)"

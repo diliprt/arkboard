@@ -186,14 +186,14 @@ struct ContentColumn: View {
                     Label("New Project", systemImage: "folder.badge.plus")
                 }
                 .buttonStyle(.borderedProminent)
-            } else {
+            } else if !store.isInbox {
                 Button {
                     showQuickAdd = true
                 } label: {
                     Label("New Issue", systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
-                .help("Create an issue (agents usually do this via MCP)")
+                .help("Create an issue (⌘⇧N). Agents usually do this via MCP.")
             }
         }
         .padding(.horizontal, 16)
@@ -223,10 +223,6 @@ struct ContentColumn: View {
                     .accessibilityLabel("Clear search")
                 }
 
-                Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
-                    .toggleStyle(.checkbox)
-                    .font(.caption)
-                    .disabled(store.projects.isEmpty || store.filter.showDeleted)
                 Toggle("Archived", isOn: Bindable(store).filter.showDeleted)
                     .toggleStyle(.checkbox)
                     .font(.caption)
