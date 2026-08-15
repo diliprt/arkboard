@@ -456,6 +456,8 @@ The measures are the three things a screenshot cannot answer:
 | Content origin | `body_y` per tab | sibling tabs differ by more than 2pt |
 | Pinned rail | `rail_y` per tab | it moves by more than 2pt across the clicks |
 | Selected row, sidebar focused | `selection_ok` | the fill is tinted rather than the system's unemphasized grey, or the mark loses its colour |
+
+The selection sample presses a **pinned project row**, not the first row in the list. The mark floor asks whether a project's mark survives selection; a destination's section symbol is not that, and sampling one fails an app that is behaving.
 | One title row | `title_ok` | a pane prints the window title again below the title bar |
 
 Every screen in this document states its content origin, its selected-row colour *while the sidebar has focus*, and that it has one title row. Those three are written before the PR, not discovered after it.
