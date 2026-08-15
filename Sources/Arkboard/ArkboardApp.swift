@@ -12,6 +12,7 @@ struct ArkboardApp: App {
                     await store.start()
                 }
                 .frame(minWidth: 1100, minHeight: 680)
+                .appTypography(size: store.fontSize, family: store.fontFamily)
         }
         .windowStyle(.automatic)
         .defaultSize(width: 1280, height: 800)
@@ -31,6 +32,7 @@ struct ArkboardApp: App {
         Settings {
             SettingsView()
                 .environment(store)
+                .appTypography(size: store.fontSize, family: store.fontFamily)
         }
     }
 }

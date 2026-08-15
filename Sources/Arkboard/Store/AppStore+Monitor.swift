@@ -204,3 +204,43 @@ extension AppStore {
         }
     }
 }
+
+
+extension AppStore {
+    var notWorkingRequirements: [Requirement] {
+        requirements.filter { $0.working == .not_working }
+            .sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    func issues(inProject projectId: String) -> [Issue] {
+        activeIssues.filter { $0.projectId == projectId }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    func projectNotes(for projectId: String) -> [Activity] {
+        activities.filter { activity in
+            activity.projectId == projectId
+                && activity.issueId == nil
+                && activity.requirementId == nil
+                && (activity.action == ActivityAction.commented.rawValue
+                    || activity.action == ActivityAction.told_team.rawValue)
+        }
+        .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    func addProjectNote(projectId: String, body: String) async throws {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw StoreError.emptyComment }
+        let preview = trimmed.count > 80 ? String(trimmed.prefix(77)) + "…" : trimmed
+        let key = projects.first(where: { $0.id == projectId })?.key ?? "project"
+        try await writeActivity(
+            actor: "Riyu",
+            action: ActivityAction.commented.rawValue,
+            summary: "Riyu noted on \(key): \(preview)",
+            issueId: nil,
+            projectId: projectId,
+            kind: .comment
+        )
+        try await reloadAll()
+    }
+}

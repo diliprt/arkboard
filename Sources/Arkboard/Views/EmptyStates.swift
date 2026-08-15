@@ -8,7 +8,7 @@ struct EmptyProjectsView: View {
         ContentUnavailableView {
             Label("No projects yet", systemImage: "folder.badge.plus")
         } description: {
-            Text("Create a project to start tracking issues. Agents can also create projects via the local MCP API.")
+            Text("Create a project to get started.")
         } actions: {
             Button("New Project") {
                 showNewProject = true
@@ -37,13 +37,13 @@ struct EmptyIssuesView: View {
             ContentUnavailableView {
                 Label("No matching issues", systemImage: "magnifyingglass")
             } description: {
-                Text("Try a different search or clear filters. Agents add issues via MCP (⌘⇧N if you need one).")
+                Text("Try a different search or clear filters.")
             }
         } else {
             ContentUnavailableView {
                 Label("No issues", systemImage: "tray")
             } description: {
-                Text("Agents create issues via MCP. ⌘⇧N if you need to add one yourself.")
+                Text("Nothing filed yet. ⌘⇧N adds one.")
             }
         }
     }
@@ -54,7 +54,7 @@ struct SelectIssuePlaceholder: View {
         ContentUnavailableView {
             Label("Select an issue", systemImage: "checkmark.circle")
         } description: {
-            Text("Choose an issue from the list or board. ⌘N tells the team from Monitor. ⌘⇧N adds an issue.")
+            Text("Choose an issue from the list. ⌘N tells the team from Monitor. ⌘⇧N adds an issue.")
         }
     }
 }

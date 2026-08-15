@@ -37,7 +37,7 @@ struct IssueListView: View {
                 }
             }
             .listStyle(.inset)
-            .accessibilityLabel(store.isInbox ? "Inbox issue list" : "Project issue list")
+            .accessibilityLabel("Issues list")
             .confirmationDialog(
                 "Archive this issue?",
                 isPresented: Binding(

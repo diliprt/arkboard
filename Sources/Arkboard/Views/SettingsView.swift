@@ -13,12 +13,12 @@ struct SettingsView: View {
                 LabeledContent("MCP URL") {
                     Text("http://127.0.0.1:\(store.mcpPort)/mcp")
                         .textSelection(.enabled)
-                        .font(.body.monospaced())
+                        .font(AppTypography.mono(size: store.fontSize))
                 }
                 LabeledContent("REST API") {
                     Text("http://127.0.0.1:\(store.mcpPort)/api")
                         .textSelection(.enabled)
-                        .font(.body.monospaced())
+                        .font(AppTypography.mono(size: store.fontSize))
                 }
                 Button(store.mcpRunning ? "Restart MCP Server" : "Start MCP Server") {
                     store.stopMCP()
@@ -44,6 +44,24 @@ struct SettingsView: View {
                 .onChange(of: store.appearance) { _, newValue in
                     newValue.persist()
                 }
+
+                Picker("Font size", selection: Bindable(store).fontSize) {
+                    ForEach(AppFontSize.allCases) { size in
+                        Text(size.title).tag(size)
+                    }
+                }
+                .onChange(of: store.fontSize) { _, newValue in
+                    newValue.persist()
+                }
+
+                Picker("Font", selection: Bindable(store).fontFamily) {
+                    ForEach(AppFontFamily.allCases) { family in
+                        Text(family.title).tag(family)
+                    }
+                }
+                .onChange(of: store.fontFamily) { _, newValue in
+                    newValue.persist()
+                }
             }
 
             Section("About") {
@@ -53,7 +71,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 440)
+        .frame(width: 520, height: 560)
         .padding()
     }
 }
