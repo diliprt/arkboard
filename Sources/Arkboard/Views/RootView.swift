@@ -7,7 +7,7 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if store.isPortfolio || store.isActivity {
+            if store.isPortfolio || store.isActivity || store.isMonitor {
                 // Full-width main pane — no empty detail column
                 NavigationSplitView {
                     SidebarView(showNewProject: $showNewProject)
@@ -42,6 +42,10 @@ struct RootView: View {
                 showQuickAdd = true
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .arkboardComposer)) { _ in
+            store.focusComposer()
+        }
+        .preferredColorScheme(store.appearance.colorScheme)
         .alert("Error", isPresented: Binding(
             get: { store.lastError != nil },
             set: { if !$0 { store.lastError = nil } }
@@ -100,7 +104,9 @@ struct ContentColumn: View {
 
     var body: some View {
         Group {
-            if store.isPortfolio {
+            if store.isMonitor {
+                MonitorView()
+            } else if store.isPortfolio {
                 PortfolioView()
             } else if store.isActivity {
                 ActivityFeedView()
@@ -114,6 +120,7 @@ struct ContentColumn: View {
             if case .inbox = newValue, store.viewMode == .board {
                 store.viewMode = .list
             }
+            if case .monitor = newValue { store.viewMode = .list }
             if case .portfolio = newValue { store.viewMode = .list }
             if case .activity = newValue { store.viewMode = .list }
         }
@@ -185,8 +192,8 @@ struct ContentColumn: View {
                 } label: {
                     Label("New Issue", systemImage: "plus")
                 }
-                .keyboardShortcut("n", modifiers: .command)
                 .buttonStyle(.borderedProminent)
+                .help("Create an issue (agents usually do this via MCP)")
             }
         }
         .padding(.horizontal, 16)
@@ -216,54 +223,6 @@ struct ContentColumn: View {
                     .accessibilityLabel("Clear search")
                 }
 
-                Menu {
-                    Button("All") { store.filter.priority = nil }
-                    Divider()
-                    ForEach([IssuePriority.urgent, .high, .medium, .low, .none]) { priority in
-                        Button {
-                            store.filter.priority = priority
-                        } label: {
-                            if store.filter.priority == priority {
-                                Label(priority.displayName, systemImage: "checkmark")
-                            } else {
-                                Text(priority.displayName)
-                            }
-                        }
-                    }
-                } label: {
-                    Label(store.filter.priority?.displayName ?? "Priority", systemImage: "flag")
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .disabled(store.projects.isEmpty)
-                .help("Filter by priority: All, Urgent, High, Medium, Low, No priority")
-                .accessibilityLabel("Priority filter")
-                .accessibilityValue(store.filter.priority?.displayName ?? "All")
-
-                Menu {
-                    Button("All") { store.filter.status = nil }
-                    Divider()
-                    ForEach(statusChipCases) { status in
-                        Button {
-                            store.filter.status = store.filter.status == status ? nil : status
-                        } label: {
-                            if store.filter.status == status {
-                                Label(status.displayName, systemImage: "checkmark")
-                            } else {
-                                Text(status.displayName)
-                            }
-                        }
-                    }
-                } label: {
-                    Label(store.filter.status?.displayName ?? "Status", systemImage: "line.3.horizontal.decrease.circle")
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .disabled(store.projects.isEmpty)
-                .help("Filter by status")
-                .accessibilityLabel("Status filter")
-                .accessibilityValue(store.filter.status?.displayName ?? "All")
-
                 Toggle("Canceled", isOn: Bindable(store).filter.showCanceled)
                     .toggleStyle(.checkbox)
                     .font(.caption)
@@ -284,7 +243,7 @@ struct ContentColumn: View {
                     .font(.caption)
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.accentColor)
-                    .help("Reset search, status, priority, and archive filters")
+                    .help("Reset search and archive filters")
                     .accessibilityLabel("Clear filters")
                 }
             }
@@ -292,14 +251,6 @@ struct ContentColumn: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-    }
-
-    private var statusChipCases: [IssueStatus] {
-        var cases = IssueStatus.allCases
-        if !store.filter.showCanceled {
-            cases = cases.filter { $0 != .canceled }
-        }
-        return cases
     }
 
     private var subtitle: String {

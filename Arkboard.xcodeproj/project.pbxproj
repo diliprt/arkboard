@@ -15,6 +15,7 @@
 		2FB026E1389C62E4047EB85B /* EmptyStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2C661A8888A4EE4E4FECCDB /* EmptyStates.swift */; };
 		37E1A8F0A0352666543F3DBB /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E128784F7CF9DB9F511DEA /* SidebarView.swift */; };
 		3D1ACF0882DA1ED6657DCC11 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = A565A1B4A02340C63B51DD2D /* GRDB */; };
+		3DBCCC025669E2D64DE169DF /* MonitorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B43FDA22E5C24E5CCBB4798 /* MonitorView.swift */; };
 		418923F48E2C9EAB9A0530B5 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4590B891128234CAEDD8FCC /* AppIcon.icns */; };
 		4548EBBCC0D2771E51AD09DC /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF07FAF307783853DDB64880 /* Database.swift */; };
 		55797B9B3D845C53C1EAE6AF /* ArkboardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E5EE3913CF9079E5B96E81 /* ArkboardApp.swift */; };
@@ -22,6 +23,7 @@
 		8505497618D4107B6BCA63FF /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4F596266E3DE39E1947110 /* MCPServer.swift */; };
 		8789BCED0F496BB82D518193 /* IssueListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0100CADAE429735C3651EABF /* IssueListView.swift */; };
 		87CA37DC88CC206CA0424924 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C66B960BC6623A666AB5A3C /* SettingsView.swift */; };
+		8E4E9AC91B2C54CEA0BFC866 /* AppStore+Monitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E084A75EA507ABF7EDC3B6C /* AppStore+Monitor.swift */; };
 		B3A297417464FB8DD8A50950 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E530EAE692902D376454BDC0 /* RootView.swift */; };
 		B7FF141559F1CA828EFFD8E1 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB8648EA8477A5B7ED187668 /* Models.swift */; };
 		C0A95BA632C7BFD4D3A9C175 /* ActivityFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DED51408B047CE48749C7D91 /* ActivityFeedView.swift */; };
@@ -34,7 +36,9 @@
 /* Begin PBXFileReference section */
 		0100CADAE429735C3651EABF /* IssueListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueListView.swift; sourceTree = "<group>"; };
 		02E0B3D7B7CC903CE62875B3 /* GitHubIssueLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubIssueLink.swift; sourceTree = "<group>"; };
+		0E084A75EA507ABF7EDC3B6C /* AppStore+Monitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Monitor.swift"; sourceTree = "<group>"; };
 		16FF590965F29383224A2B13 /* IssueDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueDetailView.swift; sourceTree = "<group>"; };
+		1B43FDA22E5C24E5CCBB4798 /* MonitorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitorView.swift; sourceTree = "<group>"; };
 		1D58B0EE37E6A84A407B3F91 /* PortfolioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioView.swift; sourceTree = "<group>"; };
 		28E5EE3913CF9079E5B96E81 /* ArkboardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArkboardApp.swift; sourceTree = "<group>"; };
 		36E128784F7CF9DB9F511DEA /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
@@ -119,6 +123,7 @@
 				16FF590965F29383224A2B13 /* IssueDetailView.swift */,
 				0100CADAE429735C3651EABF /* IssueListView.swift */,
 				78DD03300B375A1AA94F9F24 /* LabelTokensField.swift */,
+				1B43FDA22E5C24E5CCBB4798 /* MonitorView.swift */,
 				1D58B0EE37E6A84A407B3F91 /* PortfolioView.swift */,
 				B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */,
 				E530EAE692902D376454BDC0 /* RootView.swift */,
@@ -158,6 +163,7 @@
 			isa = PBXGroup;
 			children = (
 				B139EC32050FAE74A00A8216 /* AppStore.swift */,
+				0E084A75EA507ABF7EDC3B6C /* AppStore+Monitor.swift */,
 			);
 			path = Store;
 			sourceTree = "<group>";
@@ -247,6 +253,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C0A95BA632C7BFD4D3A9C175 /* ActivityFeedView.swift in Sources */,
+				8E4E9AC91B2C54CEA0BFC866 /* AppStore+Monitor.swift in Sources */,
 				E9020F24CE9935A0E3FD6F31 /* AppStore.swift in Sources */,
 				55797B9B3D845C53C1EAE6AF /* ArkboardApp.swift in Sources */,
 				20FF3F5933F4FB084561987C /* BoardView.swift in Sources */,
@@ -258,6 +265,7 @@
 				03FDD864BF4AEE42C0C2A092 /* LabelTokensField.swift in Sources */,
 				8505497618D4107B6BCA63FF /* MCPServer.swift in Sources */,
 				B7FF141559F1CA828EFFD8E1 /* Models.swift in Sources */,
+				3DBCCC025669E2D64DE169DF /* MonitorView.swift in Sources */,
 				E9005D385404250D02DDB2D1 /* PortfolioView.swift in Sources */,
 				844F4C1A7BF3841DA4C1C581 /* QuickAddSheet.swift in Sources */,
 				B3A297417464FB8DD8A50950 /* RootView.swift in Sources */,

@@ -17,10 +17,14 @@ struct ArkboardApp: App {
         .defaultSize(width: 1280, height: 800)
         .commands {
             CommandGroup(replacing: .newItem) {
+                Button("Tell the team…") {
+                    NotificationCenter.default.post(name: .arkboardComposer, object: nil)
+                }
+                .keyboardShortcut("n", modifiers: .command)
                 Button("New Issue") {
                     NotificationCenter.default.post(name: .arkboardQuickAdd, object: nil)
                 }
-                .keyboardShortcut("n", modifiers: .command)
+                .keyboardShortcut("n", modifiers: [.command, .shift])
             }
         }
 
@@ -33,4 +37,5 @@ struct ArkboardApp: App {
 
 extension Notification.Name {
     static let arkboardQuickAdd = Notification.Name("arkboardQuickAdd")
+    static let arkboardComposer = Notification.Name("arkboardComposer")
 }

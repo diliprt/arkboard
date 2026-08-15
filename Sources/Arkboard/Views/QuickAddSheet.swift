@@ -37,19 +37,6 @@ struct QuickAddSheet: View {
                 }
             }
 
-            HStack {
-                Picker("Status", selection: $status) {
-                    ForEach(IssueStatus.allCases) { s in
-                        Text(s.displayName).tag(s)
-                    }
-                }
-                Picker("Priority", selection: $priority) {
-                    ForEach(IssuePriority.allCases) { p in
-                        Text(p.displayName).tag(p)
-                    }
-                }
-            }
-
             VStack(alignment: .leading, spacing: 6) {
                 Text("Labels")
                     .font(.caption)

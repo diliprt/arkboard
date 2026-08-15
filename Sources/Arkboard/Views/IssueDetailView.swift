@@ -84,42 +84,6 @@ struct IssueDetailView: View {
                         scheduleSave()
                     }
 
-                HStack(spacing: 12) {
-                    Picker("Status", selection: $status) {
-                        ForEach(IssueStatus.allCases) { s in
-                            Text(s.displayName).tag(s)
-                        }
-                    }
-                    .frame(minWidth: 140, idealWidth: 160, maxWidth: 180)
-                    .onChange(of: status) { _, newValue in
-                        guard newValue != issue.status else { return }
-                        Task { await mutate { try await store.updateIssue(id: issue.id, status: newValue) } }
-                    }
-
-                    Picker("Priority", selection: $priority) {
-                        ForEach(IssuePriority.allCases) { p in
-                            Label(p.displayName, systemImage: p.symbolName).tag(p)
-                        }
-                    }
-                    .frame(minWidth: 140, idealWidth: 160, maxWidth: 180)
-                    .onChange(of: priority) { _, newValue in
-                        guard newValue != issue.priority else { return }
-                        Task { await mutate { try await store.updateIssue(id: issue.id, priority: newValue) } }
-                    }
-                }
-
-                LabeledContent("Assignee") {
-                    TextField("Optional", text: $assignee)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 220)
-                        .onChange(of: assignee) { _, newValue in
-                            let current = issue.assigneeName ?? ""
-                            guard newValue != current else { return }
-                            isDirty = true
-                            scheduleSave()
-                        }
-                }
-
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Labels")
                         .font(.subheadline)
@@ -368,7 +332,6 @@ struct IssueDetailView: View {
         let id = issue.id
         let t = title
         let d = description
-        let a = assignee
         saveState = .saving
         saveTask = Task {
             try? await Task.sleep(nanoseconds: 400_000_000)
@@ -377,8 +340,7 @@ struct IssueDetailView: View {
                 try await store.updateIssue(
                     id: id,
                     title: t,
-                    description: d,
-                    assigneeName: .some(a.isEmpty ? nil : a)
+                    description: d
                 )
                 await MainActor.run {
                     isDirty = false
