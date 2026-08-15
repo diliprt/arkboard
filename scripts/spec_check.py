@@ -764,6 +764,99 @@ def check_chief_handoff(swift: str, home: str, root: str, sidebar: str, ui: str)
        'Text("History")' in sheet and "chat thread" not in sheet.lower())
 
 
+def contents_is_document_overlay(root: str) -> bool:
+    """Contents must float over the document, not sit in a width-stealing HStack split."""
+    if "ContentsOutline()" not in root:
+        return False
+    before = root.split("ContentsOutline()")[0]
+    return "overlay(alignment: .trailing)" in before[-800:]
+
+
+def document_width_ignores_contents(pane_width: float, contents_visible: bool) -> float:
+    """Contents overlays the document; visibility must not change the measure."""
+    del contents_visible
+    return document_page_width(pane_width)
+
+
+def portfolio_card_source(portfolio: str) -> str:
+    if "private func projectCard" not in portfolio:
+        return ""
+    rest = portfolio.split("private func projectCard", 1)[1]
+    if "private func docPill" in rest:
+        return rest.split("private func docPill", 1)[0]
+    return rest
+
+
+def portfolio_pill_source(portfolio: str) -> str:
+    if "private func docPill" not in portfolio:
+        return ""
+    rest = portfolio.split("private func docPill", 1)[1]
+    if "private static func displayPath" in rest:
+        return rest.split("private static func displayPath", 1)[0]
+    return rest
+
+
+def check_contents_overlay_and_card_type(swift: str, home: str, root: str, ui: str) -> None:
+    """Contents overlays the document; Portfolio cards share the typography environment."""
+    ok("Contents shown does not shrink a wide pane",
+       document_width_ignores_contents(1280, True) == 1280)
+    ok("Contents hidden keeps the same wide pane",
+       document_width_ignores_contents(1280, False) == 1280)
+    ok("Contents visibility does not change the document measure",
+       document_width_ignores_contents(900, True) == document_width_ignores_contents(900, False))
+    ok("Contents is not a third NavigationSplitView column", "} content:" not in root)
+    ok("Contents overlays the trailing edge of the document", contents_is_document_overlay(root))
+    ok("Contents overlay is not an HStack split of the detail column",
+       "HStack(spacing: 0)" not in root.split("} detail:")[1].split("overlay(alignment: .trailing)")[0]
+       if "} detail:" in root and "overlay(alignment: .trailing)" in root
+       else False)
+    ok("Contents still uses the outline width range",
+       "outlineMin" in root and "outlineMax" in root and "outlineIdeal" in swift)
+    ok("Contents toggle still persists",
+       "setContentsVisible" in root and "arkboard.contentsVisible" in swift)
+    ok("Contents header stays Contents",
+       'Text("Contents")' in (SOURCES / "UI/Markdown/ContentsOutline.swift").read_text())
+    ok("document column still fills the pane", "DocumentMeasure.pageWidth" in home)
+    ok("still no GridColumn 1000 on the document", "GridColumn" not in home)
+    ok("still no 720 island on project home", "Metrics.proseMax" not in home)
+
+    contents_spec = ui.split("### Contents")[1].split("###")[0] if "### Contents" in ui else ""
+    ok("ui-spec Contents is an overlay, not a split column",
+       "overlay" in contents_spec.lower()
+       and "split column" in contents_spec.lower()
+       and ("does not" in contents_spec.lower() or "not steal" in contents_spec.lower()
+            or "does not steal" in contents_spec.lower() or "does not collapse" in contents_spec.lower()
+            or "does not resize" in contents_spec.lower()))
+    ok("ui-spec Contents does not resize the document",
+       any(token in contents_spec.lower() for token in (
+           "does not steal", "does not collapse", "does not resize", "does not shrink",
+           "covers", "floats",
+       )))
+
+    portfolio = (SOURCES / "UI/Portfolio/PortfolioView.swift").read_text()
+    card = portfolio_card_source(portfolio)
+    pills = portfolio_pill_source(portfolio)
+    ok("portfolio card uses the typography environment",
+       "@Environment(\\.typography)" in portfolio or "typography" in portfolio)
+    ok("portfolio card inherits the studio face", ".font(type.body)" in card)
+    ok("portfolio card name uses the type scale", "type.heading" in card)
+    ok("portfolio card summary uses the type scale", "type.callout" in card)
+    ok("portfolio card paths use the type scale", "type.mono" in card)
+    ok("portfolio card pills use the type scale", "type.caption" in pills)
+    ok("portfolio card has no one-off .font(.system)",
+       ".font(.system" not in card and ".font(.system" not in pills)
+    ok("portfolio card has no custom face",
+       ".custom(" not in card and "Font.custom" not in card
+       and ".custom(" not in pills and "Font.custom" not in pills)
+    cards_spec = ui.split("## Portfolio")[1].split("## Timeline")[0] if "## Portfolio" in ui else ""
+    ok("ui-spec Portfolio cards use the typography environment",
+       "typography" in cards_spec.lower())
+    ok("#15 ensureDocuments kept for chrome", "ensureDocuments" in home)
+    ok("#16 measure kept for chrome", "DocumentMeasure.pageWidth" in home)
+    ok("#18 Portfolio destination kept for chrome", "PortfolioView()" in root)
+    ok("#19 cardSummary kept for chrome", "cardSummary" in portfolio)
+
+
 def main() -> int:
     expected_routes = {
         "product/README.md": "overview",
@@ -934,6 +1027,7 @@ def main() -> int:
     check_layout_musts(swift, home)
     check_studio_chrome(swift, home, root, sidebar, ui)
     check_chief_handoff(swift, home, root, sidebar, ui)
+    check_contents_overlay_and_card_type(swift, home, root, ui)
 
     print()
     if FAIL:
