@@ -52,7 +52,7 @@ No README article and no large composer sit above the tabs. The long description
 
 ## Locked — Chat with Chief of Staff is the board inbox
 
-Right-click anywhere — sidebar, document, tabs, calendar, cards, onboarding, empty states — offers `Chat with Chief of Staff`. That item opens the compact note sheet with the current highlight prefilled and a quiet friendly page line. Sending writes a `handoff` Activity to `Product` through `post_note`. The Activity body is the typed note plus that friendly line — not a destination/project/ISO dump. The board is the inbox. Do not open an external chat.
+Right-click anywhere — sidebar, document, tabs, calendar, cards, onboarding, empty states — offers `Chat with Chief of Staff`. That item opens the compact note sheet empty — placeholder only — with a quiet friendly page line in the chrome. Selection is silent context for Chief of Staff, not a message; the human writes the ask. Sending writes a `handoff` Activity to `Product` through `post_note`. The Activity body is the typed comment only. Selection, page, tab, doc, and heading live in `metadata` JSON that History does not print. The board is the inbox. Do not open an external chat.
 
 ## Locked — Onboarding, not Setup
 

@@ -116,16 +116,30 @@ struct ChiefHandoff: Equatable, Sendable, Identifiable {
         return headings.first?.1
     }
 
-    func persistBody(userText: String) -> String {
-        Self.persistBody(userText: userText, pageLine: pageLine)
+    var contextJSON: String {
+        var payload: [String: Any] = [
+            "selectedText": selectedText,
+            "destination": destination,
+            "pageLine": pageLine,
+            "timestamp": StudioISO8601.string(from: timestamp),
+        ]
+        payload["projectKey"] = projectKey ?? NSNull()
+        payload["projectName"] = projectName ?? NSNull()
+        payload["tab"] = tab ?? NSNull()
+        payload["documentPath"] = documentPath ?? NSNull()
+        payload["nearestHeading"] = nearestHeading ?? NSNull()
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8)
+        else { return "{}" }
+        return json
     }
 
-    static func persistBody(userText: String, pageLine: String) -> String {
-        let note = userText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let line = pageLine.trimmingCharacters(in: .whitespacesAndNewlines)
-        if line.isEmpty { return note }
-        if note.isEmpty { return line }
-        return "\(note)\n\n\(line)"
+    func persistBody(userText: String) -> String {
+        Self.persistBody(userText: userText)
+    }
+
+    static func persistBody(userText: String) -> String {
+        userText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

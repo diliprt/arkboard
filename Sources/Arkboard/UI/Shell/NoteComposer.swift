@@ -47,7 +47,7 @@ struct NoteComposer: View {
             if scopeKey.isEmpty {
                 scopeKey = projectKey ?? "studio"
             }
-            if draft.isEmpty, !initialDraft.isEmpty {
+            if handoff == nil, draft.isEmpty, !initialDraft.isEmpty {
                 draft = initialDraft
             }
         }
@@ -71,7 +71,8 @@ struct NoteComposer: View {
                 projectKey: key,
                 actor: "Riyu",
                 kind: .handoff,
-                extraTargets: [ChiefOfStaffCopy.targetActor]
+                extraTargets: [ChiefOfStaffCopy.targetActor],
+                metadata: handoff.contextJSON
             )
         } else {
             _ = try? store.postNote(body: body, projectKey: key, actor: "Riyu")
