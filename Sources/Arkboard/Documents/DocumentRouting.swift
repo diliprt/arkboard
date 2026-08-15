@@ -41,6 +41,14 @@ enum DocumentRouting {
             }
         }
 
+        // Brand artwork at the root of product/ is the project's own face, not a
+        // frame someone drew. It feeds the Portfolio card and the sidebar mark;
+        // it never appears in the Mockups gallery. Inside product/mockups/ the
+        // folder wins, and the switch above has already returned.
+        if ProjectMark.isBrandAsset(path: filename) {
+            return .more
+        }
+
         if isImage(filename) {
             return .mockups
         }
