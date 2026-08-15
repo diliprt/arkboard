@@ -1355,6 +1355,79 @@ def without_comments(source: str) -> str:
     return "\n".join(lines)
 
 
+def sidebar_destinations(design: str) -> set[str]:
+    """Destinations product/design.md presents as rows in the left column.
+
+    Reads the sentence that names them rather than the whole file, so a section
+    hue table that merely mentions Monitor does not count as a destination, and
+    a Design tab that quietly puts Monitor back in the sidebar does.
+    """
+    shell = design.split("## What the app looks like")[1].split("\n## ")[0] if "## What the app looks like" in design else ""
+    if not shell:
+        return set()
+    lead = shell.split("**The left column is navigation**")[1].split("\n\n")[0] if "**The left column is navigation**" in shell else shell
+    named = set()
+    for candidate in ("Portfolio", "Timeline", "pinned", "Monitor", "Issues", "Activity", "Inbox", "Origin Ark"):
+        if candidate in lead.split("There is no")[0]:
+            named.add(candidate)
+    return named
+
+
+def check_living_tabs(ui: str, decisions: str, design: str) -> None:
+    """product/ tabs describe the app on main, not the app we used to have."""
+    architecture = (PRODUCT / "architecture.md").read_text()
+    onboarding = (PRODUCT / "onboarding.md").read_text()
+
+    ok("decisions locks living tabs", "Locked — product/ tabs are living" in decisions)
+    ok("decisions ships docs with the chrome",
+       "in the same pull request as the chrome they describe" in decisions)
+    ok("decisions forbids a brochure pass", "brochure pass" in decisions)
+    ok("decisions fails review on dead chrome",
+       "still describes dead chrome" in decisions or "still describes something you cannot find" in decisions)
+    ok("decisions keeps history intact", "supersede line" in decisions)
+    ok("ui-spec carries the living rule", "## The tabs are living documents" in ui)
+    ok("ui-spec says mockups are current shots",
+       "latest measured window shots" in ui)
+    ok("onboarding carries the living rule", "product/ tabs are living" in onboarding)
+    ok("onboarding names the mockups folder", "product/mockups/" in onboarding)
+    ok("architecture notes its current shape", "## Current shape" in architecture)
+    ok("architecture says Monitor is not a screen",
+       "Monitor and Activity are engine, not screens" in architecture)
+
+    # Design must describe the chrome that exists.
+    destinations = sidebar_destinations(design)
+    ok("design names a left column", bool(destinations))
+    ok("design names Portfolio as a destination", "Portfolio" in destinations)
+    ok("design names Timeline as a destination", "Timeline" in destinations)
+    ok("design names pinned projects", "pinned" in destinations)
+    for dead in ("Monitor", "Issues", "Activity", "Inbox", "Origin Ark"):
+        ok(f"design does not put {dead} in the sidebar", dead not in destinations)
+
+    ok("design describes poster cards",
+       "product/card.png" in design and "poster" in design.lower())
+    ok("design describes one window title",
+       "names the page once" in design or "one headline" in design.lower())
+    ok("design describes the grey focused selection",
+       "unemphasized" in design and "focused or not" in design)
+    ok("design describes the Contents overlay and its gutter",
+       "trailing overlay" in design and "gutter" in design)
+    ok("design describes the Chief of Staff handoff",
+       "Chat with Chief of Staff" in design and "right-click" in design)
+    ok("design describes the six project tabs",
+       all(tab in design for tab in ("Design", "Architecture", "Mockups", "Decisions & questions", "Issues", "Timeline")))
+    ok("design describes Timeline as a Gantt",
+       "Gantt" in design and "dependency" in design)
+    ok("design uses the scale the code has",
+       "`Week` / `Month` / `Quarter`" in design and "Year" not in design)
+    ok("design keeps the design system", all(
+        word in design for word in ("calm", "coloured", "continuous")))
+    ok("design still leads with the app, not a hex table",
+       design.index("## What the app looks like") < design.index("## The ramp")
+       if "## What the app looks like" in design and "## The ramp" in design else False)
+    ok("design voids the old selected-pill fill", "Selected tab pill fill" not in design)
+    ok("design voids the 720 document column", "720 ideal" not in design)
+
+
 def check_mac_measures(ui: str, decisions: str) -> None:
     """Mac-first measures before Critique.
 
@@ -1844,6 +1917,7 @@ def main() -> int:
     check_critique_musts(swift, home, root, sidebar, ui, decisions)
     check_tab_body_origin(home, ui, decisions)
     check_mac_measures(ui, decisions)
+    check_living_tabs(ui, decisions, design)
 
     print()
     if FAIL:
