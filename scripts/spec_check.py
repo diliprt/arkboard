@@ -1355,6 +1355,90 @@ def without_comments(source: str) -> str:
     return "\n".join(lines)
 
 
+def check_mac_measures(ui: str, decisions: str) -> None:
+    """Mac-first measures before Critique.
+
+    Linux cannot run the measure script — it drives a live macOS app. What this
+    can do is refuse to let the rule, or the script that enforces it, quietly
+    go missing or get hollowed out into a rail-only check.
+    """
+    swift_path = ROOT / "scripts" / "mac_measure.swift"
+    shell_path = ROOT / "scripts" / "mac_measure.sh"
+    ok("scripts/mac_measure.swift exists", swift_path.exists())
+    ok("scripts/mac_measure.sh exists", shell_path.exists())
+    if not swift_path.exists() or not shell_path.exists():
+        return
+    measure = swift_path.read_text()
+    wrapper = shell_path.read_text()
+
+    ok("the measure targets the app bundle", "studio.originark.arkboard" in measure)
+    ok("the measure clicks Design, Mockups, Design",
+       'measuredTabs = ["Design", "Mockups", "Design"]' in measure)
+    ok("the measure presses the tabs", "kAXPressAction" in measure)
+
+    # Body Y, not rail-only. This is the whole reason the script exists.
+    ok("the measure reads body Y", "body_y" in measure and "func bodyTop" in measure)
+    ok("the measure reads rail Y", "rail_y" in measure and "func railBounds" in measure)
+    ok("body Y is not the rail in disguise",
+       "originTolerance" in measure and "railTolerance" in measure)
+    ok("sibling tabs must share an origin", "do not share one origin" in measure)
+    ok("the origin tolerance is 2pt", "originTolerance: CGFloat = 2" in measure)
+    ok("the rail tolerance is 2pt", "railTolerance: CGFloat = 2" in measure)
+    ok("the measure reads leaves, not containers", "AXStaticText" in measure)
+
+    # The selected row, while the sidebar has focus.
+    ok("the measure checks the selected row", "selection_ok" in measure)
+    ok("the selection is sampled after a press",
+       "press(row.element)" in measure and "averageHSB" in measure)
+    ok("a tinted selected row fails", "selectionSaturationCeiling" in measure)
+    ok("a mark forced white fails", "markSaturationFloor" in measure)
+
+    # One title row.
+    ok("the measure checks for a second title band",
+       "title_ok" in measure and "func secondTitleBand" in measure)
+    ok("a repeated window title fails", "one title row" in measure)
+
+    # Report and exit codes.
+    ok("the measure prints a machine-readable report",
+       "func emit" in measure and "passed" in measure and "print(" in measure)
+    ok("a drift exits 1", "exit(report.failures.isEmpty ? 0 : 1)" in measure)
+    ok("no app exits 2", "is not running" in measure and "exit(2)" in measure)
+    ok("a missing permission exits 2", "Accessibility permission" in measure)
+
+    # Scope: measure only. Read code, so a comment saying "no worktrees" neither
+    # satisfies nor trips these.
+    measure_code = without_comments(measure)
+    wrapper_code = "\n".join(
+        line for line in wrapper.split("\n") if not line.lstrip().startswith("#")
+    )
+    for tool in ("xcodebuild", "worktree", "screencapture", "xed "):
+        ok(f"the measure does not run {tool.strip()}",
+           tool not in measure_code and tool not in wrapper_code)
+    ok("the wrapper compiles the repo script", "scripts/mac_measure.swift" in wrapper)
+    ok("the wrapper passes the exit code through", 'exit "$status"' in wrapper)
+
+    # The rule itself.
+    ok("decisions locks Mac-first measures",
+       "Locked — Mac-first measures before Critique" in decisions)
+    ok("decisions says a still is not a review",
+       "is not a review" in decisions)
+    ok("decisions fixes the order", "Only then does Critique see it." in decisions)
+    ok("decisions records the measured rail numbers", "93 / 93 / 93" in decisions)
+    ok("decisions records the forbidden body drop", "197 → 249" in decisions)
+    ok("decisions keeps scratch helpers out of the contract",
+       "never the source of truth" in decisions)
+    ok("ui-spec carries the measure table", "## Measures before review" in ui)
+    ok("ui-spec names the script", "scripts/mac_measure.swift" in ui)
+    ok("ui-spec states the three measures",
+       "body_y" in ui and "selection_ok" in ui and "title_ok" in ui)
+    onboarding = (PRODUCT / "onboarding.md").read_text()
+    orders = onboarding.split("## Standing orders")[1].split("\n## ")[0] if "## Standing orders" in onboarding else ""
+    ok("onboarding has the rule as a standing order",
+       "Mac-first measures before Critique" in orders)
+    ok("onboarding says a still is not a review", "is not a review" in orders)
+    ok("onboarding names the script a new subscription runs", "mac_measure.sh" in orders)
+
+
 def tab_body_top(pane_y: float, leading_decoration: float = 0.0) -> float:
     """Mirrors DocumentMeasure.tabBodyTop."""
     return pane_y + leading_decoration
@@ -1759,6 +1843,7 @@ def main() -> int:
     check_portfolio_hero_cards(swift, sidebar, ui, decisions)
     check_critique_musts(swift, home, root, sidebar, ui, decisions)
     check_tab_body_origin(home, ui, decisions)
+    check_mac_measures(ui, decisions)
 
     print()
     if FAIL:

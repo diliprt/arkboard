@@ -102,6 +102,30 @@ It also means the project page has no identity strip. Mark and key sit in the to
 
 And it means **Timeline has no in-page title**: that pane opens on the scale control and the Gantt. The window title bar is also pinned to the inline display mode, because a title and subtitle stacked in their own row under a sparse toolbar reads as a headline band even when no view is drawing one — which is what Timeline looked like while its code had no band at all.
 
+## Locked — Mac-first measures before Critique
+
+Critique reviews a shot set that already carries Mac numbers. **A still without the click measures is not a review**, and asking for one is asking someone to guess.
+
+This rule exists because we spent four passes on a jump that no screenshot could show. The rail was photographed sitting still at 93pt on Design, on Mockups, and on Design again — and it was still wrong, because the body under it dropped from 197 to 249. Fifty-two points of text moved and every still said the layout was fine. Nobody feels a rail. Score the click.
+
+**The visual contract, written before the PR, not discovered after it.** Every screen states:
+
+- **Content origin** — the Y of the first line under the tab rail, and that sibling tabs share it.
+- **Selected row** — its colour *while the sidebar has focus*, and that the mark, name and key stay readable rather than being forced white. Unfocused grey proves nothing; the bug only appears when the list is key.
+- **One title row** — the window title and subtitle, with no in-page heading repeating either.
+
+**The order is fixed:**
+
+1. Spec and `spec_check` lock the intended behaviour.
+2. Implement it.
+3. Apple Build compiles on the existing Mac checkout — no worktrees — and runs `./scripts/mac_measure.sh` against the running Debug build.
+4. The numbers drift, the build fails. Exit 1 is not a discussion.
+5. Only then does Critique see it.
+
+The measure script lives in the repo at `scripts/mac_measure.swift`. Throwaway helpers under `build/` are scratch work, never the source of truth: a check nobody can read or review is not a check. If the repo script is missing something, the fix is a PR against the repo script.
+
+> Known numbers from the last live pass, so this lock has teeth: rail Y **93 / 93 / 93** across Design → Mockups → Design, which was correct. Body Y **197 → 249** across the same clicks, which was the regression. Body Y must now match across sibling tabs within 2pt. Do not add pixel numbers to this record that nobody measured.
+
 ## Locked — Every project tab shares one content origin
 
 The first line of a tab body starts at the same Y under the rail on every tab. Design's prose, an empty state's title, the first row of a filled gallery: all of them begin at the pane's vertical padding, with nothing above them.
