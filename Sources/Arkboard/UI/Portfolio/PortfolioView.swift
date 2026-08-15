@@ -108,6 +108,7 @@ struct PortfolioView: View {
                     docPill("Decisions", .decisions, bundle)
                 }
             }
+            .font(type.body)
             .contentShape(Rectangle())
             .onTapGesture {
                 store.sidebarSelection = .project(project.id)

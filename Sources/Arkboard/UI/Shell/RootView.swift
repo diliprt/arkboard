@@ -12,18 +12,20 @@ struct RootView: View {
         NavigationSplitView {
             SidebarView()
         } detail: {
-            HStack(spacing: 0) {
-                document
-                    .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
-                if showsContents {
-                    outlineDivider
-                    ContentsOutline()
-                        .frame(width: outlineWidth)
+            document
+                .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .overlay(alignment: .trailing) {
+                    if showsContents {
+                        HStack(spacing: 0) {
+                            outlineDivider
+                            ContentsOutline()
+                                .frame(width: outlineWidth)
+                        }
+                        .transition(.move(edge: .trailing))
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: store.contentsVisible)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: showsContents)
         }
         .navigationTitle(windowTitle)
         .navigationSubtitle(store.workspace?.name ?? "Origin Ark")

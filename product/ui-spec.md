@@ -6,7 +6,7 @@ Copy in fixed-width in the tables below is literal. Ship those strings.
 
 ## The shell
 
-A single window. `NavigationSplitView` with two columns: the project portfolio and the current page. Contents is a trailing pane inside the document column — not a third split column, which collapsed the page to empty white.
+A single window. `NavigationSplitView` with two columns: the project portfolio and the current page. Contents is a trailing overlay on the document column — Mail.app / Apple Music inspector energy — not a third split column, which collapsed the page to empty white, and not an `HStack` sibling that steals width from the document.
 
 - Minimum 1080 × 700, default 1320 × 860, `.windowStyle(.automatic)`, unified toolbar.
 - The selected row is restored on launch from `arkboard.sidebarSelection`. Valid values are `portfolio`, `timeline`, `onboarding`, or `project:<id>`. Leftover studio chrome (`monitor`, `issues`, `activity`) is discarded and Portfolio is selected.
@@ -40,7 +40,7 @@ Create is not in this column.
 
 ### Contents
 
-A trailing pane beside the document, 220pt ideal, 180 min, 280 max, user-resizable in that range. A toolbar `sidebar.trailing` toggle collapses and restores it; the choice persists as `arkboard.contentsVisible`. The document column itself is at least 560pt. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right.
+A trailing overlay that slides/floats over the right edge of the document — the same overlay language as the left sidebar, on the trailing side. It is not a split column and it does not steal width from the document: opening it covers the page; closing it (toolbar `sidebar.trailing`) reveals the full document again. The document measure does not collapse. 220pt ideal, 180 min, 280 max, user-resizable in that range. The choice persists as `arkboard.contentsVisible`. The document column itself is at least 560pt and always uses the full pane width, Contents shown or hidden. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right. Do not bring back a third `NavigationSplitView` column, a `GridColumn` 1000, or a 720 island.
 
 - Header `Contents` in `caption`, secondary.
 - One heading per row, indented 12pt per level below `#`, `bodyStrong` for `#`/`##` and `caption` deeper.
@@ -158,7 +158,7 @@ This is the studio view of every app in one place. Cards only — not a table, n
 
 A grid, cards between 300 and 460pt wide, 12pt gaps. One card per project, pinned or not.
 
-Each card:
+Each card uses the same `typography` environment as the project home, the sidebar, and documents — one scale, one face. Name, summary, paths, and pills take roles from that environment. No one-off `.font(.system)` and no custom faces on the card. Settings text size and face flow through.
 
 - The project mark, name in `heading`, key in `mono` `caption`.
 - A pin control. Filled pin when pinned. Clicking the pin toggles pin and does not open the project.
@@ -187,7 +187,7 @@ Opened from the footer `sparkles` icon, not from Settings. The page renders `pro
 
 The most important screen in the app, and the one that must not look like a tracker.
 
-Everything is inside **one** vertical scroll: the thin header scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab. The thin header sits on plain `windowBackgroundColor` so it reads as chrome rather than as part of the section. The outline is the right Contents column, not a bar in this scroll. Header, tab rail, markdown, and project-home empty states share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar and/or Contents are hidden, that measure grows with the pane — not a 720-centred island, and not a 1000 grid.
+Everything is inside **one** vertical scroll: the thin header scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab. The thin header sits on plain `windowBackgroundColor` so it reads as chrome rather than as part of the section. The outline is the right Contents overlay, not a bar in this scroll. Header, tab rail, markdown, and project-home empty states share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar is hidden, that measure grows with the pane. Contents covers the document and does not change the measure — not a 720-centred island, and not a 1000 grid.
 
 ### Thin header
 
@@ -343,7 +343,7 @@ The UI is done when all of these are true on a clean machine.
 3. The project home shows a thin header (mark, name, key, source, refresh, note icon), six tabs, Design selected, and no article summary.
 4. The Design, Architecture, and Decisions tabs each render this design pack as headings, prose, tables, lists, code blocks, and quotes. No `#` characters are visible as text.
 5. The right column is labelled `Contents` and lists this page's headings. Clicking a heading scrolls the same document scroll to that subsection. There is no `On this page` chip rail.
-6. Scrolling the project home moves the overview off screen and pins the tab bar; only one scrollbar is ever visible over the document. Contents is its own column.
+6. Scrolling the project home moves the overview off screen and pins the tab bar; only one scrollbar is ever visible over the document. Contents overlays the document; it is not a split column that resizes the page.
 7. Switching from Design to Architecture visibly changes the pane wash from rose to azure, and the Contents list updates to that document's headings.
 8. Decisions & questions shows a gold chip for each `Open —` heading; clicking it jumps to that heading.
 9. Settings changes the text size to 16 and the face to Georgia, and every screen — titles, chips, captions, document bodies, sidebar — follows. Relaunching keeps it.
