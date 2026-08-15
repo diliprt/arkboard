@@ -8,3 +8,7 @@ xcuserdata/
 *.xcodeproj/xcuserdata/
 .env
 .idea/
+
+# Python bytecode from scripts/
+__pycache__/
+*.pyc

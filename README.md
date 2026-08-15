@@ -42,11 +42,14 @@ Proves `/health`, the nineteen MCP tools, actor attribution, soft-delete, capabi
 On Linux, without the app:
 
 ```bash
-python3 scripts/spec_check.py   # design pack, routing, layout, and Timeline rules
-./scripts/gantt_check.sh        # compiles and unit-tests the Timeline maths (needs swiftc)
+python3 scripts/spec_check.py       # design pack, routing, layout, and Timeline rules
+./scripts/gantt_check.sh            # compiles and unit-tests the Timeline maths (needs swiftc)
+python3 scripts/timeline_preview.py # draws the Timeline Gantt's layout to SVG/PNG
 ```
 
 `scripts/gantt_check.sh` builds `Sources/Arkboard/UI/Portfolio/TimelineModel.swift` on its own. That file imports Foundation only, so the Gantt's axis, bar, and dependency logic is testable on a Linux host with no Xcode.
+
+`scripts/timeline_preview.py` draws that same geometry — row order, bar spans, dependency links, the Today rule, each scale — so a Timeline change can be looked at before anyone opens Xcode. It is a geometry preview, not a screenshot; sign the finished screen off on a Mac.
 
 ## Agent API
 

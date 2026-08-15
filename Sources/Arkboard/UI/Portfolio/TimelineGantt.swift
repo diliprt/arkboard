@@ -87,10 +87,11 @@ struct TimelineGanttView: View {
 
     private func labelColumn(_ plan: GanttPlan) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Color.clear.frame(height: Metrics.ganttAxisHeight)
+            Color.clear
+                .frame(width: Metrics.ganttLabelColumn, height: Metrics.ganttAxisHeight)
             ForEach(plan.rows) { row in
                 rowLabel(row)
-                    .frame(height: rowHeight(row), alignment: .leading)
+                    .frame(width: Metrics.ganttLabelColumn, height: rowHeight(row), alignment: .leading)
             }
         }
     }
@@ -106,7 +107,7 @@ struct TimelineGanttView: View {
                 VStack(spacing: 0) {
                     ForEach(plan.rows) { row in
                         barTrack(row, plan: plan, width: width)
-                            .frame(width: width, height: rowHeight(row))
+                            .frame(height: rowHeight(row))
                     }
                 }
             }
@@ -115,19 +116,30 @@ struct TimelineGanttView: View {
         .frame(width: width, alignment: .leading)
     }
 
+    /// Two tiers: Today above, column labels below, so the marker never lands on a label.
     private func axis(_ plan: GanttPlan, columns: [Date], columnWidth: CGFloat, width: CGFloat) -> some View {
-        ZStack(alignment: .bottomLeading) {
+        VStack(spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                Color.clear
+                todayFlag(plan, width: width)
+            }
+            .frame(width: width, height: Metrics.ganttTodayTier, alignment: .topLeading)
             HStack(spacing: 0) {
-                ForEach(columns, id: \.self) { column in
-                    Text(GanttMath.columnLabel(column, scale: plan.scale))
-                        .font(type.caption)
-                        .foregroundStyle(StudioColor.secondary)
-                        .lineLimit(1)
-                        .padding(.leading, 4)
-                        .frame(width: columnWidth, alignment: .leading)
+                ForEach(Array(columns.enumerated()), id: \.offset) { index, column in
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(index == 0 ? Color.clear : StudioColor.hairline.opacity(0.6))
+                            .frame(width: 1)
+                        Text(GanttMath.columnLabel(column, scale: plan.scale))
+                            .font(type.caption)
+                            .foregroundStyle(StudioColor.secondary)
+                            .lineLimit(1)
+                            .padding(.leading, 4)
+                    }
+                    .frame(width: columnWidth, alignment: .leading)
                 }
             }
-            todayFlag(plan, width: width)
+            .frame(width: width, height: Metrics.ganttAxisHeight - Metrics.ganttTodayTier, alignment: .bottomLeading)
         }
         .frame(width: width, height: Metrics.ganttAxisHeight, alignment: .bottomLeading)
         .overlay(alignment: .bottom) {
@@ -165,7 +177,9 @@ struct TimelineGanttView: View {
             Text("Today")
                 .font(type.caption)
                 .foregroundStyle(Hue.moss.color(for: scheme))
-                .offset(x: min(max(0, x + 3), max(0, width - 44)))
+                .padding(.horizontal, 5)
+                .background(StudioColor.chipFill(.moss, scheme: scheme), in: Capsule())
+                .offset(x: min(max(0, x - 2), max(0, width - Metrics.ganttTodayFlag)))
         }
     }
 
@@ -268,13 +282,12 @@ struct TimelineGanttView: View {
                         .fill(barColor(row).opacity(0.30))
                         .overlay(Capsule().stroke(barColor(row).opacity(0.55), lineWidth: 1))
                         .frame(width: barWidth, height: Metrics.ganttProjectBar)
-                        .offset(x: startX)
-                        .frame(width: width, alignment: .leading)
-                        .contentShape(Rectangle())
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .disabled(!canOpen(row))
                 .help(canOpen(row) ? "Open \(row.title)'s Timeline" : row.title)
+                .offset(x: startX)
                 ForEach(row.marks) { mark in
                     Circle()
                         .fill(Hue.moss.color(for: scheme).opacity(0.75))
@@ -342,7 +355,8 @@ struct TimelineGanttView: View {
     }
 
     private func shippedHelp(_ mark: GanttMark) -> String {
-        [mark.identifier, mark.title].compactMap { $0 }.joined(separator: " ")
+        guard let identifier = mark.identifier else { return mark.title }
+        return "\(identifier) \(mark.title)"
     }
 }
 
