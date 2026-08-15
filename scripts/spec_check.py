@@ -1428,6 +1428,19 @@ def check_living_tabs(ui: str, decisions: str, design: str) -> None:
     ok("design voids the 720 document column", "720 ideal" not in design)
 
 
+def swift_constant(source: str, name: str) -> str | None:
+    """The exact value of `static let <name>: CGFloat = …`.
+
+    Substring matching cannot do this: `= 20` contains `= 2`, so a lock that
+    greps for the tolerance passes while the tolerance is loosened tenfold.
+    """
+    for line in source.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith(f"static let {name}:") and "=" in stripped:
+            return stripped.split("=", 1)[1].strip()
+    return None
+
+
 def check_mac_measures(ui: str, decisions: str) -> None:
     """Mac-first measures before Critique.
 
@@ -1455,8 +1468,8 @@ def check_mac_measures(ui: str, decisions: str) -> None:
     ok("body Y is not the rail in disguise",
        "originTolerance" in measure and "railTolerance" in measure)
     ok("sibling tabs must share an origin", "do not share one origin" in measure)
-    ok("the origin tolerance is 2pt", "originTolerance: CGFloat = 2" in measure)
-    ok("the rail tolerance is 2pt", "railTolerance: CGFloat = 2" in measure)
+    ok("the origin tolerance is 2pt", swift_constant(measure, "originTolerance") == "2")
+    ok("the rail tolerance is 2pt", swift_constant(measure, "railTolerance") == "2")
     ok("the measure reads leaves, not containers", "AXStaticText" in measure)
 
     # The selected row, while the sidebar has focus.
@@ -1484,9 +1497,42 @@ def check_mac_measures(ui: str, decisions: str) -> None:
     wrapper_code = "\n".join(
         line for line in wrapper.split("\n") if not line.lstrip().startswith("#")
     )
-    for tool in ("xcodebuild", "worktree", "screencapture", "xed "):
-        ok(f"the measure does not run {tool.strip()}",
-           tool not in measure_code and tool not in wrapper_code)
+    # Token match, not substring: "xed" lives inside "fixed", and a lock that
+    # fires on a comment about a fixed offset is a lock nobody will keep.
+    def tokens(source: str) -> set[str]:
+        return set(re.split(r"[^A-Za-z0-9_]+", source))
+
+    banned = tokens(measure_code) | tokens(wrapper_code)
+    for tool in ("xcodebuild", "worktree", "xed"):
+        ok(f"the measure does not run {tool}", tool not in banned)
+
+    # It samples one window to read a colour. That is a measurement, not a shot
+    # set: nothing is kept, and nothing is written where the repo can see it.
+    ok("the measure keeps no shots",
+       "product/mockups" not in measure_code and "shots" not in measure_code)
+    ok("the capture is one window", "-l\\(window)" in measure_code)
+    ok("the capture writes one temp file", "NSTemporaryDirectory()" in measure_code)
+    ok("the capture cleans up after itself", "removeItem" in measure_code)
+    ok("the capture avoids the unavailable SDK call",
+       "CGWindowListCreateImage" not in measure_code)
+
+    # The mark floor is about a project mark, so it must sample a project.
+    ok("the selection sample is a pinned project", "func pinnedProjectRow" in measure_code)
+    ok("the mark is sampled from its own frame", "func markFrame" in measure_code)
+    ok("the mark sample is not a fixed offset",
+       "local.minX + 8" not in measure_code and "width: 16" not in measure_code)
+    ok("the mark sample is pulled inside the icon", "insetBy(dx: $0.width * 0.28" in measure_code)
+    ok("the fill sample clears the mark", "markRect.maxX" in measure_code)
+    ok("a misaligned capture refuses to report",
+       "abs(scale - verticalScale)" in measure_code and "else { return nil }" in measure_code)
+    ok("the report says where it sampled",
+       "mark_sample" in measure and "fill_sample" in measure and "selected_row" in measure)
+    ok("the sample skips the destinations",
+       '"Portfolio", "Timeline"' in measure_code and "isDisjoint" in measure_code)
+    ok("the sample is not just the first row",
+       "sidebarRows(in: nodes).first else" not in measure_code)
+    ok("the mark floor is not lowered to pass", swift_constant(measure, "markSaturationFloor") == "0.08")
+    ok("the selection ceiling holds", swift_constant(measure, "selectionSaturationCeiling") == "0.35")
     ok("the wrapper compiles the repo script", "scripts/mac_measure.swift" in wrapper)
     ok("the wrapper passes the exit code through", 'exit "$status"' in wrapper)
 
@@ -1555,6 +1601,16 @@ def check_tab_body_origin(home: str, ui: str, decisions: str) -> None:
         ok(f"{name} adds no top inset", bool(body) and ".padding(.top" not in body)
         ok(f"{name} does not centre its content", bool(body) and "alignment: .center" not in body)
         ok(f"{name} opens no gap above its first line", bool(body) and "Spacer()" not in body)
+
+    # The two ways the Design tab started lower than its siblings.
+    markdown = without_comments((SOURCES / "UI/Markdown/MarkdownView.swift").read_text())
+    ok("the first block carries no top air", "isFirst ? 0 :" in markdown)
+    ok("the first block is known to the renderer",
+       "isFirst: offset == 0" in markdown and "isFirst: Bool" in markdown)
+    ok("a skipped opener does not leave its air behind",
+       "dropFirst()" in markdown and "isFirst" in markdown)
+    ok("the document chip rail is sized to its content",
+       ".fixedSize(horizontal: false, vertical: true)" in code)
 
     ok("the tab body is padded once, outside the switch",
        code.split("private var tabBody")[1].split("private var")[0].count(".padding(") == 0

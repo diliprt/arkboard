@@ -19,8 +19,8 @@ struct MarkdownView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: type.blockGap) {
-            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                blockView(block)
+            ForEach(Array(blocks.enumerated()), id: \.offset) { offset, block in
+                blockView(block, isFirst: offset == 0)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -29,12 +29,17 @@ struct MarkdownView: View {
     }
 
     @ViewBuilder
-    private func blockView(_ block: MarkdownBlock) -> some View {
+    private func blockView(_ block: MarkdownBlock, isFirst: Bool) -> some View {
         switch block {
         case let .heading(level, _, inlines, anchor):
             InlineText(inlines: inlines, hue: hue, onLink: onLink)
                 .font(headingFont(level))
-                .padding(.top, level <= 2 ? type.headingAir : type.deepHeadingAir)
+                // Headings buy air above themselves, never at the top of the
+                // document: the pane's own padding is that air. Without this a
+                // document whose first block is a heading — including one that
+                // became first when a repeated opener was skipped — starts
+                // lower than a sibling tab, and the pane shifts on the click.
+                .padding(.top, isFirst ? 0 : (level <= 2 ? type.headingAir : type.deepHeadingAir))
                 .id(anchor)
         case let .paragraph(inlines):
             InlineText(inlines: inlines, hue: hue, onLink: onLink)

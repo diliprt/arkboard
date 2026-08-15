@@ -306,6 +306,11 @@ struct ProjectHomeView: View {
             } else {
                 VStack(alignment: .leading, spacing: 16) {
                     if docs.count > 1 {
+                        // Design is the only tab that shows this rail, because
+                        // ui-spec.md routes here too. A horizontal ScrollView
+                        // takes more height than its content, which would seat
+                        // these capsules lower than the first line of every
+                        // other tab — so it is sized to what it holds.
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
                                 ForEach(docs) { doc in
@@ -316,6 +321,7 @@ struct ProjectHomeView: View {
                                 }
                             }
                         }
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                     if tab == .decisions, let markdown = currentDocument?.markdown {
                         let opens = QuestionParser.openQuestions(in: markdown)

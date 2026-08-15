@@ -26,6 +26,10 @@ Each project is a card led by its own picture — `product/card.png`, full-bleed
 
 Design is selected by default, because a project is a design object first. The rail is the first thing in the scroll, so it is pinned from the moment the page paints, and the mark and key sit in the window toolbar rather than in a row beneath it. Every tab starts its first line at the same Y under that rail — Design's prose, an empty state's title, the first row of a filled gallery — and switching tabs is instant. A tab that leads with something the others do not have moves the whole pane, and a body that moves is a jump a reader feels even when the rail is perfectly still.
 
+A heading buys air above itself, which is right in the middle of a document and wrong at the top of one: there the pane's padding is already that air. The first block a tab renders never carries it, including the block that became first when a repeated opener was skipped.
+
+The tabs are not symmetrical, and the origin has to survive that. When more than one document lands on a tab, a rail of document capsules sits above the prose — which today means Design (`design.md` and `ui-spec.md`) and Architecture (`architecture.md` and `mcp.md`), and no others. That rail is sized to its capsules, not to a horizontal scroll view, which would take more height than it holds and seat the tab's first line ~10pt below every tab without one.
+
 **Contents** is a trailing overlay on edge-to-edge glass, not a third column. When it is open the prose reserves a gutter exactly as wide as it, so no glyph is ever printed underneath it.
 
 **Chat with Chief of Staff** is a right-click, anywhere. It opens a compact sheet with a quiet line saying where you are, an empty field, and the project's history of notes. What sends is the note the human typed and nothing else — the page context is captured silently and never dumped into the body.
