@@ -15,7 +15,7 @@ struct IssueDetailColumn: View {
             if let issue {
                 detail(issue)
             } else {
-                EmptyStateView(section: .issues, title: EmptyCopy.selectIssue.0, sentence: EmptyCopy.selectIssue.1)
+                EmptyStateView(section: .issues, title: EmptyCopy.selectIssue.0, sentence: EmptyCopy.selectIssue.1, layout: .poster)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(StudioColor.wash(.teal, scheme: scheme))
             }

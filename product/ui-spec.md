@@ -177,7 +177,7 @@ Section header `Milestones`. The shared timeline component with no project filte
 
 The most important screen in the app, and the one that must not look like a tracker.
 
-Everything is inside **one** vertical scroll: the overview scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab. The overview band sits on plain `windowBackgroundColor` so it reads as a header rather than as part of the section. The outline is the right Contents column, not a bar in this scroll. Overview, composer, tab rail, and markdown share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar and/or Contents are hidden, that measure grows with the pane — not a 720-centred island, and not a 1000 grid.
+Everything is inside **one** vertical scroll: the overview scrolls away, the tab bar pins to the top when it reaches it, and the document continues underneath. The pane carries the wash of the selected tab. The overview band sits on plain `windowBackgroundColor` so it reads as a header rather than as part of the section. The outline is the right Contents column, not a bar in this scroll. Overview, composer, tab rail, markdown, and project-home empty states share one left edge and one measure: the pane width, left-aligned, with pane padding only. When the sidebar and/or Contents are hidden, that measure grows with the pane — not a 720-centred island, and not a 1000 grid.
 
 ### Overview band
 
@@ -267,7 +267,7 @@ The exception, deliberate and singular: **Archive** on an issue, with undo. Gett
 
 ## Empty states
 
-One shape everywhere: the section symbol at 28pt in the hue at 40%, a title in `heading`, one sentence in `callout` secondary, centred, with 40pt of air. No buttons unless the table says so.
+One shape everywhere: the section symbol at 28pt in the hue at 40%, a title in `heading`, one sentence in `callout` secondary. On the project home (Mockups, Design-not-written, Issues, Timeline, and the other document tabs) that block shares the document left edge — icon, title, and sentence leading, not a centred poster in the wash. Full-pane posters (no projects, Monitor, Activity) stay centred, with 40pt of air. No buttons unless the table says so.
 
 | Where | Title | Sentence |
 | --- | --- | --- |

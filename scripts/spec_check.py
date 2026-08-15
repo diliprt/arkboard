@@ -388,6 +388,15 @@ def check_layout_musts(swift: str, home: str) -> None:
     ok("Must A ui-spec forbids scrolled-past Mockups", "must not open scrolled past them" in ui)
     ok("Must B ui-spec grows the document with the pane", "720-centred island" in ui)
     ok("#15 ensureDocuments still binds the home", "ensureDocuments" in home)
+    empty = (SOURCES / "UI/Shell/EmptyStateView.swift").read_text()
+    ok("empty state has a document layout", "EmptyStateLayout" in empty and "case document" in empty)
+    ok("document empty sits on the leading edge", "topLeading" in empty)
+    ok("EmptyStateView defaults to document", "EmptyStateLayout = .document" in empty)
+    ok("project home empties are not posters", "layout: .poster" not in home)
+    ok("project home still has no GridColumn", "GridColumn" not in home)
+    ok("Must A scroll-to-tab-bar kept", 'scrollTo("tab-bar"' in home)
+    ok("#15 ensureDocuments kept", "ensureDocuments" in home)
+    ok("ui-spec project-home empties share the document edge", "share the document left edge" in ui or "shares the document left edge" in ui)
 
 
 def main() -> int:

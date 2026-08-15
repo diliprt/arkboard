@@ -41,7 +41,8 @@ struct IssueListColumn: View {
                         EmptyStateView(
                             section: .issues,
                             title: emptyTitle.0,
-                            sentence: emptyTitle.1
+                            sentence: emptyTitle.1,
+                            layout: .poster
                         )
                     }
                 }

@@ -24,7 +24,7 @@ struct ActivityView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12, pinnedViews: .sectionHeaders) {
                     if visible.isEmpty {
-                        EmptyStateView(section: .activity, title: EmptyCopy.noActivity.0, sentence: EmptyCopy.noActivity.1)
+                        EmptyStateView(section: .activity, title: EmptyCopy.noActivity.0, sentence: EmptyCopy.noActivity.1, layout: .poster)
                     } else {
                         ForEach(days, id: \.self) { day in
                             Section {

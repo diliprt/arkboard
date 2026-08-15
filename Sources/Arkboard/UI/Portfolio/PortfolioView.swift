@@ -12,7 +12,7 @@ struct PortfolioView: View {
                 VStack(alignment: .leading, spacing: Metrics.sectionGap) {
                     totals
                     if store.projects.isEmpty {
-                        EmptyStateView(section: .portfolio, title: EmptyCopy.portfolioEmpty.0, sentence: EmptyCopy.portfolioEmpty.1)
+                        EmptyStateView(section: .portfolio, title: EmptyCopy.portfolioEmpty.0, sentence: EmptyCopy.portfolioEmpty.1, layout: .poster)
                     } else {
                         cards
                     }

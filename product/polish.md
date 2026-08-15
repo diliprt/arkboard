@@ -184,7 +184,7 @@ After T1, resize to exactly 1080 × 700 and confirm: all six pills visible or re
 
 **Wrong.** On S5 the `No issues` block renders at the top of the washed area, directly under the `Tracking only…` line, leaving a large dead field below it. The spec's shape ("centred, with 40pt of air") reads as centred in the visible pane, not stacked at the top.
 
-**Fix.** Give `EmptyStateView` a generous `minHeight` (or centre it in the remaining viewport height via the pane's geometry) so the symbol/title/sentence block lands in the middle third of the visible pane on Issues, Timeline, and the document tabs.
+**Fix.** Give `EmptyStateView` a generous `minHeight` so the empty block has room in the washed pane. On the project home the block is leading — same left edge as the Design heading — not a centred poster. Vertical air stays; horizontal centering does not.
 
 **Severity: should.**
 
