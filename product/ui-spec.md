@@ -319,9 +319,9 @@ Choosing the item (with a highlight or with none) opens that sheet. The title is
 - The current selection prefilled in the field (editable). If they copied, prefer the current selection in the view over the clipboard.
 - One quiet friendly line for where they are, e.g. `Arkboard · Design · product/design.md`. Do not show a raw dump — no ISO timestamp, no `project · ARK · Design · …`, no destination jargon, no tab twice.
 
-The handoff still records these fields in Activity so Chief of Staff can act. Humans see only the friendly line on the sheet.
+The Activity body is the note they typed, plus the friendly page line if needed. Do not append `destination:`, `project:`, `tab:`, `doc:`, or an ISO timestamp to the message. Kind `handoff`, target `Product`, and `projectId` stay on the Activity row.
 
-Recorded fields:
+Capture still knows these fields so the friendly line and project scope are right. They are not a visible dump in the body:
 
 - **selected text**, if any
 - **destination** — `portfolio` | `timeline` | `onboarding` | `project`
