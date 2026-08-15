@@ -221,10 +221,11 @@ struct Bitmap {
 
 /// Capture the window and keep it as straight RGBA so pixels can be read back.
 ///
-/// `CGWindowListCreateImage` is unavailable in the macOS 26 SDK, so this shells
-/// out to `screencapture` for the one window and reads the file back. That is
-/// still a measurement, not a shot set: one window, one temp file, deleted on
-/// the way out, and nothing written anywhere the repo can see.
+/// The window-list image call this used to make is unavailable in the macOS 26
+/// SDK, so this shells out to `screencapture` for the one window and reads the
+/// file back — see decisions.md, "Locked — Mac-first measures before Critique".
+/// That is still a measurement, not a shot set: one window, one temp file,
+/// deleted on the way out, and nothing written anywhere the repo can see.
 func capture(window: CGWindowID, bounds: CGRect) -> Bitmap? {
     let path = NSTemporaryDirectory() + "arkboard-measure-\(getpid()).png"
     defer { try? FileManager.default.removeItem(atPath: path) }
