@@ -22,7 +22,7 @@ Screenshot key, used in every item below:
 2. **Put the overview band back on plain window background.** The title, README lead, and composer pick up the section tint and change colour when you switch tabs (S1 vs S3). — [item H1](#h1--the-overview-band-is-tinted)
 3. **Stop the sidebar toolbar icons overlapping.** The New Project button and the sidebar toggle collide with each other and crowd the traffic lights (S1–S6). — [item SB1](#sb1--toolbar-icons-overlap)
 4. **Make all six tabs reachable at the minimum window.** At 1080pt wide, Timeline is cut off with no scroll affordance and no hint it exists (S7). — [item T1](#t1--the-tab-bar-silently-overflows)
-5. **Give every tab the same left gutter and column cap.** Design and Architecture read as a measured column; Mockups, Issues, and Timeline hug the left edge full-width (S3, S5, S6 vs S1, S2). — [item D1](#d1--gutters-and-column-caps-differ-per-tab)
+5. **Give every tab the same left gutter and column cap.** One centred 720 `ProseColumn` for the whole tab family — not 720 for docs and 1000 for Mockups/Issues/Timeline (S3, S5, S6 vs S1, S2). — [item D1](#d1--gutters-and-column-caps-differ-per-tab)
 6. **Give Contents a close control.** The right column cannot be dismissed, ever, even at the minimum window where the document needs the room (all screenshots). — [item O1](#o1--contents-cannot-be-closed)
 7. **Fix the clipped open-question chips on Decisions.** The third chip is cut mid-word at the right edge with no fade and no way to tell there are more (S4). — [item T3](#t3--the-open-question-chip-rail-clips)
 8. **Render the Today rule exactly once on the Timeline.** It currently appears under *every* week that contains a future event — twice in S6, under "Week of 9 August" and again under "Week of 23 August". — [item D2](#d2--two-today-rules)
@@ -122,15 +122,11 @@ After T1, resize to exactly 1080 × 700 and confirm: all six pills visible or re
 
 ### D1 — Gutters and column caps differ per tab
 
-**Wrong.** Design and Architecture (S1, S2) render prose in a 720pt-capped column; Mockups, Issues, and Timeline (S3, S5, S6) run leading-aligned to the full pane width with only the raw 24pt pane padding, so their text sits visibly closer to the sidebar and the line lengths run long. This is the "missing left margin / works in some places, not others" report. Per [design.md](design.md): prose caps at 720pt and is centred; grids, timelines, and feeds cap at 1000pt. `ProseColumn` and `GridColumn` exist in `ThemeModifiers.swift` for exactly this — and are used nowhere.
+**Wrong.** Design and Architecture (S1, S2) render prose in a 720pt-capped column; Mockups, Issues, and Timeline (S3, S5, S6) used a different geometry — first full-bleed, then a centred 1000pt `GridColumn` — so they read as full-bleed / left-shifted against the document tabs. Same tab family cannot have two measures.
 
-**Fix.** In `ProjectHomeView`:
+**Fix.** One column family on the project home: wrap every tab body — Design, Architecture, Decisions, Mockups, Issues, Timeline — and the overview band in the same centred `ProseColumn` (720). Do not use `GridColumn` (1000) here. If a grid needs more width, it still starts on that 720 rail so the first column lines up with prose.
 
-- Wrap the document tabs' content (`documentTab`, including the chip rails above the markdown) in `ProseColumn` so the 720pt column is centred, not leading-aligned.
-- Wrap `mockupsTab`, `projectIssues`, and the `TimelineSpine` in `GridColumn` (1000pt cap, centred).
-- The overview band gets the same treatment so the header column lines up with the document column below it.
-
-After this, every tab shares one left edge at every window width.
+After this, every tab shares one left edge and one measure at every window width.
 
 **Severity: must.**
 
@@ -205,7 +201,7 @@ The copy visible in S5 (`No issues` / `Nothing has been filed here.`) and the no
 Done means, on one relaunch:
 
 1. Switch Design → Mockups → Timeline: toolbar, sidebar, and overview band never change colour; only the tab body's wash does (C1, H1, SB2).
-2. At 1320 × 860 and at 1080 × 700, every tab's content shares one left edge; prose is a centred 720pt column, Mockups/Issues/Timeline a centred 1000pt cap (D1).
+2. At 1320 × 860 and at 1080 × 700, every tab's content shares one left edge and one centred 720pt `ProseColumn` — Design through Timeline, no 1000pt family (D1).
 3. At 1080 × 700 all six tabs are visible or visibly scrollable, and selecting Timeline via `⌘]` scrolls its pill into view (T1, T2).
 4. The Timeline shows exactly one Today rule and opens scrolled to it (D2, D3).
 5. Decisions shows every open-question chip in full, wrapped or fading, never cut mid-word (T3).

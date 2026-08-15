@@ -233,15 +233,15 @@ struct ProjectHomeView: View {
 
     @ViewBuilder
     private var tabBody: some View {
-        switch tab {
-        case .design, .architecture, .decisions:
-            ProseColumn { documentTab }
-        case .mockups:
-            GridColumn { mockupsTab }
-        case .issues:
-            GridColumn { projectIssues }
-        case .timeline:
-            GridColumn {
+        ProseColumn {
+            switch tab {
+            case .design, .architecture, .decisions:
+                documentTab
+            case .mockups:
+                mockupsTab
+            case .issues:
+                projectIssues
+            case .timeline:
                 TimelineSpine(
                     events: TimelineBuilder.events(
                         milestones: store.milestones.filter { $0.projectId == project.id },
