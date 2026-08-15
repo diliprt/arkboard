@@ -2,6 +2,7 @@ import Foundation
 
 enum ChiefOfStaffCopy {
     static let menuTitle = "Chat with Chief of Staff"
+    static let sheetTitle = menuTitle
     static let targetActor = "Product"
 }
 
@@ -113,16 +114,6 @@ struct ChiefHandoff: Equatable, Sendable, Identifiable {
         }
         if let fallback, !fallback.isEmpty { return fallback }
         return headings.first?.1
-    }
-
-    var quietMetadata: String {
-        var bits: [String] = [destination]
-        if let projectKey, !projectKey.isEmpty { bits.append(projectKey) }
-        if let tab, !tab.isEmpty { bits.append(tab) }
-        if let documentPath, !documentPath.isEmpty { bits.append(documentPath) }
-        if let nearestHeading, !nearestHeading.isEmpty { bits.append(nearestHeading) }
-        bits.append(StudioISO8601.string(from: timestamp))
-        return bits.joined(separator: " · ")
     }
 
     func persistBody(userText: String) -> String {
