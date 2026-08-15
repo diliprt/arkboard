@@ -393,35 +393,14 @@ def handoff_nearest_heading(markdown: str, selected: str, fallback: str | None =
     return headings[0][1] if headings else None
 
 
-def handoff_persist_body(
-    user_text: str,
-    *,
-    selected_text: str,
-    destination: str,
-    project_key: str | None,
-    project_name: str | None,
-    tab: str | None,
-    document_path: str | None,
-    nearest_heading: str | None,
-    page_line: str,
-    timestamp: str,
-) -> str:
-    lines = [user_text.strip(), ""]
-    lines.append(f"Chief of Staff handoff · {page_line}")
-    lines.append(f"destination: {destination}")
-    if project_key:
-        name = f" {project_name}" if project_name else ""
-        lines.append(f"project: {project_key}{name}")
-    if tab:
-        lines.append(f"tab: {tab}")
-    if document_path:
-        lines.append(f"doc: {document_path}")
-    if nearest_heading:
-        lines.append(f"heading: {nearest_heading}")
-    if selected_text:
-        lines.append(f"selected: {selected_text}")
-    lines.append(f"at: {timestamp}")
-    return "\n".join(lines)
+def handoff_persist_body(user_text: str, page_line: str = "") -> str:
+    note = user_text.strip()
+    line = page_line.strip()
+    if not line:
+        return note
+    if not note:
+        return line
+    return f"{note}\n\n{line}"
 
 
 def today_index(dates: list[int], now: int) -> int:
@@ -701,45 +680,32 @@ def check_chief_handoff(swift: str, home: str, root: str, sidebar: str, ui: str)
         "handoff nearest heading falls back",
         handoff_nearest_heading("# Design\nNo match here.", "", "Design") == "Design",
     )
-    body = handoff_persist_body(
-        "Ship the context menu.",
-        selected_text="design object first",
-        destination="project",
-        project_key="ARK",
-        project_name="Arkboard",
-        tab="Design",
-        document_path="product/design.md",
-        nearest_heading="Locked — Design is the default tab",
-        page_line=page,
-        timestamp="2026-08-15T09:10:00.000Z",
-    )
-    for field in (
-        "Chief of Staff handoff",
-        "destination: project",
-        "project: ARK Arkboard",
-        "tab: Design",
-        "doc: product/design.md",
-        "heading: Locked — Design is the default tab",
-        "selected: design object first",
-        "at: 2026-08-15T09:10:00.000Z",
-        page,
+    body = handoff_persist_body("Ship the context menu.", page)
+    ok("handoff body is the typed note", "Ship the context menu." in body)
+    ok("handoff body keeps the friendly page line", page in body)
+    for dump in (
+        "destination:",
+        "project:",
+        "tab:",
+        "doc:",
+        "heading:",
+        "selected:",
+        "at:",
+        "2026-08-15T09:10:00.000Z",
+        "Chief of Staff handoff ·",
     ):
-        ok(f"handoff body has {field}", field in body)
+        ok(f"handoff body has no {dump} dump", dump not in body)
 
-    studio = handoff_persist_body(
-        "Look at Portfolio.",
-        selected_text="",
-        destination="portfolio",
-        project_key=None,
-        project_name=None,
-        tab=None,
-        document_path=None,
-        nearest_heading=None,
-        page_line="Portfolio",
-        timestamp="2026-08-15T09:10:00.000Z",
-    )
-    ok("studio handoff has no project field", "project:" not in studio)
-    ok("studio handoff keeps destination", "destination: portfolio" in studio)
+    studio = handoff_persist_body("Look at Portfolio.", "Portfolio")
+    ok("studio handoff is the typed note", "Look at Portfolio." in studio)
+    ok("studio handoff keeps the friendly line", "Portfolio" in studio)
+    ok("studio handoff has no destination dump", "destination:" not in studio)
+
+    persist_src = (SOURCES / "Model/ChiefHandoff.swift").read_text()
+    persist_fn = persist_src.split("static func persistBody")[-1].split("struct NoteSheetRequest")[0] if "static func persistBody" in persist_src else persist_src
+    ok("persistBody has no destination: dump", "destination:" not in persist_fn)
+    ok("persistBody has no project: dump", "project:" not in persist_fn)
+    ok("persistBody has no ISO at: dump", "at:" not in persist_fn)
 
     ok("source ChiefHandoff.swift", (SOURCES / "Model/ChiefHandoff.swift").exists())
     ok("menu label is Chat with Chief of Staff", "Chat with Chief of Staff" in swift)

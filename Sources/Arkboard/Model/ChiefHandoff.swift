@@ -117,45 +117,15 @@ struct ChiefHandoff: Equatable, Sendable, Identifiable {
     }
 
     func persistBody(userText: String) -> String {
-        Self.persistBody(
-            userText: userText,
-            selectedText: selectedText,
-            destination: destination,
-            projectKey: projectKey,
-            projectName: projectName,
-            tab: tab,
-            documentPath: documentPath,
-            nearestHeading: nearestHeading,
-            pageLine: pageLine,
-            timestamp: StudioISO8601.string(from: timestamp)
-        )
+        Self.persistBody(userText: userText, pageLine: pageLine)
     }
 
-    static func persistBody(
-        userText: String,
-        selectedText: String,
-        destination: String,
-        projectKey: String?,
-        projectName: String?,
-        tab: String?,
-        documentPath: String?,
-        nearestHeading: String?,
-        pageLine: String,
-        timestamp: String
-    ) -> String {
-        var lines = [userText.trimmingCharacters(in: .whitespacesAndNewlines), ""]
-        lines.append("Chief of Staff handoff · \(pageLine)")
-        lines.append("destination: \(destination)")
-        if let projectKey, !projectKey.isEmpty {
-            let name = projectName.map { " \($0)" } ?? ""
-            lines.append("project: \(projectKey)\(name)")
-        }
-        if let tab, !tab.isEmpty { lines.append("tab: \(tab)") }
-        if let documentPath, !documentPath.isEmpty { lines.append("doc: \(documentPath)") }
-        if let nearestHeading, !nearestHeading.isEmpty { lines.append("heading: \(nearestHeading)") }
-        if !selectedText.isEmpty { lines.append("selected: \(selectedText)") }
-        lines.append("at: \(timestamp)")
-        return lines.joined(separator: "\n")
+    static func persistBody(userText: String, pageLine: String) -> String {
+        let note = userText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let line = pageLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        if line.isEmpty { return note }
+        if note.isEmpty { return line }
+        return "\(note)\n\n\(line)"
     }
 }
 
