@@ -242,15 +242,18 @@ struct ProjectHomeView: View {
         .chiefOfStaffContextMenu()
     }
 
+    /// Changing tab is not animated. Every layout in this pane depends on `tab`
+    /// — the wash, the body, the pane's whole height — so easing the assignment
+    /// eases the geometry, which is the jump. Wrapping it in `withAnimation`
+    /// here is the same mistake as an animation modifier keyed on the tab, just
+    /// hidden in a setter where it is harder to see.
     private func selection(for item: ProjectHomeTab) -> Binding<Bool> {
         Binding(
             get: { tab == item },
             set: { isSelected in
                 guard isSelected else { return }
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
-                    tab = item
-                    selectedPath = nil
-                }
+                tab = item
+                selectedPath = nil
             }
         )
     }
