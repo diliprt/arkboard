@@ -12,14 +12,10 @@ struct SidebarView: View {
         @Bindable var store = store
         List(selection: $store.sidebarSelection) {
             Section {
-                SwiftUI.Label("Portfolio", systemImage: StudioSection.portfolio.symbol)
-                    .font(type.body)
-                    .padding(.vertical, Metrics.sidebarRowY)
+                destinationRow("Portfolio", section: .portfolio)
                     .tag(SidebarItem.portfolio)
                     .contextMenu { ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText()) }
-                SwiftUI.Label("Timeline", systemImage: StudioSection.timeline.symbol)
-                    .font(type.body)
-                    .padding(.vertical, Metrics.sidebarRowY)
+                destinationRow("Timeline", section: .timeline)
                     .tag(SidebarItem.timeline)
                     .contextMenu { ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText()) }
             }
@@ -35,10 +31,11 @@ struct SidebarView: View {
                         )
                         Text(project.name)
                             .font(type.body)
+                            .foregroundStyle(StudioColor.primary)
                         Spacer(minLength: 8)
                         Text(project.key)
                             .font(type.mono)
-                            .foregroundStyle(StudioColor.tertiary)
+                            .foregroundStyle(StudioColor.secondary)
                     }
                     .padding(.vertical, Metrics.sidebarRowY)
                     .tag(SidebarItem.project(project.id))
@@ -53,8 +50,28 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
+        // The selected row is the system's quiet selection, not a saturated
+        // accent fill. Every row states its own colours, so the mark and the
+        // key stay readable whether or not the row is selected.
+        .tint(StudioColor.quietSelection)
         .navigationSplitViewColumnWidth(min: Metrics.sidebarMin, ideal: Metrics.sidebarIdeal, max: Metrics.sidebarMax)
         .columnBottomBar(footer)
+    }
+
+    /// Destination rows share the project rows' leading column, so the symbols
+    /// and the marks below them line up.
+    private func destinationRow(_ title: String, section: StudioSection) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: section.symbol)
+                .font(type.body)
+                .foregroundStyle(section.hue.color(for: scheme))
+                .frame(width: Metrics.markSidebar)
+            Text(title)
+                .font(type.body)
+                .foregroundStyle(StudioColor.primary)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, Metrics.sidebarRowY)
     }
 
     /// Onboarding and the agent server sit on the same bar as the list, not in a
