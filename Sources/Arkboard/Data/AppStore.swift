@@ -52,7 +52,7 @@ final class AppStore {
 
     func start() async {
         do {
-            try pool.write { db in
+            try await pool.write { db in
                 try Seed.runIfEmpty(db)
             }
         } catch {
