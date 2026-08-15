@@ -24,7 +24,6 @@ struct PortfolioView: View {
                 )
                 ScrollView {
                     VStack(alignment: .leading, spacing: Metrics.sectionGap) {
-                        totals
                         if store.projects.isEmpty {
                             EmptyStateView(
                                 section: .portfolio,
@@ -38,18 +37,6 @@ struct PortfolioView: View {
                         } else {
                             cards
                         }
-                        if !store.milestones.isEmpty {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Milestones").font(type.heading)
-                                TimelineSpine(
-                                    events: TimelineBuilder.events(
-                                        milestones: store.milestones,
-                                        issues: store.issues.filter { $0.status == .done }
-                                    ),
-                                    showToday: false
-                                )
-                            }
-                        }
                     }
                     .padding(Metrics.paneX)
                     .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
@@ -59,26 +46,6 @@ struct PortfolioView: View {
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { store.clearOutline() }
-    }
-
-    private var totals: some View {
-        HStack(spacing: 12) {
-            total("Projects", store.projects.count)
-            total("Open issues", store.issues.filter { $0.archivedAt == nil && $0.status != .done && $0.status != .canceled }.count)
-            total("Questions waiting", store.openQuestions.count)
-            total("Not working", store.brokenCapabilities.count)
-        }
-    }
-
-    private func total(_ label: String, _ value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(value)").font(type.title)
-            Text(label).font(type.caption)
-        }
-        .padding(Metrics.cardPad)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(StudioColor.chipFill(.violet, scheme: scheme), in: RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous))
-        .foregroundStyle(Hue.violet.color(for: scheme))
     }
 
     private var cards: some View {
@@ -91,7 +58,11 @@ struct PortfolioView: View {
 
     private func projectCard(_ project: Project) -> some View {
         let bundle = store.documentBundles[project.id]
-        let summary = bundle?.overview.flatMap { $0.markdown }.map { MarkdownParser.firstSentence($0) } ?? project.summary
+        let summary = MarkdownParser.cardSummary(
+            markdown: bundle?.overview?.markdown,
+            name: project.name,
+            fallback: project.summary
+        )
         return CardSurface(hue: .violet) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {

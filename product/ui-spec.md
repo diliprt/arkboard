@@ -14,16 +14,16 @@ A single window. `NavigationSplitView` with two columns: the project portfolio a
 
 ### Sidebar
 
-232pt wide, `.sidebar` list style, one selection. There is no Studio section.
-
-**Header** — the workspace name as a `caption` section header with a `building.2` symbol, secondary. It is not a row and not a destination. "Origin Ark" stays a caption.
+232pt wide, `.sidebar` list style, one selection. There is no Studio section. The workspace name lives in the window subtitle, not in this column. No workspace icon, no fake destination.
 
 **Destinations**, in this order:
 
 1. **Portfolio** — a real row. Portfolio is a destination. Selecting it shows the Portfolio page in the document column.
 2. **Timeline** — a real row. Timeline is a destination. Selecting it shows the master studio calendar.
 
-**Pinned projects** — under those two rows, only projects whose `pinned` flag is true, sorted by `sortOrder` then name. Clicking a pinned row opens that project's document home (Design default). Unpinning removes the row from the sidebar; the project stays on the Portfolio page. Pinning puts it back. Existing projects start pinned so Arkboard does not disappear on first launch.
+A single hairline `Divider` sits between those two destinations and the pinned projects below. Not a section header that says `Projects`.
+
+**Pinned projects** — under that hairline, only projects whose `pinned` flag is true, sorted by `sortOrder` then name. Clicking a pinned row opens that project's document home (Design default). Unpinning removes the row from the sidebar; the project stays on the Portfolio page. Pinning puts it back. Existing projects start pinned so Arkboard does not disappear on first launch.
 
 Each project row: the project's persisted mark (22pt), the name in `body`, and the key in `mono` `caption` trailing, right-aligned and secondary. The mark is that app's brand — an SF Symbol on a 6pt-radius square washed with the project's colour, or an image from `product/icon.png` / `product/mark.png` / `product/logo.png` when one exists. It is never the same blue dot for every project. A context menu on the row offers `Pin` / `Unpin`.
 
@@ -33,9 +33,10 @@ Arkboard's own mark is `square.3.layers.3d` in indigo `#5A62D6`. Other projects 
 
 **Footer**, pinned, on `.bar`:
 
-- **New Project** — `folder.badge.plus` and the words `New Project`. This is the only creation affordance in the entire human UI. The Portfolio page may open the same sheet; do not invent a second create flow.
 - **Onboarding** — a `sparkles` icon, help text `Onboarding`. Not labelled Setup. Not a gear. Clicking it opens the Onboarding page in the document column.
 - A 7pt dot and `Agents · :7420` in `caption`. Moss when the server is listening, crimson and `Agents offline` when it is not. Clicking opens Settings to the Agents section.
+
+Create is not in this column.
 
 ### Contents
 
@@ -151,9 +152,7 @@ Activity is read-only. The composer lives on the project home, on purpose — th
 
 Subtitle: `Every project at arm's length.`
 
-This is the studio view of every app in one place. Cards, not a table, not a markdown essay. The document column uses the same left-aligned, pane-width measure as the project home. No 720 island. No 1000 grid. Contents is hidden — there is no document.
-
-Totals chips (`Projects`, `Open issues`, `Questions waiting`, `Not working`) and a studio milestones list may sit above or below the cards. They must not replace the cards.
+This is the studio view of every app in one place. Cards only — not a table, not a markdown essay, no milestone block, and no studio-wide spine. The document column uses the same left-aligned, pane-width measure as the project home. No 720 island. No 1000 grid. Contents is hidden — there is no document.
 
 ### Project cards
 
@@ -163,12 +162,12 @@ Each card:
 
 - The project mark, name in `heading`, key in `mono` `caption`.
 - A pin control. Filled pin when pinned. Clicking the pin toggles pin and does not open the project.
-- One-line summary — the first sentence of that project's `product/README.md`, or its stored `summary` if the documents have not loaded. This is the only human place for that copy.
+- One-line summary — the first sentence of that project's `product/README.md`, or its stored `summary` if the documents have not loaded. If the lead starts with the project name, strip that prefix so the card does not read `Arkboard Arkboard is…`. This is the only human place for that copy.
 - **Local** checkout path when `repoPath` is set, as `local · …`.
 - **GitHub** remote when `githubRepo` is set, as `github · owner/name`.
 - **Documents** — four small pills labelled `Design`, `Architecture`, `Mockups`, `Decisions`, filled in that section's hue when the document exists and hollow slate when it does not. Load from the same document bundle as the project home (local `product/` preferred when both sources exist).
 
-Clicking the card (not the pin) opens that project's home. A `New Project` control on this page opens the existing sheet. After create, the project is pinned and selected.
+Clicking the card (not the pin) opens that project's home. This page is the only place a human creates a project. A `New Project` control opens the existing sheet. After create, the project is pinned and selected.
 
 ## Timeline
 
@@ -313,7 +312,7 @@ One shape everywhere: the section symbol at 28pt in the hue at 40%, a title in `
 
 The UI is done when all of these are true on a clean machine.
 
-1. Launching from `./scripts/run.sh` restores the last sidebar row. The left sidebar is Portfolio, then Timeline, then pinned projects — workspace name as a caption — and does not contain Monitor or Issues. Selecting a pinned project opens the document home (thin header, six tabs, Design selected, markdown preview), not empty white.
+1. Launching from `./scripts/run.sh` restores the last sidebar row. The left sidebar is Portfolio, then Timeline, a hairline, then pinned projects — no Origin Ark row — and does not contain Monitor or Issues. Selecting a pinned project opens the document home (thin header, six tabs, Design selected, markdown preview), not empty white.
 2. The Arkboard row uses `square.3.layers.3d` in indigo, not a generic blue dot. A second project, if present, uses a different symbol.
 3. The project home shows a thin header (mark, name, key, source, refresh, note icon), six tabs, Design selected, and no article summary.
 4. The Design, Architecture, and Decisions tabs each render this design pack as headings, prose, tables, lists, code blocks, and quotes. No `#` characters are visible as text.

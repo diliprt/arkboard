@@ -113,6 +113,40 @@ def collapse_title(raw: str) -> str:
     return re.sub(r"\s+", " ", raw).strip()
 
 
+def first_sentence(markdown: str) -> str:
+    stripped = re.sub(r"^#+\s+", "", markdown)
+    stripped = re.sub(r"\s+", " ", stripped.replace("\n", " ")).strip()
+    idx = stripped.find(". ")
+    if idx != -1:
+        return stripped[: idx + 1].strip()
+    return stripped
+
+
+def strip_name_prefix(text: str, name: str) -> str:
+    """Drop a leading project name so the card does not read 'Arkboard Arkboard is…'."""
+    result = text.strip()
+    prefix = name.strip()
+    if not prefix:
+        return result
+    separators = set(" \t\n\r—–-:,")
+    while result.lower().startswith(prefix.lower()):
+        rest = result[len(prefix) :]
+        if not rest:
+            break
+        if rest[0] not in separators:
+            break
+        result = rest.lstrip("".join(separators))
+    return result
+
+
+def card_summary(markdown: str | None, name: str, fallback: str = "") -> str:
+    raw = first_sentence(markdown) if markdown else fallback
+    if not raw:
+        raw = fallback
+    stripped = strip_name_prefix(raw, name)
+    return stripped or strip_name_prefix(fallback, name)
+
+
 def project_key(raw: str) -> str:
     key = "".join(ch for ch in raw.upper() if ch.isalnum() and ch.isascii())
     key = "".join(ch for ch in key if ("A" <= ch <= "Z") or ("0" <= ch <= "9"))
@@ -356,10 +390,10 @@ def check_polish(swift: str, home: str, root: str, sidebar: str) -> None:
     ok("C1 wash is not a root background", ".background(StudioColor.wash" not in body)
     ok("C1 pane clips wash", ".clipped()" in home)
     ok("C2 pinned tab bar keeps wash", "StudioColor.wash" in tab_bar)
-    ok("SB1 New Project is not a toolbar item",
-       "folder.badge.plus" in sidebar and ".toolbar" not in sidebar and "ToolbarItem" not in sidebar)
-    ok("SB1 New Project lives in the sidebar footer",
-       "folder.badge.plus" in sidebar and "safeAreaInset" in sidebar)
+    ok("SB1 New Project is not a sidebar toolbar item",
+       ".toolbar" not in sidebar and "ToolbarItem" not in sidebar)
+    ok("SB1 New Project is not in the sidebar",
+       "folder.badge.plus" not in sidebar and "New Project" not in sidebar)
     ok("T1 tab pills scroll selected into view", "scrollTo(newTab.id" in home or "tabProxy.scrollTo" in home)
     ok("T1 tab edge fade exists", "FadingHScroll" in swift and "tabFade" in swift)
     ok("T1 tighter pill padding", "tabPillX" in swift)
@@ -475,7 +509,13 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     ok("sidebar still has no Monitor", "binoculars" not in sidebar and ".monitor" not in sidebar)
     ok("sidebar still has no Issues row", "tray.full" not in sidebar)
     ok("sidebar still has no Activity row", "bubble.left.and.bubble.right" not in sidebar)
-    ok("workspace stays a caption", "building.2" in sidebar and "Origin Ark" in sidebar)
+    ok("no Origin Ark symbol in the sidebar", "building.2" not in sidebar)
+    ok("no Origin Ark row in the sidebar", "Origin Ark" not in sidebar)
+    ok("separator between destinations and pins",
+       "Divider()" in sidebar
+       and sidebar.find("SidebarItem.timeline") < sidebar.find("Divider()") < sidebar.find("pinnedProjects"))
+    ok("sidebar has no Projects section header",
+       'Text("Projects")' not in sidebar and "Projects —" not in sidebar)
 
     ok("root opens Portfolio destination", "PortfolioView()" in root)
     ok("root opens Timeline destination", "TimelineView()" in root)
@@ -490,6 +530,22 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     ok("portfolio card has pin", "pin.fill" in portfolio or "setPinned" in portfolio or "togglePinned" in portfolio)
     ok("portfolio has no 1000 grid cap", "gridMax" not in portfolio and "GridColumn" not in portfolio)
     ok("portfolio New Project uses the existing sheet", "arkboardNewProject" in portfolio)
+    ok("Portfolio view has no milestone section",
+       "Milestones" not in portfolio and "TimelineSpine" not in portfolio)
+    ark_readme = "# Arkboard\n\nArkboard is Origin Ark Studio's local studio board for macOS. More."
+    ok("card summary strips doubled Arkboard name",
+       card_summary(ark_readme, "Arkboard") == "is Origin Ark Studio's local studio board for macOS.")
+    ok("card summary strips a single leading name",
+       card_summary("Lumen paints light.", "Lumen") == "paints light.")
+    ok("card summary keeps a lead that is not the name",
+       card_summary("A quiet board.", "Arkboard") == "A quiet board.")
+    ok("card summary does not strip a longer word",
+       card_summary("Arkboarded later.", "Arkboard") == "Arkboarded later.")
+    parser = (SOURCES / "Documents/MarkdownParser.swift").read_text()
+    ok("card summary lives in Swift", "cardSummary" in parser and "withoutNamePrefix" in parser)
+    ok("portfolio card uses cardSummary", "cardSummary" in portfolio)
+    ok("ui-spec strips a leading project name on the card",
+       "strip" in (ui.split("## Portfolio")[1].split("## Timeline")[0].lower() if "## Portfolio" in ui else ""))
 
     calendar = (SOURCES / "UI/Portfolio/TimelineCalendar.swift").read_text() if (SOURCES / "UI/Portfolio/TimelineCalendar.swift").exists() else ""
     ok("timeline calendar source exists", bool(calendar))
@@ -540,6 +596,12 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     state = (ROOT / "company" / "STATE.md").read_text() if (ROOT / "company" / "STATE.md").exists() else ""
     ok("company STATE points at onboarding", "product/onboarding.md" in state)
     ok("ui-spec footer names Onboarding", "Onboarding" in ui.split("**Footer**")[1].split("###")[0] if "**Footer**" in ui else "Onboarding" in ui)
+    ok("ui-spec sidebar has no Origin Ark symbol", "building.2" not in ui.split("### Sidebar")[1].split("### Contents")[0] if "### Sidebar" in ui else False)
+    ok("ui-spec New Project is not in the sidebar footer",
+       "New Project" not in ui.split("**Footer**")[1].split("###")[0] if "**Footer**" in ui else False)
+    ok("ui-spec Portfolio is cards only",
+       "cards only" in (ui.split("## Portfolio")[1].split("## Timeline")[0].lower() if "## Portfolio" in ui else "")
+       and "Milestones" not in (ui.split("## Portfolio")[1].split("## Timeline")[0] if "## Portfolio" in ui else "Milestones"))
 
 
 def main() -> int:
@@ -680,7 +742,7 @@ def main() -> int:
     ok("root is two-column split", "} content:" not in root and "} detail:" in root)
     ok("document column min width", "documentMin" in swift)
     ok("sidebar has no NavigationLink", "NavigationLink" not in sidebar)
-    ok("workspace is caption not a row", 'font(type.caption)' in sidebar and "building.2" in sidebar)
+    ok("workspace is not a sidebar row", "building.2" not in sidebar and "Origin Ark" not in sidebar)
     ok("⌘N focuses project composer", "goToComposer" in swift and "composerFocused = true" in swift)
     home = (SOURCES / "UI/Project/ProjectHomeView.swift").read_text()
     ok("home has no OutlineBar", "OutlineBar" not in home)

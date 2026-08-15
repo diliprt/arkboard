@@ -159,6 +159,33 @@ enum MarkdownParser {
         return stripped
     }
 
+    /// Card copy next to the project name. Drops a leading name so "Arkboard Arkboard is…" does not ship.
+    static func cardSummary(markdown: String?, name: String, fallback: String) -> String {
+        let raw: String
+        if let markdown, !markdown.isEmpty {
+            let sentence = firstSentence(markdown)
+            raw = sentence.isEmpty ? fallback : sentence
+        } else {
+            raw = fallback
+        }
+        let stripped = withoutNamePrefix(raw, name: name)
+        return stripped.isEmpty ? withoutNamePrefix(fallback, name: name) : stripped
+    }
+
+    static func withoutNamePrefix(_ text: String, name: String) -> String {
+        var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefix = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prefix.isEmpty else { return result }
+        let separators = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "—–-:,"))
+        while result.lowercased().hasPrefix(prefix.lowercased()) {
+            let rest = result.dropFirst(prefix.count)
+            guard let first = rest.first else { break }
+            guard String(first).rangeOfCharacter(from: separators) != nil else { break }
+            result = rest.trimmingCharacters(in: separators)
+        }
+        return result
+    }
+
     static func slug(_ text: String) -> String {
         let lowered = text.lowercased()
         let scalars = lowered.unicodeScalars.map { CharacterSet.alphanumerics.contains($0) || $0 == " " || $0 == "-" ? Character($0) : Character(" ") }
