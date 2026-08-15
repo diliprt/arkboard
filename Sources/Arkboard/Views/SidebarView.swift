@@ -21,12 +21,14 @@ struct SidebarView: View {
 
             List(selection: Bindable(store).selection) {
             Section("Views") {
-                Label("Portfolio", systemImage: "square.grid.2x2")
-                    .tag(SidebarSelection.portfolio)
+                Label("Monitor", systemImage: "dot.radiowaves.left.and.right")
+                    .tag(SidebarSelection.monitor)
                 Label("Inbox", systemImage: "tray")
                     .tag(SidebarSelection.inbox)
                 Label("Activity", systemImage: "bubble.left.and.bubble.right")
                     .tag(SidebarSelection.activity)
+                Label("Portfolio", systemImage: "square.grid.2x2")
+                    .tag(SidebarSelection.portfolio)
             }
 
             Section("Projects") {

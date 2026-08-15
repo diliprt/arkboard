@@ -69,6 +69,7 @@ enum AppDatabase {
                     .references("project", onDelete: .cascade)
                 t.column("title", .text).notNull()
                 t.column("descriptionMarkdown", .text).notNull().defaults(to: "")
+                // status + priority stay for MCP/agents; human SwiftUI hides the pickers.
                 t.column("status", .text).notNull().indexed()
                 t.column("priority", .text).notNull().indexed()
                 t.column("assigneeName", .text)

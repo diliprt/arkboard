@@ -54,7 +54,6 @@ struct EmptyIssuesView: View {
                     NotificationCenter.default.post(name: .arkboardQuickAdd, object: nil)
                 }
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut("n", modifiers: .command)
             }
         }
     }
@@ -65,13 +64,12 @@ struct SelectIssuePlaceholder: View {
         ContentUnavailableView {
             Label("Select an issue", systemImage: "checkmark.circle")
         } description: {
-            Text("Choose an issue from the list (or a project board), or press ⌘N to create one.")
+            Text("Choose an issue from the list or board. ⌘N tells the team from Monitor.")
         } actions: {
             Button("New Issue") {
                 NotificationCenter.default.post(name: .arkboardQuickAdd, object: nil)
             }
             .buttonStyle(.borderedProminent)
-            .keyboardShortcut("n", modifiers: .command)
         }
     }
 }

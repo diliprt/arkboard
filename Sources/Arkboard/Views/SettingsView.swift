@@ -35,6 +35,17 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Appearance") {
+                Picker("Appearance", selection: Bindable(store).appearance) {
+                    ForEach(AppearancePreference.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .onChange(of: store.appearance) { _, newValue in
+                    newValue.persist()
+                }
+            }
+
             Section("About") {
                 LabeledContent("App", value: "Arkboard v1")
                 LabeledContent("Workspace", value: store.workspace?.name ?? "—")
@@ -42,7 +53,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 360)
+        .frame(width: 520, height: 440)
         .padding()
     }
 }

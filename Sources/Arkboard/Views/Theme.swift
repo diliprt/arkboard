@@ -60,3 +60,63 @@ struct ActorAvatar: View {
             .accessibilityLabel(name)
     }
 }
+
+
+enum AppearancePreference: String, CaseIterable, Identifiable {
+    case light, dark, system
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .light: return "Light"
+        case .dark: return "Dark"
+        case .system: return "System"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .light: return .light
+        case .dark: return .dark
+        case .system: return nil
+        }
+    }
+
+    private static let defaultsKey = "arkboard.appearance"
+
+    static func load() -> AppearancePreference {
+        let raw = UserDefaults.standard.string(forKey: defaultsKey) ?? "light"
+        return AppearancePreference(rawValue: raw) ?? .light
+    }
+
+    func persist() {
+        UserDefaults.standard.set(rawValue, forKey: Self.defaultsKey)
+    }
+}
+
+
+struct ActorStackLite: View {
+    let names: [String]
+    var size: CGFloat = 18
+    var maxVisible: Int = 3
+
+    var body: some View {
+        if names.isEmpty {
+            EmptyView()
+        } else {
+            HStack(spacing: -5) {
+                ForEach(Array(names.prefix(maxVisible).enumerated()), id: \.offset) { _, name in
+                    ActorAvatar(name: name, size: size)
+                }
+                if names.count > maxVisible {
+                    Text("+\(names.count - maxVisible)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 6)
+                }
+            }
+            .accessibilityLabel(names.joined(separator: ", "))
+        }
+    }
+}

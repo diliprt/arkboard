@@ -13,8 +13,8 @@ final class AppStore {
     var comments: [Comment] = []
     var activities: [Activity] = []
     var milestones: [Milestone] = []
-    /// Portfolio is the default bird's-eye landing.
-    var selection: SidebarSelection = .portfolio
+    /// Monitor is the default agent-first landing.
+    var selection: SidebarSelection = .monitor
     var selectedIssueId: String? = nil
     var viewMode: ViewMode = .list
     var filter = IssueFilter()
@@ -22,6 +22,14 @@ final class AppStore {
     var mcpRunning = false
     var mcpPort: UInt16 = 7420
     var lastError: String?
+    /// Bumped to focus the Monitor composer (⌘N).
+    var composerFocusToken: UInt64 = 0
+    /// Expanded Needs you / Review thread on Monitor.
+    var expandedReviewIssueId: String? = nil
+    /// Project shown in the Monitor inspector.
+    var monitorProjectId: String? = nil
+    /// Light is the product default; user can switch in Settings.
+    var appearance: AppearancePreference = .load()
     /// Soft-delete undo banner (~10s).
     var undoDelete: UndoDeleteBanner?
     /// Bumped on every successful reload so SwiftUI views refresh after MCP mutations.
@@ -135,13 +143,20 @@ final class AppStore {
         return false
     }
 
-    /// Board is per-project; Inbox / Portfolio / Activity stay list-or-overview.
+    /// Board is per-project; Inbox / Portfolio / Activity / Monitor stay list-or-overview.
     var boardAvailable: Bool { selectedProjectId != nil }
 
     var showsIssueBrowser: Bool {
         switch selection {
         case .inbox, .project: return true
-        case .portfolio, .activity: return false
+        case .monitor, .portfolio, .activity: return false
+        }
+    }
+
+    /// GRDB write for extensions that cannot see `db`.
+    func performWrite(_ body: (Database) throws -> Void) async throws {
+        try await db.write { db in
+            try body(db)
         }
     }
 
@@ -173,6 +188,7 @@ final class AppStore {
                 return false
             }
             // Inbox / project browser only — portfolio/activity ignore filter project
+            if case .monitor = selection { return false }
             if case .portfolio = selection { return false }
             if case .activity = selection { return false }
             if filter.showDeleted {
@@ -472,6 +488,10 @@ final class AppStore {
         }
         labelMap = map
         dataRevision &+= 1
+
+        if monitorProjectId == nil || !projects.contains(where: { $0.id == monitorProjectId }) {
+            monitorProjectId = projects.first?.id
+        }
 
         if showsIssueBrowser {
             if selectedIssueId == nil {

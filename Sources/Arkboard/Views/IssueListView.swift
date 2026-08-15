@@ -29,8 +29,6 @@ struct IssueListView: View {
                                     }
                                 }
                             } else {
-                                statusMenu(for: issue)
-                                Divider()
                                 Button("Archive", role: .destructive) {
                                     pendingDeleteId = issue.id
                                 }
@@ -69,36 +67,6 @@ struct IssueListView: View {
             }
         }
     }
-
-    @ViewBuilder
-    private func statusMenu(for issue: Issue) -> some View {
-        Menu("Status") {
-            ForEach(IssueStatus.allCases) { status in
-                Button(status.displayName) {
-                    Task {
-                        do {
-                            try await store.updateIssue(id: issue.id, status: status)
-                        } catch {
-                            store.lastError = error.localizedDescription
-                        }
-                    }
-                }
-            }
-        }
-        Menu("Priority") {
-            ForEach(IssuePriority.allCases) { priority in
-                Button(priority.displayName) {
-                    Task {
-                        do {
-                            try await store.updateIssue(id: issue.id, priority: priority)
-                        } catch {
-                            store.lastError = error.localizedDescription
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 struct IssueRowView: View {
@@ -108,11 +76,6 @@ struct IssueRowView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: statusSymbol)
-                .foregroundStyle(statusColor)
-                .frame(width: 16)
-                .accessibilityHidden(true)
-
             Text(issue.identifier)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
@@ -155,17 +118,7 @@ struct IssueRowView: View {
                 .accessibilityLabel("Project \(project.key)")
             }
 
-            Image(systemName: issue.priority.symbolName)
-                .font(.caption)
-                .foregroundStyle(priorityColor)
-                .frame(width: 16)
-                .accessibilityLabel(issue.priority.displayName)
-
-            Text(issue.status.displayName)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 72, alignment: .trailing)
-                .lineLimit(1)
+            ActorStackLite(names: store.actors(for: issue))
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
@@ -173,40 +126,10 @@ struct IssueRowView: View {
     }
 
     private var accessibilitySummary: String {
-        var parts = [issue.identifier, issue.title, issue.status.displayName, issue.priority.displayName]
+        var parts = [issue.identifier, issue.title]
         if showProject, let project = store.project(for: issue) {
             parts.insert(project.key, at: 1)
         }
         return parts.joined(separator: ", ")
-    }
-
-    private var statusSymbol: String {
-        switch issue.status {
-        case .backlog: return "circle.dotted"
-        case .todo: return "circle"
-        case .in_progress: return "circle.lefthalf.filled"
-        case .done: return "checkmark.circle.fill"
-        case .canceled: return "xmark.circle"
-        }
-    }
-
-    private var statusColor: Color {
-        switch issue.status {
-        case .backlog: return .secondary
-        case .todo: return .gray
-        case .in_progress: return Color(hex: "#C49200")
-        case .done: return .green
-        case .canceled: return .secondary
-        }
-    }
-
-    private var priorityColor: Color {
-        switch issue.priority {
-        case .urgent: return .red
-        case .high: return .orange
-        case .medium: return Color(hex: "#B8860B")
-        case .low: return .blue
-        case .none: return .secondary
-        }
     }
 }

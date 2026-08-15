@@ -130,6 +130,7 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
     case unlinked_github_issue
     case created_github_issue
     case set_project_github_repo
+    case told_team
 
     var displayName: String {
         switch self {
@@ -145,6 +146,7 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
         case .unlinked_github_issue: return "unlinked GitHub issue"
         case .created_github_issue: return "created GitHub issue"
         case .set_project_github_repo: return "set project GitHub repo"
+        case .told_team: return "told the team"
         }
     }
 }
@@ -164,8 +166,9 @@ enum ActivityKind: String, Codable, CaseIterable, Identifiable, DatabaseValueCon
     }
 }
 
-/// Top-level sidebar destinations. Portfolio sits above Inbox.
+/// Top-level sidebar destinations. Monitor is the agent-first landing.
 enum SidebarSelection: Hashable, Identifiable {
+    case monitor
     case portfolio
     case activity
     case inbox
@@ -173,6 +176,7 @@ enum SidebarSelection: Hashable, Identifiable {
 
     var id: String {
         switch self {
+        case .monitor: return "__monitor__"
         case .portfolio: return "__portfolio__"
         case .activity: return "__activity__"
         case .inbox: return "__inbox__"

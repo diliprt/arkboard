@@ -82,33 +82,6 @@ struct BoardColumnView: View {
                                 store.selectedIssueId = issue.id
                             }
                             .contextMenu {
-                                Menu("Status") {
-                                    ForEach(IssueStatus.allCases) { s in
-                                        Button(s.displayName) {
-                                            Task {
-                                                do {
-                                                    try await store.updateIssue(id: issue.id, status: s)
-                                                } catch {
-                                                    store.lastError = error.localizedDescription
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                Menu("Priority") {
-                                    ForEach(IssuePriority.allCases) { p in
-                                        Button(p.displayName) {
-                                            Task {
-                                                do {
-                                                    try await store.updateIssue(id: issue.id, priority: p)
-                                                } catch {
-                                                    store.lastError = error.localizedDescription
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                Divider()
                                 Button("Archive", role: .destructive) {
                                     pendingDeleteId = issue.id
                                 }
@@ -245,10 +218,7 @@ struct BoardCardView: View {
                     .font(.caption2.monospaced())
                     .foregroundStyle(.secondary)
                 Spacer()
-                Image(systemName: issue.priority.symbolName)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
+                ActorStackLite(names: store.actors(for: issue))
             }
             Text(issue.title)
                 .font(.subheadline.weight(.medium))
@@ -284,8 +254,8 @@ struct BoardCardView: View {
         )
         .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(issue.identifier). \(issue.title). Priority \(issue.priority.displayName)")
+        .accessibilityLabel("\(issue.identifier). \(issue.title)")
         .accessibilityAddTraits(store.selectedIssueId == issue.id ? .isSelected : [])
-        .accessibilityHint("Drag to another column to change status")
+        .accessibilityHint("Drag to another column")
     }
 }
