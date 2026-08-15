@@ -65,7 +65,16 @@ enum DocumentRouting {
 
     static func isText(_ path: String) -> Bool {
         let ext = (path as NSString).pathExtension.lowercased()
-        return ext == "md" || ext == "txt"
+        return ext == "md" || ext == "txt" || isFlowJSON(path)
+    }
+
+    static func isFlowDocument(_ path: String) -> Bool {
+        let name = (path as NSString).lastPathComponent.lowercased()
+        return name == "flow.json" || name == "flow.md" || name == "flow.txt"
+    }
+
+    static func isFlowJSON(_ path: String) -> Bool {
+        (path as NSString).lastPathComponent.lowercased() == "flow.json"
     }
 
     static func shouldIgnore(_ path: String) -> Bool {

@@ -204,6 +204,71 @@ def human_group(status: str, archived: bool):
     }[status]
 
 
+def parse_flow_markdown(text: str) -> list[str]:
+    nodes: list[str] = []
+    seen: set[str] = set()
+    for raw in text.splitlines():
+        line = raw.strip().lstrip("-* ").strip()
+        if "→" not in line and "->" not in line:
+            continue
+        for part in re.split(r"\s*(?:→|->)\s*", line):
+            name = part.strip().strip("`")
+            if name and name not in seen and not name.startswith("#"):
+                seen.add(name)
+                nodes.append(name)
+    return nodes
+
+
+def parse_flow_json(text: str) -> list[str]:
+    import json
+    data = json.loads(text)
+    nodes = data.get("nodes") or []
+    titles: list[str] = []
+    for node in nodes:
+        if isinstance(node, str):
+            titles.append(node)
+        elif isinstance(node, dict):
+            titles.append(str(node.get("title") or node.get("id") or ""))
+    return [t for t in titles if t]
+
+
+def infer_flow(filenames: list[str]) -> list[str]:
+    return [Path(name).stem.replace("-", " ").replace("_", " ") for name in sorted(filenames)]
+
+
+def should_replace_bundle(
+    current_count: int,
+    incoming_count: int,
+    incoming_error: str | None,
+    incoming_source: str,
+    incoming_has_root: bool,
+) -> bool:
+    """Keep a successful product/ load when a later refresh comes back empty."""
+    if incoming_count > 0:
+        return True
+    if current_count == 0:
+        return True
+    if incoming_source == "local" and incoming_has_root and incoming_error is None:
+        return True
+    return False
+
+
+def merge_bundles(
+    current: dict[str, int],
+    incoming: dict[str, int],
+    *,
+    had_projects: bool,
+) -> dict[str, int]:
+    """Never replace the map with an empty snapshot when no projects were visible."""
+    if not had_projects:
+        return current
+    result = dict(current)
+    for key, count in incoming.items():
+        if should_replace_bundle(current.get(key, 0), count, None, "local", True):
+            result[key] = count
+    return result
+
+
 def today_index(dates: list[int], now: int) -> int:
     """Index of the single Today rule: before the first future event."""
     for i, date in enumerate(dates):
@@ -264,6 +329,37 @@ def check_polish(swift: str, home: str, root: str, sidebar: str) -> None:
     ok("D4 issue identifier not duplicated in title",
        "issue.identifier)  \\(issue.title)" not in swift)
     ok("E1 empty state can fill the pane", "minHeight" in (SOURCES / "UI/Shell/EmptyStateView.swift").read_text())
+
+
+def check_document_bundle(swift: str) -> None:
+    ok("keep a later empty refresh", not should_replace_bundle(5, 0, None, "none", False))
+    ok("keep a failed github refresh", not should_replace_bundle(5, 0, "gh failed", "github", False))
+    ok("accept a real local reread", should_replace_bundle(5, 8, None, "local", True))
+    ok("accept a genuine empty folder", should_replace_bundle(5, 0, None, "local", True))
+    ok("accept first load empty", should_replace_bundle(0, 0, None, "none", False))
+    ok("empty project list does not wipe", merge_bundles({"ARK": 6}, {}, had_projects=False) == {"ARK": 6})
+    ok("refresh with projects updates", merge_bundles({"ARK": 6}, {"ARK": 7}, had_projects=True) == {"ARK": 7})
+    library = (SOURCES / "Documents/DocumentLibrary.swift").read_text()
+    store = (SOURCES / "Data/AppStore.swift").read_text()
+    ok("Contents does not gate document load", "contentsVisible" not in library)
+    ok("merge policy lives in Swift", "shouldReplace" in swift)
+    ok("refresh does not nil the cache first", "cache[project.id] = nil" not in library)
+    ok("empty project list does not assign empty bundles", "guard !projects.isEmpty" in store)
+    home = (SOURCES / "UI/Project/ProjectHomeView.swift").read_text()
+    tools = (SOURCES / "Server/ToolCatalogue.swift").read_text()
+    root = (SOURCES / "UI/Shell/RootView.swift").read_text()
+    ok("project home binds via ensureDocuments", "ensureDocuments" in home)
+    ok("API and home share ensureDocuments", "ensureDocuments" in tools)
+    ok("publish replaces the bundle dictionary", "documentBundles = next" in store)
+    ok("contentsVisible writes UserDefaults explicitly", "setContentsVisible" in store and "setContentsVisible" in root)
+    ok("flow md linear", parse_flow_markdown("onboarding → home → detail") == ["onboarding", "home", "detail"])
+    ok("flow json nodes", parse_flow_json('{"nodes":[{"id":"a","title":"Onboarding"},{"id":"b","title":"Home"}]}') == ["Onboarding", "Home"])
+    ok("flow inferred from filenames", infer_flow(["02-home.png", "01-onboarding.png"]) == ["01 onboarding", "02 home"])
+    mockups_tab = home.split("private var mockupsTab")[1].split("private var projectIssues")[0] if "private var mockupsTab" in home else ""
+    ok("mockups empty copy", "A director pass will drop screenshots here." in swift)
+    ok("mockups has flow parser", "MockupFlowParser" in swift)
+    ok("mockups tab is not a markdown essay", "MarkdownView" not in mockups_tab)
+    ok("mockups still one ProseColumn family", "GridColumn" not in home)
 
 
 def main() -> int:
@@ -429,6 +525,7 @@ def main() -> int:
     ok("design contents column", "right-hand **Contents** column" in design or "right-hand **Contents**" in design)
 
     check_polish(swift, home, root, sidebar)
+    check_document_bundle(swift)
 
     print()
     if FAIL:

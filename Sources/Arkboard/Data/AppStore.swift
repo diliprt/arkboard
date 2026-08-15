@@ -40,9 +40,7 @@ final class AppStore {
     var fontFamily: FontFamilyID {
         didSet { UserDefaults.standard.set(fontFamily.rawValue, forKey: SettingsKey.fontFamily) }
     }
-    var contentsVisible: Bool {
-        didSet { UserDefaults.standard.set(contentsVisible, forKey: SettingsKey.contentsVisible) }
-    }
+    var contentsVisible: Bool = true
 
     let pool: DatabasePool
     let documents = DocumentLibrary()
@@ -57,11 +55,15 @@ final class AppStore {
         fontFamily = FontFamilyID(rawValue: defaults.string(forKey: SettingsKey.fontFamily) ?? "system") ?? .system
         appearance = AppearancePreference(rawValue: defaults.string(forKey: SettingsKey.appearance) ?? "light") ?? .light
         sidebarSelection = SidebarItem.from(persistence: defaults.string(forKey: SettingsKey.sidebarSelection) ?? "")
-        if defaults.object(forKey: SettingsKey.contentsVisible) == nil {
-            contentsVisible = true
-        } else {
-            contentsVisible = defaults.bool(forKey: SettingsKey.contentsVisible)
-        }
+        defaults.register(defaults: [SettingsKey.contentsVisible: true])
+        contentsVisible = defaults.bool(forKey: SettingsKey.contentsVisible)
+    }
+
+    func setContentsVisible(_ visible: Bool) {
+        contentsVisible = visible
+        let defaults = UserDefaults.standard
+        defaults.set(visible, forKey: SettingsKey.contentsVisible)
+        defaults.synchronize()
     }
 
     func start() async {
@@ -73,6 +75,7 @@ final class AppStore {
             NSLog("Arkboard seed failed: \(error)")
         }
         startObservations()
+        await loadProjectsFromDatabase()
         await refreshAllDocuments()
         startServer()
     }
@@ -86,8 +89,12 @@ final class AppStore {
     private func startObservations() {
         observe(Workspace.all()) { [weak self] in self?.workspace = $0.first }
         observe(Project.order(Column("sortOrder"), Column("name"))) { [weak self] rows in
-            self?.projects = rows
-            self?.resolveSidebar()
+            guard let self else { return }
+            self.projects = rows
+            self.resolveSidebar()
+            if self.documentBundles.isEmpty, !rows.isEmpty {
+                Task { await self.refreshAllDocuments() }
+            }
         }
         observe(Issue.order(Column("updatedAt").desc)) { [weak self] in self?.issues = $0 }
         observe(Comment.order(Column("createdAt"))) { [weak self] in self?.comments = $0 }
@@ -213,16 +220,56 @@ final class AppStore {
     // MARK: - Documents
 
     func refreshAllDocuments() async {
-        var next: [String: DocumentBundle] = [:]
+        guard !projects.isEmpty else { return }
         for project in projects {
-            next[project.id] = await documents.refresh(project: project)
+            let loaded = await documents.refresh(project: project)
+            publishBundle(loaded, for: project.id)
         }
-        documentBundles = next
     }
 
     func refreshDocuments(projectId: String) async {
         guard let project = project(id: projectId) else { return }
-        documentBundles[projectId] = await documents.refresh(project: project)
+        let loaded = await documents.refresh(project: project)
+        publishBundle(loaded, for: projectId)
+    }
+
+    /// Same path as `list_documents`: read DocumentLibrary, then publish so the project home observes it.
+    func ensureDocuments(projectId: String) async {
+        guard let project = project(id: projectId) else { return }
+        let loaded = await documents.bundle(for: project)
+        publishBundle(loaded, for: projectId)
+    }
+
+    func publishBundle(_ incoming: DocumentBundle, for projectId: String) {
+        guard DocumentBundleMerge.shouldReplace(current: documentBundles[projectId], incoming: incoming) else { return }
+        var next = documentBundles
+        next[projectId] = incoming
+        documentBundles = next
+        persistResolvedRootIfNeeded(projectId: projectId, bundle: incoming)
+    }
+
+    private func persistResolvedRootIfNeeded(projectId: String, bundle: DocumentBundle) {
+        guard bundle.source == "local", let root = bundle.root else { return }
+        guard let project = project(id: projectId) else { return }
+        let repo = URL(fileURLWithPath: root).deletingLastPathComponent().path
+        if project.repoPath == repo { return }
+        if let existing = project.repoPath,
+           FileManager.default.fileExists(atPath: (existing as NSString).appendingPathComponent("product")) {
+            return
+        }
+        try? updateRepoPath(projectId: projectId, path: repo)
+    }
+
+    private func loadProjectsFromDatabase() async {
+        do {
+            let rows = try await pool.read { db in
+                try Project.order(Column("sortOrder"), Column("name")).fetchAll(db)
+            }
+            projects = rows
+            resolveSidebar()
+        } catch {
+            NSLog("Arkboard project read failed: \(error)")
+        }
     }
 
     func updateRepoPath(projectId: String, path: String?) throws {

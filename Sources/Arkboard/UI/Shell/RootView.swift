@@ -30,7 +30,7 @@ struct RootView: View {
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Button {
-                    store.contentsVisible.toggle()
+                    store.setContentsVisible(!store.contentsVisible)
                 } label: {
                     Image(systemName: "sidebar.trailing")
                 }
