@@ -38,9 +38,21 @@ The project home is the proof: overview, tab bar, and document are one scroll, t
 
 Long documents list every heading in a right-hand Contents pane. Clicking a heading jumps the document scroll to that subsection. There is one outline, and it is on the right — not a left rail, not a pinned `On this page` chip bar under the tabs. A left rail that is its own scroll of the document is still wrong; Contents is navigation, not a second copy of the page.
 
-## Locked — The left sidebar is the project portfolio
+## Locked — The left sidebar is Portfolio, Timeline, then pins
 
-The studio home is a list of every project, each with a unique brand mark. Clicking a project opens its document home. Monitor and Issues do not appear in the left chrome. Issues stay as a tab on the project page. The engine is unchanged.
+Portfolio is a destination. Timeline is a destination. Under those two rows sit only pinned projects. Origin Ark is a caption, not a fake project row. Monitor, Issues, and Activity are not sidebar rows. Existing projects start pinned. Unpinning removes a row from the sidebar and leaves the project on the Portfolio page.
+
+## Locked — Timeline is a calendar
+
+The reading view is Week / Month / Year, default Month. The master Timeline is the studio rollup. The project Timeline tab is the same calendar, scoped. The old vertical Today-spine is not the primary UI. Milestones stay in SQLite; there is no second timeline store. Humans do not edit milestones.
+
+## Locked — The project home is a thin header
+
+No README article and no large composer sit above the tabs. The long description lives on the Portfolio card. Feedback is a compact icon that opens a note plus Activity history. `⌘N` focuses that sheet.
+
+## Locked — Onboarding, not Setup
+
+The footer `sparkles` icon opens `product/onboarding.md`. It is a handbook, not Settings and not a gear labelled Setup.
 
 ## Locked — Design is the default tab
 

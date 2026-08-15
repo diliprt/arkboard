@@ -16,6 +16,7 @@ enum RESTRoutes {
                     summary: HTTPJSON.string(body, "summary"),
                     repoPath: HTTPJSON.string(body, "repoPath"),
                     githubRepo: HTTPJSON.string(body, "githubRepo"),
+                    pinned: HTTPJSON.optionalBool(body, "pinned") ?? true,
                     actor: HTTPJSON.string(body, "actor") ?? "Agent"
                 )
                 return .json(201, JSONPayload.project(project, openIssueCount: 0))
@@ -47,6 +48,18 @@ enum RESTRoutes {
 
     @MainActor
     private static func resource(method: String, path: String, body: [String: Any], store: AppStore) async throws -> HTTPResponse {
+        if path.hasPrefix("/api/projects/") {
+            let id = String(path.dropFirst("/api/projects/".count))
+            if method == "PATCH" {
+                let project = try store.updateProject(
+                    idOrKey: id,
+                    pinned: HTTPJSON.optionalBool(body, "pinned"),
+                    actor: HTTPJSON.string(body, "actor") ?? "Agent"
+                )
+                return .json(200, JSONPayload.project(project, openIssueCount: store.openIssueCount(for: project)))
+            }
+            return .json(404, ["error": "not found"])
+        }
         if path.hasPrefix("/api/documents/") {
             let docPath = String(path.dropFirst("/api/documents/".count))
             var args = body

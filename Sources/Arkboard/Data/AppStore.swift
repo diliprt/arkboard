@@ -283,7 +283,11 @@ final class AppStore {
 
     // MARK: - Projects
 
-    func createProject(key: String, name: String, color: String?, icon: String?, summary: String?, repoPath: String?, githubRepo: String?, actor: String) throws -> Project {
+    var pinnedProjects: [Project] {
+        projects.filter(\.pinned)
+    }
+
+    func createProject(key: String, name: String, color: String?, icon: String?, summary: String?, repoPath: String?, githubRepo: String?, pinned: Bool = true, actor: String) throws -> Project {
         let key = try Validation.projectKey(key)
         let name = try Validation.collapseTitle(name)
         return try mutate(actor: actor) { db in
@@ -306,11 +310,31 @@ final class AppStore {
                 issueCounter: 0,
                 capabilityCounter: 0,
                 sortOrder: Double(existing.count),
+                pinned: pinned,
                 createdAt: now
             )
             try project.insert(db)
             return (project, ActivityDraft(kind: .system, action: .createdProject, body: "Created project \(key)", projectId: project.id))
         }
+    }
+
+    func updateProject(idOrKey: String, pinned: Bool?, actor: String) throws -> Project {
+        try mutate(actor: actor) { db in
+            var project = try Project.fetchOne(db, key: idOrKey)
+            if project == nil {
+                project = try Project.filter(Column("key") == idOrKey.uppercased()).fetchOne(db)
+            }
+            guard var project else { throw ValidationError.missingProject }
+            if let pinned {
+                project.pinned = pinned
+            }
+            try project.update(db)
+            return (project, nil)
+        }
+    }
+
+    func setProjectPinned(id: String, pinned: Bool) {
+        _ = try? updateProject(idOrKey: id, pinned: pinned, actor: "Riyu")
     }
 
     // MARK: - Issues
@@ -584,18 +608,38 @@ final class AppStore {
     // MARK: - UI helpers
 
     func resolveSidebar() {
-        if case let .project(id) = sidebarSelection, projects.contains(where: { $0.id == id }) {
+        switch sidebarSelection {
+        case .portfolio, .timeline, .onboarding:
             return
-        }
-        if let first = projects.first {
-            sidebarSelection = .project(first.id)
-        } else {
-            sidebarSelection = nil
+        case .project(let id) where projects.contains(where: { $0.id == id }):
+            return
+        default:
+            sidebarSelection = .portfolio
         }
     }
 
     func selectProject(_ id: String) {
         sidebarSelection = .project(id)
+    }
+
+    func openProjectTimeline(_ id: String) {
+        pendingProjectTab = .timeline
+        sidebarSelection = .project(id)
+    }
+
+    func onboardingMarkdown() -> String {
+        if let project = project(key: "ARK"),
+           let document = documentBundles[project.id]?.documents.first(where: { $0.path.lowercased().hasSuffix("onboarding.md") }),
+           let markdown = document.markdown, !markdown.isEmpty {
+            return markdown
+        }
+        if let root = DocumentLibrary.resolvedRepoRoot(repoPath: project(key: "ARK")?.repoPath) {
+            let url = URL(fileURLWithPath: root).appendingPathComponent("product/onboarding.md")
+            if let text = try? String(contentsOf: url, encoding: .utf8), !text.isEmpty {
+                return text
+            }
+        }
+        return ""
     }
 
     func openIssue(_ issue: Issue) {

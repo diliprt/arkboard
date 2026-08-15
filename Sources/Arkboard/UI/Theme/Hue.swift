@@ -74,7 +74,7 @@ enum Hue: String, CaseIterable, Sendable {
 }
 
 enum StudioSection: String, CaseIterable, Sendable {
-    case monitor, issues, activity, portfolio
+    case monitor, issues, activity, portfolio, onboarding
     case design, architecture, mockups, decisions, timeline
 
     var hue: Hue {
@@ -83,6 +83,7 @@ enum StudioSection: String, CaseIterable, Sendable {
         case .issues: return .teal
         case .activity: return .ember
         case .portfolio: return .violet
+        case .onboarding: return .indigo
         case .design: return .rose
         case .architecture: return .azure
         case .mockups: return .magenta
@@ -97,6 +98,7 @@ enum StudioSection: String, CaseIterable, Sendable {
         case .issues: return "tray.full"
         case .activity: return "bubble.left.and.bubble.right"
         case .portfolio: return "square.grid.2x2"
+        case .onboarding: return "sparkles"
         case .design: return "paintpalette"
         case .architecture: return "square.stack.3d.up"
         case .mockups: return "photo.on.rectangle.angled"
@@ -111,6 +113,7 @@ enum StudioSection: String, CaseIterable, Sendable {
         case .issues: return "Issues"
         case .activity: return "Activity"
         case .portfolio: return "Portfolio"
+        case .onboarding: return "Onboarding"
         case .design: return "Design"
         case .architecture: return "Architecture"
         case .mockups: return "Mockups"

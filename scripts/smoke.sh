@@ -27,7 +27,7 @@ check_json() {
 }
 
 TOOLS_REQUIRED=(
-  list_projects create_project list_documents read_document
+  list_projects create_project update_project list_documents read_document
   list_issues get_issue create_issue update_issue delete_issue restore_issue
   add_comment post_note list_activity
   list_milestones create_milestone update_milestone

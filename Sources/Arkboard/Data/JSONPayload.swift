@@ -20,6 +20,7 @@ enum JSONPayload {
             "summary": project.summary,
             "repoPath": json(project.repoPath),
             "githubRepo": json(project.githubRepo),
+            "pinned": project.pinned,
             "openIssueCount": openIssueCount,
             "createdAt": StudioISO8601.string(from: project.createdAt),
         ]

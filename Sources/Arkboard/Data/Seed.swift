@@ -21,6 +21,7 @@ enum Seed {
             issueCounter: 0,
             capabilityCounter: 5,
             sortOrder: 0,
+            pinned: true,
             createdAt: now
         )
         try project.insert(db)

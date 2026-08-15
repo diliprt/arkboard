@@ -21,6 +21,7 @@ struct Project: Codable, FetchableRecord, PersistableRecord, Identifiable, Hasha
     var issueCounter: Int
     var capabilityCounter: Int
     var sortOrder: Double
+    var pinned: Bool
     var createdAt: Date
 }
 

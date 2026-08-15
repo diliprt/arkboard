@@ -9,6 +9,7 @@ struct TimelineEvent: Identifiable, Equatable {
     var hue: Hue
     var isMilestone: Bool
     var identifier: String? = nil
+    var projectId: String? = nil
 }
 
 enum TimelinePlacement {
@@ -153,7 +154,8 @@ enum TimelineBuilder {
                     detail: milestone.bodyMarkdown,
                     identifiers: milestone.relatedIdentifiers,
                     hue: hue,
-                    isMilestone: true
+                    isMilestone: true,
+                    projectId: milestone.projectId
                 )
             )
         }
@@ -168,7 +170,8 @@ enum TimelineBuilder {
                         identifiers: [],
                         hue: .moss,
                         isMilestone: false,
-                        identifier: issue.identifier
+                        identifier: issue.identifier,
+                        projectId: issue.projectId
                     )
                 )
             }

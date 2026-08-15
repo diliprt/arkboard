@@ -34,6 +34,7 @@ struct ProjectHomeView: View {
     @State private var tab: ProjectHomeTab = .design
     @State private var selectedPath: String?
     @State private var viewer: StudioDocument?
+    @State private var showNoteSheet = false
 
     var bundle: DocumentBundle? { store.documentBundles[project.id] }
 
@@ -42,7 +43,7 @@ struct ProjectHomeView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
-                        overview
+                        projectHeader
                         Section {
                             ZStack(alignment: .topLeading) {
                                 StudioColor.wash(tab.section.hue, scheme: scheme)
@@ -76,12 +77,6 @@ struct ProjectHomeView: View {
                     publishOutline()
                     if newTab == .mockups {
                         proxy.scrollTo("tab-bar", anchor: .top)
-                    } else if newTab == .timeline {
-                        DispatchQueue.main.async {
-                            DispatchQueue.main.async {
-                                proxy.scrollTo("today", anchor: .center)
-                            }
-                        }
                     }
                 }
                 .onAppear {
@@ -120,6 +115,12 @@ struct ProjectHomeView: View {
                 store.pendingProjectTab = nil
             }
         }
+        .onChange(of: store.focusComposer) { _, _ in
+            showNoteSheet = true
+        }
+        .sheet(isPresented: $showNoteSheet) {
+            ProjectNoteSheet(project: project)
+        }
         .sheet(item: issueSheet) { _ in
             IssueDetailColumn()
                 .frame(minWidth: 640, minHeight: 520)
@@ -133,9 +134,8 @@ struct ProjectHomeView: View {
         )
     }
 
-    private var overview: some View {
+    private var projectHeader: some View {
         ProseColumn {
-        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 ProjectIcon(project: project, imageData: store.markImage(for: project), size: 28)
                 Text(project.name).font(type.display)
@@ -144,11 +144,6 @@ struct ProjectHomeView: View {
                 Text(sourceLabel)
                     .font(type.mono)
                     .foregroundStyle(StudioColor.secondary)
-                if let loaded = bundle?.loadedAt {
-                    Text("loaded \(RelativeTime.format(loaded))")
-                        .font(type.caption)
-                        .foregroundStyle(StudioColor.secondary)
-                }
                 Button {
                     Task { await store.refreshDocuments(projectId: project.id) }
                 } label: {
@@ -156,27 +151,14 @@ struct ProjectHomeView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Refresh")
-            }
-            if let error = bundle?.error {
-                EmptyStateView(section: .design, title: "Documents could not be read", sentence: error, actionTitle: "Try again") {
-                    Task { await store.refreshDocuments(projectId: project.id) }
+                Button {
+                    showNoteSheet = true
+                } label: {
+                    Image(systemName: "bubble.left")
                 }
-            } else if let markdown = bundle?.overview?.markdown, !markdown.isEmpty {
-                MarkdownView(markdown: MarkdownParser.lead(beforeFirstH2: markdown), hue: .slate, onLink: handleLink)
-            } else {
-                EmptyStateView(section: .portfolio, title: EmptyCopy.overview.0, sentence: EmptyCopy.overview.1)
+                .buttonStyle(.plain)
+                .help("Note")
             }
-            if let more = bundle?.moreDocuments, !more.isEmpty {
-                HStack {
-                    Text("More documents").font(type.caption).foregroundStyle(StudioColor.secondary)
-                    ForEach(more) { doc in
-                        Chip(text: doc.title, hue: .slate)
-                    }
-                }
-            }
-            NoteComposer(projectKey: project.key)
-                .id("composer")
-        }
         }
         .padding(.horizontal, Metrics.paneX)
         .padding(.vertical, Metrics.paneY)
@@ -257,12 +239,7 @@ struct ProjectHomeView: View {
             case .issues:
                 projectIssues
             case .timeline:
-                TimelineSpine(
-                    events: TimelineBuilder.events(
-                        milestones: store.milestones.filter { $0.projectId == project.id },
-                        issues: store.issues.filter { $0.projectId == project.id && $0.status == .done }
-                    )
-                )
+                TimelineCalendarView(projectId: project.id)
             }
         }
     }
