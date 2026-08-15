@@ -18,7 +18,7 @@ The left sidebar is the studio home: a portfolio of every project, each with tha
 | --- | --- | --- |
 | Design | How it should look and feel | `product/design.md` |
 | Architecture | How it is built | `product/architecture.md` |
-| Mockups | Frames and walkthroughs | `product/mockups/` |
+| Mockups | Screenshot gallery and screen flow | `product/mockups/` |
 | Decisions & questions | Locked calls, open threads | `product/decisions.md` |
 | Issues | Tracking, read-only for humans | SQLite |
 | Timeline | Milestones and what shipped | SQLite |

@@ -205,7 +205,7 @@ When a tab holds more than one document, a rail of capsule chips sits above the 
 
 **Decisions & questions** adds one thing: a strip of gold chips above the document, one per open question parsed from it, each jumping to its heading. Locked decisions do not get chips.
 
-**Mockups** replaces the prose column with a grid — two columns above 900pt, one below — of images at radius 10 with their filename as a caption, followed by any notes in that folder rendered as prose. Clicking an image opens a viewer sheet with the frame scaled to fit, arrow keys moving between frames, and Escape closing it.
+**Mockups** is a gallery, not a markdown essay. Large thumbs of every `png` / `jpg` / `webp` in `product/mockups/`, same left edge as Design. Click a thumb to preview (scaled to fit, arrows, Escape). Above the gallery, a lightweight screen-flow from `product/mockups/flow.md` or `flow.json` (nodes + edges). If neither file exists, infer a linear flow from the image filenames and label it inferred.
 
 ### Issues tab
 
@@ -277,7 +277,7 @@ One shape everywhere: the section symbol at 28pt in the hue at 40%, a title in `
 | Monitor, nothing at all | `Quiet studio` | `No open questions and nothing broken. Say something to the team above.` |
 | Design tab, no document | `Design is not written yet` | `A director pass will write this.` |
 | Architecture tab, no document | `Architecture is not written yet` | `A director pass will write this.` |
-| Mockups tab, no frames | `No mockups yet` | `Frames dropped into product/mockups/ show up here.` |
+| Mockups tab, no frames | `No mockups yet` | `A director pass will drop screenshots here.` |
 | Decisions tab, no document | `No decisions written yet` | `A director pass will write this.` |
 | Overview, no README | `No overview yet` | `A director pass will write this.` |
 | Documents failed to load | `Documents could not be read` | The reason, verbatim, plus a `Try again` button |

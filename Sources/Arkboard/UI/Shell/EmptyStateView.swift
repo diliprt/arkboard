@@ -39,7 +39,7 @@ enum EmptyCopy {
     static let quietStudio = ("Quiet studio", "No open questions and nothing broken. Say something to the team above.")
     static let design = ("Design is not written yet", "A director pass will write this.")
     static let architecture = ("Architecture is not written yet", "A director pass will write this.")
-    static let mockups = ("No mockups yet", "Frames dropped into product/mockups/ show up here.")
+    static let mockups = ("No mockups yet", "A director pass will drop screenshots here.")
     static let decisions = ("No decisions written yet", "A director pass will write this.")
     static let overview = ("No overview yet", "A director pass will write this.")
     static let noIssues = ("No issues", "Nothing has been filed here.")

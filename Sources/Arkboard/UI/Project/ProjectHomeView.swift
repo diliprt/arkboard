@@ -308,18 +308,21 @@ struct ProjectHomeView: View {
 
     private var mockupsTab: some View {
         let images = mockupImages
-        let notes = (bundle?.documents(in: .mockups) ?? []).filter { !$0.isImage }
-        return VStack(alignment: .leading, spacing: 16) {
-            if images.isEmpty && notes.isEmpty {
+        let flow = mockupFlow(for: images)
+        return VStack(alignment: .leading, spacing: 20) {
+            if images.isEmpty {
                 EmptyStateView(section: .mockups, title: EmptyCopy.mockups.0, sentence: EmptyCopy.mockups.1, minHeight: Metrics.emptyPaneMin)
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 12)], spacing: 12) {
+                if !flow.nodes.isEmpty {
+                    mockupFlowRail(flow, images: images)
+                }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
                     ForEach(images) { image in
                         Button { viewer = image } label: {
                             VStack(alignment: .leading, spacing: 8) {
                                 RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous)
                                     .fill(StudioColor.card)
-                                    .frame(height: 180)
+                                    .frame(height: 260)
                                     .overlay {
                                         if let data = image.imageData, let ns = NSImage(data: data) {
                                             Image(nsImage: ns).resizable().scaledToFit()
@@ -331,9 +334,49 @@ struct ProjectHomeView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                ForEach(notes) { note in
-                    if let markdown = note.markdown {
-                        MarkdownView(markdown: markdown, hue: .magenta, onLink: handleLink)
+            }
+        }
+    }
+
+    private func mockupFlow(for images: [StudioDocument]) -> MockupFlow {
+        let docs = bundle?.documents(in: .mockups) ?? []
+        let json = docs.first { DocumentRouting.isFlowJSON($0.path) }?.markdown
+        let markdown = docs.first { DocumentRouting.isFlowDocument($0.path) && !DocumentRouting.isFlowJSON($0.path) }?.markdown
+        return MockupFlowParser.parse(
+            flowJSON: json,
+            flowMarkdown: markdown,
+            imageNames: images.map(\.path)
+        )
+    }
+
+    private func mockupFlowRail(_ flow: MockupFlow, images: [StudioDocument]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("Screen flow")
+                    .font(type.caption)
+                    .foregroundStyle(StudioColor.secondary)
+                if flow.inferred {
+                    Text("Inferred from filenames")
+                        .font(type.caption)
+                        .foregroundStyle(StudioColor.tertiary)
+                }
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(flow.nodes.enumerated()), id: \.element.id) { index, node in
+                        Button {
+                            if let match = images.first(where: { DocumentRouting.stem($0.path) == node.id.lowercased() || $0.title.caseInsensitiveCompare(node.title) == .orderedSame }) {
+                                viewer = match
+                            }
+                        } label: {
+                            Chip(text: node.title, hue: .magenta)
+                        }
+                        .buttonStyle(.plain)
+                        if index < flow.nodes.count - 1 {
+                            Image(systemName: "arrow.right")
+                                .font(type.caption)
+                                .foregroundStyle(StudioColor.tertiary)
+                        }
                     }
                 }
             }

@@ -204,6 +204,38 @@ def human_group(status: str, archived: bool):
     }[status]
 
 
+def parse_flow_markdown(text: str) -> list[str]:
+    nodes: list[str] = []
+    seen: set[str] = set()
+    for raw in text.splitlines():
+        line = raw.strip().lstrip("-* ").strip()
+        if "→" not in line and "->" not in line:
+            continue
+        for part in re.split(r"\s*(?:→|->)\s*", line):
+            name = part.strip().strip("`")
+            if name and name not in seen and not name.startswith("#"):
+                seen.add(name)
+                nodes.append(name)
+    return nodes
+
+
+def parse_flow_json(text: str) -> list[str]:
+    import json
+    data = json.loads(text)
+    nodes = data.get("nodes") or []
+    titles: list[str] = []
+    for node in nodes:
+        if isinstance(node, str):
+            titles.append(node)
+        elif isinstance(node, dict):
+            titles.append(str(node.get("title") or node.get("id") or ""))
+    return [t for t in titles if t]
+
+
+def infer_flow(filenames: list[str]) -> list[str]:
+    return [Path(name).stem.replace("-", " ").replace("_", " ") for name in sorted(filenames)]
+
+
 def should_replace_bundle(
     current_count: int,
     incoming_count: int,
@@ -320,6 +352,14 @@ def check_document_bundle(swift: str) -> None:
     ok("API and home share ensureDocuments", "ensureDocuments" in tools)
     ok("publish replaces the bundle dictionary", "documentBundles = next" in store)
     ok("contentsVisible writes UserDefaults explicitly", "setContentsVisible" in store and "setContentsVisible" in root)
+    ok("flow md linear", parse_flow_markdown("onboarding → home → detail") == ["onboarding", "home", "detail"])
+    ok("flow json nodes", parse_flow_json('{"nodes":[{"id":"a","title":"Onboarding"},{"id":"b","title":"Home"}]}') == ["Onboarding", "Home"])
+    ok("flow inferred from filenames", infer_flow(["02-home.png", "01-onboarding.png"]) == ["01 onboarding", "02 home"])
+    mockups_tab = home.split("private var mockupsTab")[1].split("private var projectIssues")[0] if "private var mockupsTab" in home else ""
+    ok("mockups empty copy", "A director pass will drop screenshots here." in swift)
+    ok("mockups has flow parser", "MockupFlowParser" in swift)
+    ok("mockups tab is not a markdown essay", "MarkdownView" not in mockups_tab)
+    ok("mockups still one ProseColumn family", "GridColumn" not in home)
 
 
 def main() -> int:
