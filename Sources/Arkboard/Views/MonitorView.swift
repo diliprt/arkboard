@@ -10,7 +10,7 @@ struct MonitorView: View {
         HSplitView {
             mainColumn
                 .frame(minWidth: 520, idealWidth: 720)
-            inspector
+            projectPane
                 .frame(minWidth: 260, idealWidth: 300, maxWidth: 380)
         }
         .background(Color(nsColor: .windowBackgroundColor))
@@ -31,10 +31,8 @@ struct MonitorView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     composer
-                    reviewSection
-                    featuresSection
-                    bugsSection
-                    compactWeekMap
+                    requirementsSection
+                    issuesAndBugsSection
                 }
                 .padding(20)
                 .frame(maxWidth: 880, alignment: .leading)
@@ -46,7 +44,7 @@ struct MonitorView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Monitor")
                 .font(.title2.weight(.semibold))
-            Text("What the bot team is doing — you steer, they execute")
+            Text("Design requirements — you steer, they execute")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -69,9 +67,9 @@ struct MonitorView: View {
             }
             .keyboardShortcut(.return, modifiers: .command)
             .disabled(composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .help(store.expandedReviewIssueId == nil
+            .help(store.expandedRequirementId == nil
                   ? "Post to the team activity feed"
-                  : "Comment on the open review thread")
+                  : "Comment on the open requirement thread")
         }
     }
 
@@ -85,119 +83,57 @@ struct MonitorView: View {
         }
     }
 
-    // MARK: - Needs you / Review
+    // MARK: - Requirements (center)
 
-    private var reviewSection: some View {
+    private var requirementsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Needs you / Review", count: store.needsReviewIssues.count, systemImage: "exclamationmark.bubble")
-            if store.needsReviewIssues.isEmpty {
-                emptyHint("Nothing waiting on you. Agents will surface a thread here when they need a steer.")
+            sectionTitle("Requirements", count: store.monitorRequirements.count, systemImage: "checkmark.seal")
+            Text("Drag to reorder. Tap implementing / working to steer. Expand a row for the agent thread.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if store.monitorRequirements.isEmpty {
+                emptyHint("No design requirements yet. Agents add them via MCP (create_requirement).")
             } else {
-                VStack(spacing: 8) {
-                    ForEach(store.needsReviewIssues) { issue in
-                        ReviewRow(issue: issue)
-                    }
-                }
+                RequirementDropLane(requirements: store.monitorRequirements)
             }
         }
     }
 
-    // MARK: - Pending features
+    // MARK: - Issues + bugs (secondary)
 
-    private var featuresSection: some View {
+    private var issuesAndBugsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Pending features", count: store.pendingFeatures.count, systemImage: "list.number")
-            Text("Drag to reorder. Agents take the top one next.")
+            sectionTitle(
+                "Issues & bugs",
+                count: store.compactOpenIssues.count + store.nowBugs.count + store.laterBugs.count,
+                systemImage: "tray"
+            )
+            Text("Secondary. Inbox still has the full issue list.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            if store.pendingFeatures.isEmpty {
-                emptyHint("No open features. Agents will add them here.")
-            } else {
-                List {
-                    ForEach(store.pendingFeatures) { issue in
-                        FeatureQueueRow(issue: issue)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 4, bottom: 6, trailing: 4))
-                            .listRowSeparator(.hidden)
-                            .contentShape(Rectangle())
-                            .onTapGesture { store.selectMonitorIssue(issue) }
-                            .draggable(issue.id) {
-                                FeatureQueueRow(issue: issue)
-                                    .frame(width: 420)
-                                    .opacity(0.9)
-                            }
-                            .dropDestination(for: String.self) { items, _ in
-                                guard let id = items.first, id != issue.id else { return false }
-                                Task {
-                                    do {
-                                        try await store.movePendingFeature(id, before: issue.id)
-                                    } catch {
-                                        store.lastError = error.localizedDescription
-                                    }
-                                }
-                                return true
-                            }
-                    }
-                    .onMove { source, dest in
-                        Task {
-                            do {
-                                try await store.reorderPendingFeatures(from: source, to: dest)
-                            } catch {
-                                store.lastError = error.localizedDescription
-                            }
-                        }
+
+            if !store.compactOpenIssues.isEmpty {
+                VStack(spacing: 6) {
+                    ForEach(store.compactOpenIssues.prefix(6)) { issue in
+                        CompactIssueRow(issue: issue)
                     }
                 }
-                .listStyle(.plain)
-                .scrollDisabled(true)
-                .frame(minHeight: CGFloat(store.pendingFeatures.count) * 56)
-                .frame(maxHeight: CGFloat(min(store.pendingFeatures.count, 8)) * 64)
             }
-        }
-    }
 
-    // MARK: - Bugs Now / Later
-
-    private var bugsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Bugs", count: store.nowBugs.count + store.laterBugs.count, systemImage: "ant")
-            Text("Drag between Now and Later. Order here is the steer — not a status menu.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
             HStack(alignment: .top, spacing: 12) {
-                BugLaneColumn(title: "Now", later: false, issues: store.nowBugs)
-                BugLaneColumn(title: "Later", later: true, issues: store.laterBugs)
+                BugLaneColumn(title: "Bugs · Now", later: false, issues: store.nowBugs)
+                BugLaneColumn(title: "Bugs · Later", later: true, issues: store.laterBugs)
             }
         }
     }
 
-    // MARK: - Compact week map
+    // MARK: - This project
 
-    private var compactWeekMap: some View {
-        let events = store.compactWeekEvents()
-        return VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("This fortnight", count: events.count, systemImage: "calendar")
-            if events.isEmpty {
-                emptyHint("No milestones or completions in the next two weeks.")
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(events) { event in
-                            CompactWeekPill(event: event)
-                        }
-                    }
-                }
-            }
-        }
-        .padding(.top, 4)
-    }
-
-    // MARK: - Inspector
-
-    private var inspector: some View {
+    private var projectPane: some View {
         let project = store.resolveMonitorProject()
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Inspector")
+                Text("This project")
                     .font(.headline)
                 Spacer()
             }
@@ -228,6 +164,10 @@ struct MonitorView: View {
                             Text(project.key)
                                 .font(.caption.monospaced())
                                 .foregroundStyle(.secondary)
+                        }
+
+                        if let requirement = store.selectedRequirement {
+                            selectedRequirementCard(requirement)
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -289,13 +229,13 @@ struct MonitorView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Comment")
+                            Text("Note")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
                             TextField("Note for this project…", text: $inspectorComment, axis: .vertical)
                                 .textFieldStyle(.roundedBorder)
                                 .lineLimit(2...5)
-                            Button("Add comment") {
+                            Button("Add note") {
                                 Task { await sendInspectorComment() }
                             }
                             .disabled(inspectorComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -313,13 +253,39 @@ struct MonitorView: View {
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
     }
 
+    private func selectedRequirementCard(_ requirement: Requirement) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Selected requirement")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(requirement.identifier)
+                .font(.caption2.monospaced())
+                .foregroundStyle(.secondary)
+            Text(requirement.title)
+                .font(.subheadline.weight(.semibold))
+            if !requirement.bodyMarkdown.isEmpty {
+                Text(requirement.bodyMarkdown)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 8) {
+                HealthChip(title: requirement.implementing.displayName, hex: requirement.implementing.tintHex)
+                HealthChip(title: requirement.working.displayName, hex: requirement.working.tintHex)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
     private func sendInspectorComment() async {
         let text = inspectorComment.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        if let issueId = store.expandedReviewIssueId ?? store.selectedIssueId,
-           store.issues.contains(where: { $0.id == issueId && $0.deletedAt == nil }) {
+        if let requirementId = store.expandedRequirementId ?? store.selectedRequirementId,
+           store.requirements.contains(where: { $0.id == requirementId }) {
             do {
-                _ = try await store.addComment(issueId: issueId, body: text, authorName: "Riyu", actor: "Riyu")
+                _ = try await store.addRequirementComment(requirementId: requirementId, body: text, authorName: "Riyu", actor: "Riyu")
                 inspectorComment = ""
             } catch {
                 store.lastError = error.localizedDescription
@@ -362,58 +328,143 @@ struct MonitorView: View {
     }
 }
 
-// MARK: - Rows
+// MARK: - Requirement drop-lane (no nested List)
 
-private struct ReviewRow: View {
+private struct RequirementDropLane: View {
     @Environment(AppStore.self) private var store
-    let issue: Issue
+    let requirements: [Requirement]
+    @State private var endTargeted = false
 
-    private var expanded: Bool { store.expandedReviewIssueId == issue.id }
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(requirements) { requirement in
+                RequirementRow(requirement: requirement)
+                    .draggable(requirement.id) {
+                        RequirementDragPreview(requirement: requirement)
+                            .frame(width: 420)
+                            .opacity(0.9)
+                    }
+                    .dropDestination(for: String.self) { items, _ in
+                        guard let id = items.first, id != requirement.id else { return false }
+                        Task {
+                            do {
+                                try await store.moveRequirement(id, before: requirement.id)
+                            } catch {
+                                store.lastError = error.localizedDescription
+                            }
+                        }
+                        return true
+                    }
+            }
+
+            Text("Drop here to move to end")
+                .font(.caption)
+                .foregroundStyle(endTargeted ? Color.accentColor : Color.secondary)
+                .frame(maxWidth: .infinity, minHeight: 36)
+                .background(endTargeted ? Color.accentColor.opacity(0.08) : Color.secondary.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .dropDestination(for: String.self) { items, _ in
+                    guard let id = items.first else { return false }
+                    Task {
+                        do {
+                            try await store.moveRequirement(id, before: nil)
+                        } catch {
+                            store.lastError = error.localizedDescription
+                        }
+                    }
+                    return true
+                } isTargeted: { value in
+                    endTargeted = value
+                }
+        }
+        .padding(8)
+        .background(Color.secondary.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.secondary.opacity(0.12))
+        )
+    }
+}
+
+private struct RequirementRow: View {
+    @Environment(AppStore.self) private var store
+    let requirement: Requirement
+    @State private var threadReply = ""
+
+    private var expanded: Bool { store.expandedRequirementId == requirement.id }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 Button {
-                    store.toggleReviewExpanded(issue)
+                    store.toggleRequirementExpanded(requirement)
                 } label: {
-                    HStack(spacing: 10) {
+                    HStack(alignment: .top, spacing: 10) {
                         Image(systemName: expanded ? "chevron.down" : "chevron.right")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                             .frame(width: 12)
-                        MonitorIssueIdentity(issue: issue)
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text(requirement.identifier)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(.secondary)
+                                if let project = store.project(for: requirement) {
+                                    Circle().fill(Color(hex: project.color)).frame(width: 6, height: 6)
+                                    Text(project.key)
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Text(requirement.title)
+                                .font(.subheadline.weight(.medium))
+                                .multilineTextAlignment(.leading)
+                            if !requirement.bodyMarkdown.isEmpty {
+                                Text(requirement.bodyMarkdown)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                            }
+                        }
                         Spacer(minLength: 8)
-                        ActorStack(names: store.actors(for: issue))
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                Button("Approve") {
-                    Task {
-                        do { try await store.approveReview(issueId: issue.id) }
-                        catch { store.lastError = error.localizedDescription }
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    Button {
+                        Task {
+                            do { try await store.cycleImplementing(requirement.id) }
+                            catch { store.lastError = error.localizedDescription }
+                        }
+                    } label: {
+                        HealthChip(title: requirement.implementing.displayName, hex: requirement.implementing.tintHex)
                     }
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                Button("Later") {
-                    Task {
-                        do { try await store.deferReview(issueId: issue.id) }
-                        catch { store.lastError = error.localizedDescription }
+                    .buttonStyle(.plain)
+                    .help("Cycle implementing: not started → implementing → implemented")
+
+                    Button {
+                        Task {
+                            do { try await store.cycleWorking(requirement.id) }
+                            catch { store.lastError = error.localizedDescription }
+                        }
+                    } label: {
+                        HealthChip(title: requirement.working.displayName, hex: requirement.working.tintHex)
                     }
+                    .buttonStyle(.plain)
+                    .help("Cycle working: unknown → working → not working")
+
+                    ActorStack(names: store.actors(for: requirement), maxVisible: 2)
                 }
-                .controlSize(.small)
             }
             .padding(10)
 
             if expanded {
                 VStack(alignment: .leading, spacing: 8) {
-                    if !issue.descriptionMarkdown.isEmpty {
-                        Text(issue.descriptionMarkdown)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    let thread = store.comments(for: issue)
+                    let thread = store.comments(for: requirement)
                     if thread.isEmpty {
                         Text("No agent comments yet.")
                             .font(.caption)
@@ -438,9 +489,18 @@ private struct ReviewRow: View {
                             }
                         }
                     }
-                    Text("Reply from the composer above — it lands on this thread.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+
+                    HStack(alignment: .bottom, spacing: 8) {
+                        TextField("Reply on this requirement…", text: $threadReply, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(1...4)
+                            .onSubmit { Task { await sendThreadReply() } }
+                        Button("Reply") {
+                            Task { await sendThreadReply() }
+                        }
+                        .controlSize(.small)
+                        .disabled(threadReply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 12)
@@ -450,23 +510,68 @@ private struct ReviewRow: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(store.selectedIssueId == issue.id ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.12))
+                .stroke(store.selectedRequirementId == requirement.id ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.12))
         )
+        .onTapGesture {
+            store.selectMonitorRequirement(requirement)
+        }
+    }
+
+    private func sendThreadReply() async {
+        let text = threadReply.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        do {
+            _ = try await store.addRequirementComment(requirementId: requirement.id, body: text, authorName: "Riyu", actor: "Riyu")
+            threadReply = ""
+        } catch {
+            store.lastError = error.localizedDescription
+        }
     }
 }
 
-private struct FeatureQueueRow: View {
+private struct RequirementDragPreview: View {
+    let requirement: Requirement
+
+    var body: some View {
+        HStack {
+            Text(requirement.identifier)
+                .font(.caption2.monospaced())
+                .foregroundStyle(.secondary)
+            Text(requirement.title)
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+            Spacer()
+        }
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct HealthChip: View {
+    let title: String
+    let hex: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(Color(hex: hex))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Color(hex: hex).opacity(0.14))
+            .clipShape(Capsule())
+    }
+}
+
+private struct CompactIssueRow: View {
     @Environment(AppStore.self) private var store
     let issue: Issue
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "line.3.horizontal")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+        HStack(spacing: 8) {
             MonitorIssueIdentity(issue: issue)
-            Spacer(minLength: 8)
-            ActorStack(names: store.actors(for: issue))
+            Spacer(minLength: 4)
+            ActorStack(names: store.actors(for: issue), maxVisible: 2)
         }
         .padding(8)
         .background(Color(nsColor: .controlBackgroundColor))
@@ -475,6 +580,8 @@ private struct FeatureQueueRow: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(store.selectedIssueId == issue.id ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.10))
         )
+        .contentShape(Rectangle())
+        .onTapGesture { store.selectMonitorIssue(issue) }
     }
 }
 
@@ -500,7 +607,7 @@ private struct BugLaneColumn: View {
                     Text(later ? "Drop to defer" : "Drop to work now")
                         .font(.caption)
                         .foregroundStyle(targeted ? Color.accentColor : Color.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 56)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                 }
                 ForEach(issues) { issue in
                     HStack(spacing: 8) {
@@ -524,7 +631,7 @@ private struct BugLaneColumn: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .top)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .top)
             .padding(8)
             .background(targeted ? Color.accentColor.opacity(0.08) : Color.secondary.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -599,30 +706,5 @@ private struct ActorStack: View {
             }
             .accessibilityLabel(names.joined(separator: ", "))
         }
-    }
-}
-
-private struct CompactWeekPill: View {
-    let event: TimelineEvent
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(Color(hex: event.projectColor))
-                .frame(width: 7, height: 7)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(event.date.formatted(date: .abbreviated, time: .omitted))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                Text(event.title)
-                    .font(.caption.weight(.medium))
-                    .lineLimit(1)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color.secondary.opacity(0.08))
-        .clipShape(Capsule())
-        .help(event.subtitle)
     }
 }

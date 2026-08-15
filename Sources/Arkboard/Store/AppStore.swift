@@ -13,6 +13,12 @@ final class AppStore {
     var comments: [Comment] = []
     var activities: [Activity] = []
     var milestones: [Milestone] = []
+    var requirements: [Requirement] = []
+    var requirementComments: [RequirementComment] = []
+    /// Selected design requirement on Monitor.
+    var selectedRequirementId: String? = nil
+    /// Expanded requirement thread on Monitor.
+    var expandedRequirementId: String? = nil
     /// Monitor is the default agent-first landing.
     var selection: SidebarSelection = .monitor
     var selectedIssueId: String? = nil
@@ -78,6 +84,7 @@ final class AppStore {
                 try SeedData.seedMilestonesIfNeeded(db)
                 try SeedData.seedDemoAgentActivityIfNeeded(db)
                 try SeedData.enrichBotDialogueIfThin(db)
+                try SeedData.seedRequirementsIfNeeded(db)
             }
             try await reloadAll()
             applyDefaultActivityFilter()
@@ -155,6 +162,12 @@ final class AppStore {
 
     /// GRDB write for extensions that cannot see `db`.
     func performWrite(_ body: (Database) throws -> Void) async throws {
+        try await db.write { db in
+            try body(db)
+        }
+    }
+
+    func performWriteValue<T>(_ body: (Database) throws -> T) async throws -> T {
         try await db.write { db in
             try body(db)
         }
@@ -291,7 +304,7 @@ final class AppStore {
 
         for item in items {
             let second = Int(item.createdAt.timeIntervalSince1970)
-            let key = "\(item.issueId ?? "")|\(item.actor.lowercased())|\(item.action)|\(second)|\(coreSummary(item.summary))"
+            let key = "\(item.issueId ?? "")|\(item.requirementId ?? "")|\(item.actor.lowercased())|\(item.action)|\(second)|\(coreSummary(item.summary))"
             if let idx = indexByKey[key] {
                 var existing = result[idx]
                 var merged = existing.targetActors
@@ -459,7 +472,7 @@ final class AppStore {
     // MARK: - Reload
 
     func reloadAll() async throws {
-        let snapshot = try await db.read { db -> (Workspace?, [Project], [Issue], [IssueTag], [Comment], [IssueLabel], [Activity], [Milestone]) in
+        let snapshot = try await db.read { db -> (Workspace?, [Project], [Issue], [IssueTag], [Comment], [IssueLabel], [Activity], [Milestone], [Requirement], [RequirementComment]) in
             let ws = try Workspace.fetchOne(db)
             let projects = try Project.order(Column("name")).fetchAll(db)
             let issues = try Issue.order(Column("updatedAt").desc).fetchAll(db)
@@ -468,7 +481,9 @@ final class AppStore {
             let links = try IssueLabel.fetchAll(db)
             let activities = try Activity.order(Column("createdAt").desc).fetchAll(db)
             let milestones = try Milestone.order(Column("targetDate")).fetchAll(db)
-            return (ws, projects, issues, labels, comments, links, activities, milestones)
+            let requirements = try Requirement.order(Column("sortOrder")).fetchAll(db)
+            let requirementComments = try RequirementComment.order(Column("createdAt")).fetchAll(db)
+            return (ws, projects, issues, labels, comments, links, activities, milestones, requirements, requirementComments)
         }
 
         workspace = snapshot.0
@@ -478,6 +493,8 @@ final class AppStore {
         comments = snapshot.4
         activities = snapshot.6
         milestones = snapshot.7
+        requirements = snapshot.8
+        requirementComments = snapshot.9
 
         var map: [String: [IssueTag]] = [:]
         let labelById = Dictionary(uniqueKeysWithValues: snapshot.3.map { ($0.id, $0) })
@@ -1039,6 +1056,7 @@ final class AppStore {
             items = items.filter { activity in
                 if activity.projectId == p.id { return true }
                 if let issue = issue(forActivity: activity), issue.projectId == p.id { return true }
+                if let req = requirement(forActivity: activity), req.projectId == p.id { return true }
                 return false
             }
         }
@@ -1376,7 +1394,9 @@ final class AppStore {
             "kind": activity.kind,
             "issueId": activity.issueId ?? NSNull(),
             "projectId": activity.projectId ?? NSNull(),
+            "requirementId": activity.requirementId ?? NSNull(),
             "issueIdentifier": issue(forActivity: activity)?.identifier ?? NSNull(),
+            "requirementIdentifier": requirement(forActivity: activity)?.identifier ?? NSNull(),
             "projectKey": project(forActivity: activity)?.key ?? NSNull(),
             "summary": activity.summary,
         ]
@@ -1487,6 +1507,8 @@ enum StoreError: LocalizedError {
     case missingGitHubRepo
     case invalidGitHubLink
     case githubCLIFailed(String)
+    case invalidImplementing(String)
+    case invalidWorking(String)
 
     var errorDescription: String? {
         switch self {
@@ -1513,6 +1535,10 @@ enum StoreError: LocalizedError {
             return "Provide a GitHub issue URL or number (for example https://github.com/owner/repo/issues/1 or #12)."
         case .githubCLIFailed(let value):
             return "GitHub CLI failed: \(value)"
+        case .invalidImplementing(let value):
+            return "Invalid implementing '\(value)'. Expected one of: not_started, implementing, implemented"
+        case .invalidWorking(let value):
+            return "Invalid working '\(value)'. Expected one of: unknown, working, not_working"
         }
     }
 }

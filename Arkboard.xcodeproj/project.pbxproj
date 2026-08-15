@@ -19,6 +19,7 @@
 		418923F48E2C9EAB9A0530B5 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4590B891128234CAEDD8FCC /* AppIcon.icns */; };
 		4548EBBCC0D2771E51AD09DC /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF07FAF307783853DDB64880 /* Database.swift */; };
 		55797B9B3D845C53C1EAE6AF /* ArkboardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E5EE3913CF9079E5B96E81 /* ArkboardApp.swift */; };
+		62FF080CC01C09F03E6CF724 /* AppStore+Requirements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1B8BED752708BE223393E8 /* AppStore+Requirements.swift */; };
 		844F4C1A7BF3841DA4C1C581 /* QuickAddSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B9C6B2EDAC952C388202F0 /* QuickAddSheet.swift */; };
 		8505497618D4107B6BCA63FF /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4F596266E3DE39E1947110 /* MCPServer.swift */; };
 		8789BCED0F496BB82D518193 /* IssueListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0100CADAE429735C3651EABF /* IssueListView.swift */; };
@@ -42,6 +43,7 @@
 		1D58B0EE37E6A84A407B3F91 /* PortfolioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioView.swift; sourceTree = "<group>"; };
 		28E5EE3913CF9079E5B96E81 /* ArkboardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArkboardApp.swift; sourceTree = "<group>"; };
 		36E128784F7CF9DB9F511DEA /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		3A1B8BED752708BE223393E8 /* AppStore+Requirements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Requirements.swift"; sourceTree = "<group>"; };
 		3C66B960BC6623A666AB5A3C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		619C85475CA602B7E3CA8B6D /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		632C2BE37129EE7A6CC3944F /* Arkboard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Arkboard.entitlements; sourceTree = "<group>"; };
@@ -164,6 +166,7 @@
 			children = (
 				B139EC32050FAE74A00A8216 /* AppStore.swift */,
 				0E084A75EA507ABF7EDC3B6C /* AppStore+Monitor.swift */,
+				3A1B8BED752708BE223393E8 /* AppStore+Requirements.swift */,
 			);
 			path = Store;
 			sourceTree = "<group>";
@@ -254,6 +257,7 @@
 			files = (
 				C0A95BA632C7BFD4D3A9C175 /* ActivityFeedView.swift in Sources */,
 				8E4E9AC91B2C54CEA0BFC866 /* AppStore+Monitor.swift in Sources */,
+				62FF080CC01C09F03E6CF724 /* AppStore+Requirements.swift in Sources */,
 				E9020F24CE9935A0E3FD6F31 /* AppStore.swift in Sources */,
 				55797B9B3D845C53C1EAE6AF /* ArkboardApp.swift in Sources */,
 				20FF3F5933F4FB084561987C /* BoardView.swift in Sources */,

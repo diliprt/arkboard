@@ -37,23 +37,13 @@ struct EmptyIssuesView: View {
             ContentUnavailableView {
                 Label("No matching issues", systemImage: "magnifyingglass")
             } description: {
-                Text("Try a different search, clear filters, or create a new issue.")
-            } actions: {
-                Button("New Issue") {
-                    NotificationCenter.default.post(name: .arkboardQuickAdd, object: nil)
-                }
-                .buttonStyle(.borderedProminent)
+                Text("Try a different search or clear filters. Agents add issues via MCP (⌘⇧N if you need one).")
             }
         } else {
             ContentUnavailableView {
                 Label("No issues", systemImage: "tray")
             } description: {
-                Text("Create your first issue, or ask an agent to create one via MCP.")
-            } actions: {
-                Button("New Issue") {
-                    NotificationCenter.default.post(name: .arkboardQuickAdd, object: nil)
-                }
-                .buttonStyle(.borderedProminent)
+                Text("Agents create issues via MCP. ⌘⇧N if you need to add one yourself.")
             }
         }
     }
@@ -64,12 +54,7 @@ struct SelectIssuePlaceholder: View {
         ContentUnavailableView {
             Label("Select an issue", systemImage: "checkmark.circle")
         } description: {
-            Text("Choose an issue from the list or board. ⌘N tells the team from Monitor.")
-        } actions: {
-            Button("New Issue") {
-                NotificationCenter.default.post(name: .arkboardQuickAdd, object: nil)
-            }
-            .buttonStyle(.borderedProminent)
+            Text("Choose an issue from the list or board. ⌘N tells the team from Monitor. ⌘⇧N adds an issue.")
         }
     }
 }

@@ -131,6 +131,8 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
     case created_github_issue
     case set_project_github_repo
     case told_team
+    case created_requirement
+    case updated_requirement
 
     var displayName: String {
         switch self {
@@ -147,6 +149,8 @@ enum ActivityAction: String, Codable, DatabaseValueConvertible {
         case .created_github_issue: return "created GitHub issue"
         case .set_project_github_repo: return "set project GitHub repo"
         case .told_team: return "told the team"
+        case .created_requirement: return "created requirement"
+        case .updated_requirement: return "updated requirement"
         }
     }
 }
@@ -202,8 +206,11 @@ struct Project: Codable, FetchableRecord, PersistableRecord, Identifiable, Hasha
     var issueCounter: Int
     /// Optional default GitHub repo `owner/name` for issue link/create.
     var githubRepo: String? = nil
+    /// Per-project counter for requirement identifiers (ARK-R1).
+    var requirementCounter: Int = 0
 
     static let issues = hasMany(Issue.self)
+    static let requirements = hasMany(Requirement.self)
 }
 
 struct Issue: Codable, FetchableRecord, PersistableRecord, Identifiable, Hashable {
@@ -265,6 +272,8 @@ struct Activity: Codable, FetchableRecord, PersistableRecord, Identifiable, Hash
     var action: String
     var issueId: String?
     var projectId: String?
+    /// Optional pointer at a design requirement (Monitor center).
+    var requirementId: String? = nil
     var summary: String
     /// Who this entry addresses. Single name or comma-separated multi-mention targets (e.g. "Ops, Comms").
     var targetActor: String?
@@ -394,6 +403,109 @@ struct TimelineEvent: Identifiable, Hashable {
     var statusLabel: String?
     var issueId: String? = nil
     var milestoneId: String? = nil
+}
+
+enum RequirementImplementing: String, Codable, CaseIterable, Identifiable, DatabaseValueConvertible {
+    case not_started, implementing, implemented
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .not_started: return "Not started"
+        case .implementing: return "Implementing"
+        case .implemented: return "Implemented"
+        }
+    }
+
+    var tintHex: String {
+        switch self {
+        case .not_started: return "#8E8E93"
+        case .implementing: return "#C49200"
+        case .implemented: return "#27AE60"
+        }
+    }
+
+    var next: RequirementImplementing {
+        switch self {
+        case .not_started: return .implementing
+        case .implementing: return .implemented
+        case .implemented: return .not_started
+        }
+    }
+}
+
+enum RequirementWorking: String, Codable, CaseIterable, Identifiable, DatabaseValueConvertible {
+    case unknown, working, not_working
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .unknown: return "Unknown"
+        case .working: return "Working"
+        case .not_working: return "Not working"
+        }
+    }
+
+    var tintHex: String {
+        switch self {
+        case .unknown: return "#8E8E93"
+        case .working: return "#27AE60"
+        case .not_working: return "#EB5757"
+        }
+    }
+
+    var next: RequirementWorking {
+        switch self {
+        case .unknown: return .working
+        case .working: return .not_working
+        case .not_working: return .unknown
+        }
+    }
+}
+
+struct Requirement: Codable, FetchableRecord, PersistableRecord, Identifiable, Hashable {
+    static let databaseTableName = "requirement"
+    var id: String
+    var identifier: String
+    var projectId: String
+    var title: String
+    var bodyMarkdown: String
+    var implementing: RequirementImplementing
+    var working: RequirementWorking
+    var sortOrder: Double
+    var createdAt: Date
+    var updatedAt: Date
+    /// JSON array of issue identifiers, e.g. ["ARK-1","ARK-2"]
+    var linkedIssueIdentifiers: String = "[]"
+
+    var linkedIdentifiers: [String] {
+        guard let data = linkedIssueIdentifiers.data(using: .utf8),
+              let arr = try? JSONDecoder().decode([String].self, from: data) else {
+            return []
+        }
+        return arr
+    }
+
+    static func encodeIdentifiers(_ ids: [String]) -> String {
+        let cleaned = ids.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        guard let data = try? JSONEncoder().encode(cleaned),
+              let s = String(data: data, encoding: .utf8) else { return "[]" }
+        return s
+    }
+
+    static let project = belongsTo(Project.self)
+    static let comments = hasMany(RequirementComment.self)
+}
+
+struct RequirementComment: Codable, FetchableRecord, PersistableRecord, Identifiable, Hashable {
+    static let databaseTableName = "requirement_comment"
+    var id: String
+    var requirementId: String
+    var bodyMarkdown: String
+    var authorName: String
+    var createdAt: Date
 }
 
 enum MentionParser {
