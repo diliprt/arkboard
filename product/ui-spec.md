@@ -437,6 +437,23 @@ Capture still knows these fields so Chief of Staff can read them via the engine 
 
 Sending persists via existing Activity as kind `handoff`, targeted at `Product` (Chief of Staff), actor `Riyu`. Do not invent a second store.
 
+## Measures before review
+
+**Mac-first measures before Critique.** A still without the click measures is not a review. Before a UI change is reviewed, Apple Build compiles it on the existing Mac checkout and runs `./scripts/mac_measure.sh` against the running Debug build. The script prints its numbers as JSON and exits non-zero when they drift; that JSON goes in the Critique packet.
+
+The measures are the three things a screenshot cannot answer:
+
+| Measure | Reported as | Fails when |
+| --- | --- | --- |
+| Content origin | `body_y` per tab | sibling tabs differ by more than 2pt |
+| Pinned rail | `rail_y` per tab | it moves by more than 2pt across the clicks |
+| Selected row, sidebar focused | `selection_ok` | the fill is tinted rather than the system's unemphasized grey, or the mark loses its colour |
+| One title row | `title_ok` | a pane prints the window title again below the title bar |
+
+Every screen in this document states its content origin, its selected-row colour *while the sidebar has focus*, and that it has one title row. Those three are written before the PR, not discovered after it.
+
+The script is `scripts/mac_measure.swift`, in the repo. Scratch helpers under `build/` are not the contract — a check nobody can read is not a check.
+
 ## Acceptance
 
 The UI is done when all of these are true on a clean machine.
