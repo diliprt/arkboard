@@ -773,6 +773,9 @@ def check_chief_handoff(swift: str, home: str, root: str, sidebar: str, ui: str)
     ok("#15 ensureDocuments kept for handoff", "ensureDocuments" in home)
     ok("#16 measure kept for handoff", "DocumentMeasure.pageWidth" in home)
     ok("#18 Portfolio destination kept", "SidebarItem.portfolio" in sidebar)
+    ok("#19 quiet sidebar kept",
+       "building.2" not in sidebar and "New Project" not in sidebar and "Divider()" in sidebar)
+    ok("#19 cardSummary kept", "cardSummary" in (SOURCES / "UI/Portfolio/PortfolioView.swift").read_text())
 
 
 def main() -> int:
