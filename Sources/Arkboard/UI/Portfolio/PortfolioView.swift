@@ -9,19 +9,7 @@ struct PortfolioView: View {
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: 0) {
-                ScreenHeader(
-                    section: .portfolio,
-                    subtitle: "Every project at arm's length.",
-                    trailing: AnyView(
-                        Button {
-                            NotificationCenter.default.post(name: .arkboardNewProject, object: nil)
-                        } label: {
-                            SwiftUI.Label("New Project", systemImage: "folder.badge.plus")
-                                .font(type.body)
-                        }
-                        .buttonStyle(.plain)
-                    )
-                )
+                ScreenHeader(section: .portfolio, subtitle: "Every project at arm's length.")
                 ScrollView {
                     VStack(alignment: .leading, spacing: Metrics.sectionGap) {
                         if store.projects.isEmpty {
@@ -41,10 +29,20 @@ struct PortfolioView: View {
                     .padding(Metrics.paneX)
                     .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
                 }
-                .background(StudioColor.wash(.violet, scheme: scheme))
+                .paneBackground(StudioColor.wash(.violet, scheme: scheme))
             }
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    NotificationCenter.default.post(name: .arkboardNewProject, object: nil)
+                } label: {
+                    SwiftUI.Label("New Project", systemImage: "plus")
+                }
+                .help("New Project")
+            }
+        }
         .chiefOfStaffContextMenu()
         .onAppear {
             store.clearOutline()

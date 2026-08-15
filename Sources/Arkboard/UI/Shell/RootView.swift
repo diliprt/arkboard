@@ -31,11 +31,13 @@ struct RootView: View {
         .navigationSubtitle(store.workspace?.name ?? "Origin Ark")
         .toolbar {
             ToolbarItem(placement: .automatic) {
-                Button {
-                    store.setContentsVisible(!store.contentsVisible)
-                } label: {
-                    Image(systemName: "sidebar.trailing")
+                Toggle(isOn: Binding(
+                    get: { store.contentsVisible },
+                    set: { store.setContentsVisible($0) }
+                )) {
+                    SwiftUI.Label("Contents", systemImage: "sidebar.trailing")
                 }
+                .toggleStyle(.button)
                 .help(store.contentsVisible ? "Hide Contents" : "Show Contents")
             }
         }

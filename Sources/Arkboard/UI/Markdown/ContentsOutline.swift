@@ -1,6 +1,8 @@
 import SwiftUI
 
 /// Right-hand document contents. Click a heading to jump on the current page.
+/// It is an inspector, so it takes edge-to-edge glass rather than an opaque
+/// window fill, and it overlays the document instead of stealing width from it.
 struct ContentsOutline: View {
     @Environment(AppStore.self) private var store
     @Environment(\.typography) private var type
@@ -44,6 +46,6 @@ struct ContentsOutline: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(StudioColor.window)
+        .inspectorSurface()
     }
 }

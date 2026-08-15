@@ -14,7 +14,7 @@ struct TimelineView: View {
                         .padding(.vertical, Metrics.paneY)
                         .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
                 }
-                .background(StudioColor.wash(.moss, scheme: scheme))
+                .paneBackground(StudioColor.wash(.moss, scheme: scheme))
             }
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)

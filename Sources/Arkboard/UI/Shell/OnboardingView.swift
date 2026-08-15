@@ -27,7 +27,7 @@ struct OnboardingView: View {
                     .padding(.vertical, Metrics.paneY)
                     .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
                 }
-                .background(StudioColor.wash(.indigo, scheme: scheme))
+                .paneBackground(StudioColor.wash(.indigo, scheme: scheme))
             }
         }
         .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)

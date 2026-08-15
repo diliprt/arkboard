@@ -12,9 +12,28 @@ A single window. `NavigationSplitView` with two columns: the project portfolio a
 - The selected row is restored on launch from `arkboard.sidebarSelection`. Valid values are `portfolio`, `timeline`, `onboarding`, or `project:<id>`. Leftover studio chrome (`monitor`, `issues`, `activity`) is discarded and Portfolio is selected.
 - The window title is Portfolio, Timeline, Onboarding, or the current project name; the subtitle is the workspace name.
 
+### Materials
+
+Arkboard speaks Apple's design language. It does not borrow Apple's content, screens, or copy.
+
+Liquid Glass is the **navigation** layer and only the navigation layer: the sidebar, the window toolbar, the project tab rail, and the Contents inspector. The document is the **content** layer — solid, readable, and never glassed. A page of prose on glass is unreadable and is the one mistake this rule exists to prevent.
+
+- **Take the system's material, never paint your own.** A custom background behind a navigation surface sits on top of the glass and blocks it. No `windowBackgroundColor` slab under the sidebar, the tab rail, the Contents column, or a pinned header. The sidebar list hides its own scroll background so the column's material shows through. Section hue survives as a wash *over* that material, not as an opaque fill beside it.
+- **The pane fill runs edge to edge.** The document's wash ignores the safe area so it continues beneath the floating sidebar; the scrolling content stays inside the safe area, so nothing is clipped and nothing is hidden. Arkboard deliberately does not use a background extension effect: it mirrors and blurs whatever is adjacent, which is right for a hero image and wrong for a column of prose, where it reads as ghost text behind the sidebar.
+- **Bars are bars.** A control strip pinned to the edge of a column is a safe-area bar, so the system insets the content and extends the scroll edge effect underneath it. It is not a floating widget carrying its own material.
+- **Filters are native capsules.** Anything that narrows what you are reading — the project tab rail, the document chip rail — is a system accessory-bar capsule with the section hue as its tint. The shape, the hit target, the hover, and the selected state are the system's. No hand-drawn pill with a hand-mixed fill; that is what makes an app look like it came from somewhere else.
+- **One radius family, concentric.** A surface nested inside another takes the container's radius less the inset between them, so the two curves share a centre. Radii are derived in `Metrics`, not typed in at each call site.
+- **One type scale, one face.** Every glyph and every label — sidebar, tab rail, toolbar, cards, empty states — takes a role from the `typography` environment. SF Symbols in chrome sit at body size and grow with the Settings text size. No `.font(.system(size:))` anywhere a human reads.
+- **Section headers are title case.** Lists and tables read `Underway`, not `UNDERWAY`.
+- **Controls size themselves.** No hard-coded control heights; the rails and bars grow with the type scale and with the platform's control metrics.
+
+On macOS 14 and 15 every one of these resolves to the system material of that release. On Tahoe, built with Xcode 26, the same surfaces become Liquid Glass. There is no third, hand-rolled appearance.
+
 ### Sidebar
 
 232pt wide, `.sidebar` list style, one selection. There is no Studio section. The workspace name lives in the window subtitle, not in this column. No workspace icon, no fake destination.
+
+The column is the system's glass and nothing else is painted behind it. The selected row is the one system highlight — not a custom capsule, not a coloured fill.
 
 **Destinations**, in this order:
 
@@ -31,16 +50,18 @@ Arkboard's own mark is `square.3.layers.3d` in indigo `#5A62D6`. Other projects 
 
 **Not in this sidebar.** Monitor and Issues are leftover ticket chrome. Issues stay as a tab on the project page. Monitor is not a studio row. Activity is not a row.
 
-**Footer**, pinned, on `.bar`:
+**Footer**, pinned to the bottom of this same column as a safe-area bar. It sits on the sidebar's own material; it does not carry a second one of its own.
 
-- **Onboarding** — a `sparkles` icon, help text `Onboarding`. Not labelled Setup. Not a gear. Clicking it opens the Onboarding page in the document column.
+- **Onboarding** — a `sparkles` icon at body size, help text `Onboarding`. Not labelled Setup. Not a gear. Clicking it opens the Onboarding page in the document column.
 - A 7pt dot and `Agents · :7420` in `caption`. Moss when the server is listening, crimson and `Agents offline` when it is not. Clicking opens Settings to the Agents section.
 
 Create is not in this column.
 
 ### Contents
 
-A trailing overlay that slides/floats over the right edge of the document — the same overlay language as the left sidebar, on the trailing side. It is not a split column and it does not steal width from the document: opening it covers the page; closing it (toolbar `sidebar.trailing`) reveals the full document again. The document measure does not collapse. 220pt ideal, 180 min, 280 max, user-resizable in that range. The choice persists as `arkboard.contentsVisible`. The document column itself is at least 560pt and always uses the full pane width, Contents shown or hidden. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right. Do not bring back a third `NavigationSplitView` column, a `GridColumn` 1000, or a 720 island.
+A trailing overlay that floats over the right edge of the document on edge-to-edge glass — the inspector language, on the trailing side. It is not a split column and it does not steal width from the document: opening it covers the page; closing it reveals the full document again. The document measure does not collapse. 220pt ideal, 180 min, 280 max, user-resizable in that range. The choice persists as `arkboard.contentsVisible`. The document column itself is at least 560pt and always uses the full pane width, Contents shown or hidden. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right. Do not bring back a third `NavigationSplitView` column, a `GridColumn` 1000, or a 720 island. Nothing opaque is painted behind it; the glass is the surface.
+
+The toggle lives in the window toolbar, on toolbar glass: a `sidebar.trailing` control that carries a selected state while Contents is open, help text `Show Contents` / `Hide Contents`.
 
 - Header `Contents` in `caption`, secondary.
 - One heading per row, indented 12pt per level below `#`, `bodyStrong` for `#`/`##` and `caption` deeper.
@@ -110,7 +131,7 @@ One scroll, a `LazyVStack` with pinned group headers — never a `List` inside a
 | `Queued` | status `backlog` and `todo` |
 | `Done` | status `done`, completed in the last 14 days, newest first |
 
-Group headers are uppercase `caption` in teal with a count.
+Group headers are title-case `caption` in teal with a count — `Underway`, not `UNDERWAY`. They pin to the top of the scroll on bar material, so rows stay legible as they pass beneath.
 
 A row is one line of identifier in `mono` `caption`, then the title in `body`, then label chips, then the relative updated time trailing in `caption`.
 
@@ -154,11 +175,15 @@ Subtitle: `Every project at arm's length.`
 
 This is the studio view of every app in one place. Cards only — not a table, not a markdown essay, no milestone block, and no studio-wide spine. The document column uses the same left-aligned, pane-width measure as the project home. No 720 island. No 1000 grid. Contents is hidden — there is no document.
 
+`New Project` is a toolbar item on toolbar glass, a `plus` symbol with the help label `New Project`, contributed by this page. It is not a hand-styled button inside the screen header, and it is still not in the sidebar.
+
 ### Project cards
 
 A grid, cards between 300 and 460pt wide, 12pt gaps. One card per project, pinned or not.
 
 Each card uses the same `typography` environment as the project home, the sidebar, and documents — one scale, one face. Name, summary, paths, and pills take roles from that environment. No one-off `.font(.system)` and no custom faces on the card. Settings text size and face flow through.
+
+Cards are library tiles: solid content surface, one hairline stroke, concentric corners, and nothing else. The chrome is quiet so the type does the work. The mark's corner radius is derived from the card's, not typed in.
 
 - The project mark, name in `heading`, key in `mono` `caption`.
 - A pin control. Filled pin when pinned. Clicking the pin toggles pin and does not open the project.
@@ -192,24 +217,27 @@ Everything is inside **one** vertical scroll: the thin header scrolls away, the 
 ### Thin header
 
 - The project mark at 28pt, the name in `display`, the key in a `mono` `caption` capsule.
-- Trailing: the document source in `mono` `caption` — `local · product/` or `github · diliprt/arkboard` — a `Refresh` button with `arrow.clockwise`, and a note icon (`bubble.left`) that opens the compact composer sheet.
+- Trailing: the document source in `mono` `caption` — `local · product/` or `github · diliprt/arkboard` — a `Refresh` button with `arrow.clockwise`, and a note icon (`bubble.left`) that opens the compact composer sheet. Both are borderless system buttons with SF Symbols at body size and a help label; neither draws its own bezel.
+- The header takes no background of its own. It is content at the top of the scroll and scrolls away like content.
 - No README lead. No article summary. No `More documents` chip row. Those documents stay reachable via tabs. The long description lives on Portfolio.
 
 ### Tab bar
 
-Pinned. Capsule pills, 6pt apart, horizontally scrollable if the window is narrow.
+Pinned, and it is navigation, so it sits on the glass layer carrying the selected tab's wash. Nothing opaque is painted behind it and there is no hairline under it — the material is the separation.
+
+Each tab is a native accessory-bar capsule: an SF Symbol and a label at body size, tinted with the section hue, 6pt apart, horizontally scrollable when the pane is narrow. The selected capsule is the system's selected state, not a fill we mixed. The rail sizes itself to the control metrics and to the current text size; it has no fixed height.
 
 `Design` · `Architecture` · `Mockups` · `Decisions & questions` · `Issues` · `Timeline`
 
-The selected pill fills with its section hue at 16% and its label and symbol take the full hue. Unselected pills are secondary text on nothing. **Design is selected by default** — a project is a design object first.
+**Design is selected by default** — a project is a design object first. Clicking the already-selected tab does nothing; a filter cannot be turned off, only moved.
 
-Switching tabs cross-fades over 0.18s and returns the scroll to the top. `⌘[` and `⌘]` move between tabs. Landing on Mockups shows the tab rail and the gallery (or its empty state) immediately — the pane must not open scrolled past them.
+Switching tabs cross-fades over 0.18s and returns the scroll to the top. The selected capsule scrolls itself into view. `⌘[` and `⌘]` move between tabs. Landing on Mockups shows the tab rail and the gallery (or its empty state) immediately — the pane must not open scrolled past them.
 
 ### Document tabs
 
 `Design`, `Architecture`, `Mockups`, and `Decisions & questions` all render `product/` markdown as a rich preview. Raw markdown is never the reading view.
 
-When a tab holds more than one document, a rail of capsule chips sits above the content naming each one, with the primary selected. Otherwise the content starts directly.
+When a tab holds more than one document, a rail of native accessory-bar capsules sits above the content naming each one, with the primary selected — the same control as the tab rail, at the same size, tinted the same hue. Otherwise the content starts directly.
 
 **Decisions & questions** adds one thing: a strip of gold chips above the document, one per open question parsed from it, each jumping to its heading. Locked decisions do not get chips.
 
@@ -269,7 +297,7 @@ The exception, deliberate and singular: **Archive** on an issue, with undo. Gett
 
 ## Empty states
 
-One shape everywhere: the section symbol at 28pt in the hue at 40%, a title in `heading`, one sentence in `callout` secondary. On the project home (Mockups, Design-not-written, Issues, Timeline, and the other document tabs) that block shares the document left edge — icon, title, and sentence leading, not a centred poster in the wash. Full-pane posters (no projects, Monitor, Activity) stay centred, with 40pt of air. No buttons unless the table says so.
+One shape everywhere: the section symbol in the hue at 40% — sized from the type scale at body + 15, so it is 28pt at the default 13pt body and grows with the Settings text size — a title in `heading`, one sentence in `callout` secondary. On the project home (Mockups, Design-not-written, Issues, Timeline, and the other document tabs) that block shares the document left edge — icon, title, and sentence leading, not a centred poster in the wash. Full-pane posters (no projects, Monitor, Activity) stay centred, with 40pt of air. No buttons unless the table says so.
 
 | Where | Title | Sentence |
 | --- | --- | --- |
@@ -350,6 +378,8 @@ The UI is done when all of these are true on a clean machine.
 8. Decisions & questions shows a gold chip for each `Open —` heading; clicking it jumps to that heading.
 9. Settings changes the text size to 16 and the face to Georgia, and every screen — titles, chips, captions, document bodies, sidebar — follows. Relaunching keeps it.
 10. Dark mode is legible on every screen, with no fixed light-mode colour left behind.
-11. No screen anywhere offers a status, priority, or assignee control, and no screen offers a way to create an issue.
-12. An issue created through the API appears in the project's Issues tab without touching the app, and a note posted through the API is stored as Activity the same way.
-13. Every empty state matches the copy in the table above.
+11. On Tahoe, built with Xcode 26, the sidebar is a floating pane of glass, the toolbar and the project tab rail are on glass, and Contents is edge-to-edge glass. The pane wash runs under the sidebar with no seam. The document body is solid on every screen. On macOS 14 and 15 the same surfaces resolve to that release's system materials and nothing looks hand-rolled.
+12. Every filter — the six project tabs, the multi-document rail — is a system capsule with a system selected state. Right-clicking, hovering, and keyboard focus behave as they do in Finder and Mail, because they are the same controls.
+13. No screen anywhere offers a status, priority, or assignee control, and no screen offers a way to create an issue.
+14. An issue created through the API appears in the project's Issues tab without touching the app, and a note posted through the API is stored as Activity the same way.
+15. Every empty state matches the copy in the table above.

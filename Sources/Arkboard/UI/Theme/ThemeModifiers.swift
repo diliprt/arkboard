@@ -68,11 +68,8 @@ struct ProjectIcon: View {
             }
         }
         .frame(width: size, height: size)
-        .background(
-            Color(hex: project.color).opacity(0.16),
-            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .background(Color(hex: project.color).opacity(0.16), in: Concentric.shape(Metrics.radiusMark))
+        .clipShape(Concentric.shape(Metrics.radiusMark))
         .accessibilityLabel(project.name)
     }
 }
@@ -86,9 +83,9 @@ struct CardSurface<Content: View>: View {
         content
             .padding(Metrics.cardPad)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(StudioColor.card, in: RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous))
+            .background(StudioColor.card, in: Concentric.shape(Metrics.radiusCard))
             .overlay(
-                RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous)
+                Concentric.shape(Metrics.radiusCard)
                     .stroke(StudioColor.cardStroke(hue, scheme: scheme), lineWidth: 1)
             )
     }
