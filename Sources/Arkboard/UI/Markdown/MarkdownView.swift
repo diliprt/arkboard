@@ -13,7 +13,7 @@ struct MarkdownView: View {
                 blockView(block)
             }
         }
-        .frame(maxWidth: Metrics.proseMax, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .textSelection(.enabled)
     }
 

@@ -2,7 +2,7 @@
 
 A UI punch list from a live audit of main @ `4cd6b9d`, against seven screenshots of the running app. This is polish only: nothing here adds product. The portfolio stays on the left, Contents stays on the right, Monitor and Issues stay out of the left chrome, and `product/` stays the source of truth. Numbers and copy referenced here come from [design.md](design.md) and [ui-spec.md](ui-spec.md).
 
-**Shipped** (this pass): C1, SB2, H1, SB1, T1, T2, D1, O1, T3, D2, D3, plus cheap should-fix C2, O2, D4, E1. Nits H2, H3, O3 left.
+**Shipped** (this pass): C1, SB2, H1, T1, T2, O1, T3, D2, D3, plus cheap should-fix C2, O2, D4, E1. SB1: New Project is the sidebar footer, not a toolbar item. D1: one filling `ProseColumn`, tab rail and document share a left edge; no 720 island when chrome is collapsed. Nits H2, H3, O3 left.
 
 Screenshot key, used in every item below:
 
@@ -20,9 +20,9 @@ Screenshot key, used in every item below:
 
 1. **Contain the section wash to the pane.** It currently tints the window toolbar and bleeds under the left sidebar (worst on S3, where the lower two-thirds of the sidebar is magenta). — [item C1](#c1--the-wash-escapes-the-pane)
 2. **Put the overview band back on plain window background.** The title, README lead, and composer pick up the section tint and change colour when you switch tabs (S1 vs S3). — [item H1](#h1--the-overview-band-is-tinted)
-3. **Stop the sidebar toolbar icons overlapping.** The New Project button and the sidebar toggle collide with each other and crowd the traffic lights (S1–S6). — [item SB1](#sb1--toolbar-icons-overlap)
+3. **Stop the sidebar toolbar icons overlapping.** New Project must not share a control group with the sidebar toggle or crowd the traffic lights — not in the title-bar pill when collapsed, not over the Origin Ark mark when open (S1–S6). — [item SB1](#sb1--toolbar-icons-overlap)
 4. **Make all six tabs reachable at the minimum window.** At 1080pt wide, Timeline is cut off with no scroll affordance and no hint it exists (S7). — [item T1](#t1--the-tab-bar-silently-overflows)
-5. **Give every tab the same left gutter and column cap.** One centred 720 `ProseColumn` for the whole tab family — not 720 for docs and 1000 for Mockups/Issues/Timeline (S3, S5, S6 vs S1, S2). — [item D1](#d1--gutters-and-column-caps-differ-per-tab)
+5. **Give every tab the same left gutter and column cap.** One column family; tab rail left edge == document left edge. When the sidebar and/or Contents are gone, the page takes the room — no 720 island in a wide pane (S3, S5, S6 vs S1, S2). — [item D1](#d1--gutters-and-column-caps-differ-per-tab)
 6. **Give Contents a close control.** The right column cannot be dismissed, ever, even at the minimum window where the document needs the room (all screenshots). — [item O1](#o1--contents-cannot-be-closed)
 7. **Fix the clipped open-question chips on Decisions.** The third chip is cut mid-word at the right edge with no fade and no way to tell there are more (S4). — [item T3](#t3--the-open-question-chip-rail-clips)
 8. **Render the Today rule exactly once on the Timeline.** It currently appears under *every* week that contains a future event — twice in S6, under "Week of 9 August" and again under "Week of 23 August". — [item D2](#d2--two-today-rules)
@@ -52,9 +52,9 @@ Everything below is the same list grouped by surface, with the smaller items inc
 
 ### SB1 — Toolbar icons overlap
 
-**Wrong.** The New Project (`folder.badge.plus`) button and the system sidebar toggle sit on top of each other / crowd the traffic lights above the sidebar (S1–S6; Riyu reported the overlap directly). The button is declared as a bare `ToolbarItem` with no placement, so AppKit guesses where it goes.
+**Wrong.** The New Project (`folder.badge.plus`) button and the system sidebar toggle share one leading title-bar pill and crowd the traffic lights. `.primaryAction` on `SidebarView` did not unstack them: when the sidebar is collapsed both icons sit next to the lights; when it is open they still live in the sidebar column header and overlap the Origin Ark mark.
 
-**Fix.** Give the New Project button an explicit toolbar placement scoped to the sidebar column (e.g. `ToolbarItem(placement: .primaryAction)` inside `SidebarView`'s toolbar, or attach it to the sidebar column of the `NavigationSplitView`), and verify at both the default and minimum sidebar widths (200–300pt) that it never collides with the toggle or the traffic lights.
+**Fix.** New Project must not be a toolbar item and must not share a control group with the sidebar toggle. Put it in the sidebar footer (above the Agents strip). Verify sidebar-open (200–300pt) and sidebar-collapsed: the traffic-light cluster is only the system toggle; New Project is only in the footer, and is gone from the title bar when the sidebar is hidden.
 
 **Severity: must.**
 
@@ -122,11 +122,9 @@ After T1, resize to exactly 1080 × 700 and confirm: all six pills visible or re
 
 ### D1 — Gutters and column caps differ per tab
 
-**Wrong.** Design and Architecture (S1, S2) render prose in a 720pt-capped column; Mockups, Issues, and Timeline (S3, S5, S6) used a different geometry — first full-bleed, then a centred 1000pt `GridColumn` — so they read as full-bleed / left-shifted against the document tabs. Same tab family cannot have two measures.
+**Wrong.** A centred 720 `ProseColumn` (and `MarkdownView`'s own 720 cap) leaves a skinny island when the sidebar and/or Contents are collapsed — huge gutters, tab rail full-bleed left, prose inset. Two left edges on one page. An earlier 1000 `GridColumn` for Mockups/Issues/Timeline was the same class of bug: two geometries in one tab family.
 
-**Fix.** One column family on the project home: wrap every tab body — Design, Architecture, Decisions, Mockups, Issues, Timeline — and the overview band in the same centred `ProseColumn` (720). Do not use `GridColumn` (1000) here. If a grid needs more width, it still starts on that 720 rail so the first column lines up with prose.
-
-After this, every tab shares one left edge and one measure at every window width.
+**Fix.** One column family on the project home. `ProseColumn` left-aligns and fills the pane (pane padding only). Do not use `GridColumn` (1000). Do not keep a 720 cap on `MarkdownView` here — Design through Timeline share the same measure. Tab rail left edge == document left edge, sidebar-open and sidebar-collapsed. When chrome is gone, the page takes the room. When both sidebars are open, filling the narrower pane is the measure; do not re-centre a 720 island.
 
 **Severity: must.**
 
@@ -201,9 +199,9 @@ The copy visible in S5 (`No issues` / `Nothing has been filed here.`) and the no
 Done means, on one relaunch:
 
 1. Switch Design → Mockups → Timeline: toolbar, sidebar, and overview band never change colour; only the tab body's wash does (C1, H1, SB2).
-2. At 1320 × 860 and at 1080 × 700, every tab's content shares one left edge and one centred 720pt `ProseColumn` — Design through Timeline, no 1000pt family (D1).
+2. Every tab shares one left edge with the tab rail. When the sidebar and/or Contents are collapsed, the document fills the pane (no 720 island). No 1000pt family (D1).
 3. At 1080 × 700 all six tabs are visible or visibly scrollable, and selecting Timeline via `⌘]` scrolls its pill into view (T1, T2).
 4. The Timeline shows exactly one Today rule and opens scrolled to it (D2, D3).
 5. Decisions shows every open-question chip in full, wrapped or fading, never cut mid-word (T3).
 6. Contents can be closed from the toolbar and reopened, and the choice survives relaunch (O1).
-7. The sidebar toolbar shows New Project and the sidebar toggle side by side with clear space at every sidebar width (SB1).
+7. New Project is in the sidebar footer, never in the traffic-light pill, at 200–300pt sidebar width and when the sidebar is collapsed (SB1).

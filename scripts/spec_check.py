@@ -241,12 +241,19 @@ def check_polish(swift: str, home: str, root: str, sidebar: str) -> None:
     ok("C1 wash is not a root background", ".background(StudioColor.wash" not in body)
     ok("C1 pane clips wash", ".clipped()" in home)
     ok("C2 pinned tab bar keeps wash", "StudioColor.wash" in tab_bar)
-    ok("SB1 New Project has explicit placement",
-       "ToolbarItem(placement:" in sidebar and "folder.badge.plus" in sidebar)
+    ok("SB1 New Project is not a toolbar item",
+       "folder.badge.plus" in sidebar and ".toolbar" not in sidebar and "ToolbarItem" not in sidebar)
+    ok("SB1 New Project lives in the sidebar footer",
+       "folder.badge.plus" in sidebar and "safeAreaInset" in sidebar)
     ok("T1 tab pills scroll selected into view", "scrollTo(newTab.id" in home or "tabProxy.scrollTo" in home)
     ok("T1 tab edge fade exists", "FadingHScroll" in swift and "tabFade" in swift)
     ok("T1 tighter pill padding", "tabPillX" in swift)
     ok("D1 project home is one ProseColumn family", "ProseColumn" in home and "GridColumn" not in home)
+    modifiers = (SOURCES / "UI/Theme/ThemeModifiers.swift").read_text()
+    prose = modifiers.split("struct ProseColumn")[1].split("struct GridColumn")[0] if "struct ProseColumn" in modifiers else ""
+    ok("D1 ProseColumn fills the pane", "Metrics.proseMax" not in prose and "maxWidth: .infinity" in prose)
+    markdown = (SOURCES / "UI/Markdown/MarkdownView.swift").read_text()
+    ok("D1 MarkdownView follows the column", "Metrics.proseMax" not in markdown)
     ok("O1 Contents toggle symbol", "sidebar.trailing" in root)
     ok("O1 persist contentsVisible", "arkboard.contentsVisible" in swift)
     ok("O2 Contents width range", "outlineMin" in root and "outlineMax" in root)
