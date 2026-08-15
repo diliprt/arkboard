@@ -569,7 +569,11 @@ final class AppStore {
     }
 
     func goToComposer() {
-        if sidebarSelection == nil, let first = projects.first {
+        if case let .project(id) = sidebarSelection, projects.contains(where: { $0.id == id }) {
+            focusComposer += 1
+            return
+        }
+        if let first = projects.first {
             sidebarSelection = .project(first.id)
         }
         focusComposer += 1

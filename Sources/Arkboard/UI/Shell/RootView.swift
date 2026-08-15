@@ -8,10 +8,15 @@ struct RootView: View {
     var body: some View {
         NavigationSplitView {
             SidebarView()
-        } content: {
-            detail
         } detail: {
-            ContentsOutline()
+            HStack(spacing: 0) {
+                document
+                    .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
+                Divider()
+                ContentsOutline()
+                    .frame(width: Metrics.outlineIdeal)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle(windowTitle)
         .navigationSubtitle(store.workspace?.name ?? "Origin Ark")
@@ -44,7 +49,7 @@ struct RootView: View {
     }
 
     @ViewBuilder
-    private var detail: some View {
+    private var document: some View {
         if case let .project(id) = store.sidebarSelection, let project = store.project(id: id) {
             ProjectHomeView(project: project)
                 .id(project.id)

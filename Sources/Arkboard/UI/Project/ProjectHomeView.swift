@@ -60,7 +60,13 @@ struct ProjectHomeView: View {
                     }
                 }
             }
+            .onChange(of: store.focusComposer) { _, _ in
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                    proxy.scrollTo("composer", anchor: .center)
+                }
+            }
         }
+        .frame(minWidth: Metrics.documentMin, maxWidth: .infinity, maxHeight: .infinity)
         .background(StudioColor.wash(tab.section.hue, scheme: scheme))
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: tab)
         .sheet(item: $viewer) { document in
@@ -87,7 +93,6 @@ struct ProjectHomeView: View {
                 store.pendingProjectTab = nil
             }
         }
-        .onDisappear { store.clearOutline() }
         .sheet(item: issueSheet) { _ in
             IssueDetailColumn()
                 .frame(minWidth: 640, minHeight: 520)
@@ -142,6 +147,7 @@ struct ProjectHomeView: View {
                 }
             }
             NoteComposer(projectKey: project.key)
+                .id("composer")
         }
         .padding(.horizontal, Metrics.paneX)
         .padding(.vertical, Metrics.paneY)

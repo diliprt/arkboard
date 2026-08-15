@@ -45,6 +45,5 @@ struct ContentsOutline: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(StudioColor.window)
-        .navigationSplitViewColumnWidth(min: Metrics.outlineMin, ideal: Metrics.outlineIdeal, max: Metrics.outlineMax)
     }
 }
