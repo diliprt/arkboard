@@ -43,6 +43,7 @@ final class AppStore {
         didSet { UserDefaults.standard.set(fontFamily.rawValue, forKey: SettingsKey.fontFamily) }
     }
     var contentsVisible: Bool = true
+    var contentsWidth: CGFloat = Metrics.outlineIdeal
 
     let pool: DatabasePool
     let documents = DocumentLibrary()
@@ -683,8 +684,31 @@ final class AppStore {
         documentOutline = .empty
     }
 
+    /// The small mark: the tile that has to read at 22pt in the sidebar. The
+    /// poster is never used here — it is a picture, not an icon.
     func markImage(for project: Project) -> Data? {
         documentBundles[project.id]?.documents.first { ProjectMark.isProductIcon(path: $0.path) }?.imageData
+    }
+
+    /// The Portfolio card face: the generated poster when the project has one,
+    /// otherwise its mark, otherwise nothing and the card draws its own field.
+    func cardImage(for project: Project) -> Data? {
+        let documents = documentBundles[project.id]?.documents ?? []
+        if let poster = documents.first(where: { ProjectMark.isCardImage(path: $0.path) })?.imageData {
+            return poster
+        }
+        return documents.first { ProjectMark.isProductIcon(path: $0.path) }?.imageData
+    }
+
+    /// Width of the Contents overlay, so the document can reserve a gutter and
+    /// stop printing sentences underneath it.
+    func setContentsWidth(_ width: CGFloat) {
+        contentsWidth = min(Metrics.outlineMax, max(Metrics.outlineMin, width))
+    }
+
+    /// The trailing gutter the document must leave for Contents on this page.
+    func readingGutter(showsContents: Bool) -> CGFloat {
+        DocumentMeasure.readingGutter(contentsVisible: contentsVisible && showsContents, outlineWidth: contentsWidth)
     }
 
     func publishPageFocus(_ focus: PageFocus) {
