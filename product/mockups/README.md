@@ -13,8 +13,18 @@ Empty: `A director pass will drop screenshots here.`
 2. Name the file after the screen: `onboarding.png`, `home.png`, `detail.png`. The filename is the caption and the inferred flow order.
 3. Optional: add `flow.md` (`onboarding → home → detail`) or `flow.json` with `nodes` and `edges`.
 
-## What is worth mocking
+Brand artwork at the root of `product/` — `card.png`, `icon.png`, `mark.png`, `logo.png` — is the project's own face and is routed out of this gallery. A poster is not a frame someone drew.
 
-- The project home at rest — overview band, pinned tabs, wash.
-- A long document mid-scroll.
-- Dark mode of either.
+## These are the current build
+
+Mockups are the **latest measured window shots**, taken from the build on `main` and replaced in the same pull request as the chrome they show. `product/` is what Arkboard renders, so a gallery of last month's chrome is a stale screen inside the running app. An empty folder is honest; an out-of-date one is not.
+
+Shots come from the run that produced the Mac measures, so the frame and the numbers describe the same build. See `product/decisions.md`, "Locked — product/ tabs are living" and "Locked — Mac-first measures before Critique".
+
+## What is worth shooting
+
+- Portfolio at rest — the poster cards, the quiet sidebar, the one title row.
+- A project page on Design — pinned tab rail, mark and key in the toolbar, no second headline.
+- The same page with Contents open, showing the reserved gutter.
+- Timeline — the Gantt with a dependency link and the Today rule.
+- Dark mode of any of them.

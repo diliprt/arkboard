@@ -437,6 +437,14 @@ Capture still knows these fields so Chief of Staff can read them via the engine 
 
 Sending persists via existing Activity as kind `handoff`, targeted at `Product` (Chief of Staff), actor `Riyu`. Do not invent a second store.
 
+## The tabs are living documents
+
+`product/` is not reference material sitting beside the app — it is what the app renders. Design, Architecture, Mockups and Decisions are screens, and a screen showing chrome that no longer exists is as broken as one that fails to lay out.
+
+So the documents ship **in the same pull request as the chrome they describe**. A PR that changes the sidebar, the cards, the tab rail or the title bar and leaves the tab describing the old one is not finished. `product/mockups/` holds the latest measured window shots from the current build; an empty gallery is honest, a gallery of last month's chrome is not.
+
+Historical locks in [decisions.md](decisions.md) are never rewritten to look prescient. When one goes stale, it gets a supersede line above it and keeps its original text, because the reasoning is the record.
+
 ## Measures before review
 
 **Mac-first measures before Critique.** A still without the click measures is not a review. Before a UI change is reviewed, Apple Build compiles it on the existing Mac checkout and runs `./scripts/mac_measure.sh` against the running Debug build. The script prints its numbers as JSON and exits non-zero when they drift; that JSON goes in the Critique packet.

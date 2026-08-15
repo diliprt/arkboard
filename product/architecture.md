@@ -18,6 +18,21 @@ Arkboard.app  (SwiftUI App, @MainActor)
 └── DocumentLibrary       reads product/ from disk (or GitHub), never writes
 ```
 
+## Current shape
+
+**Supersedes the screen names below.** The engine described in this document is accurate; some of the screens it names are no longer places a human can go.
+
+The human chrome today is **Portfolio**, **Timeline**, and pinned projects in the left column, with a project page of six tabs. **Monitor and Activity are engine, not screens** — they have no sidebar row and no destination. Their data is real and agents read it; where it surfaces for a human is:
+
+| Engine | Surfaces today as |
+| --- | --- |
+| Monitor's open questions | the gold chips above a project's Decisions tab |
+| Monitor's capability health | the API, and `MonitorView` retained but unrouted |
+| Monitor's server status | the dot in the sidebar footer, and Settings → Agents |
+| Activity | the Chat with Chief of Staff sheet's history |
+
+Read "Monitor shows…" below as "the engine computes…". Nothing here is a brief to add a Monitor row back to the sidebar; that is locked shut in [decisions.md](decisions.md).
+
 ## The split that defines everything
 
 Two stores, and knowing which is which prevents every architectural mistake this app can make.
