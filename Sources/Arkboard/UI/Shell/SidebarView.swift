@@ -38,6 +38,7 @@ struct SidebarView: View {
                             .foregroundStyle(StudioColor.secondary)
                     }
                     .padding(.vertical, Metrics.sidebarRowY)
+                    .quietSelection()
                     .tag(SidebarItem.project(project.id))
                     .contextMenu {
                         Button(project.pinned ? "Unpin" : "Pin") {
@@ -50,16 +51,13 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
-        // The selected row is the system's quiet selection, not a saturated
-        // accent fill. Every row states its own colours, so the mark and the
-        // key stay readable whether or not the row is selected.
-        .tint(StudioColor.quietSelection)
         .navigationSplitViewColumnWidth(min: Metrics.sidebarMin, ideal: Metrics.sidebarIdeal, max: Metrics.sidebarMax)
         .columnBottomBar(footer)
     }
 
     /// Destination rows share the project rows' leading column, so the symbols
-    /// and the marks below them line up.
+    /// and the marks below them line up. Every colour is stated, so nothing is
+    /// forced to white by a selection state.
     private func destinationRow(_ title: String, section: StudioSection) -> some View {
         HStack(spacing: 10) {
             Image(systemName: section.symbol)
@@ -72,6 +70,7 @@ struct SidebarView: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, Metrics.sidebarRowY)
+        .quietSelection()
     }
 
     /// Onboarding and the agent server sit on the same bar as the list, not in a
