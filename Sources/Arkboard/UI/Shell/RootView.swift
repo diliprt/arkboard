@@ -32,6 +32,12 @@ struct RootView: View {
         }
         .navigationTitle(windowTitle)
         .navigationSubtitle(store.workspace?.name ?? "Origin Ark")
+        // One title, on one row, on every screen. Left to `.automatic`, AppKit
+        // gives the title its own line under the toolbar when a screen has few
+        // toolbar items — which is why Timeline, with only the Contents toggle,
+        // grew a second row that read as an in-page title band while Portfolio
+        // and the project page kept theirs inline.
+        .toolbarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Toggle(isOn: Binding(
