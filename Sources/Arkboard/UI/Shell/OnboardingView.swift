@@ -20,10 +20,11 @@ struct OnboardingView: View {
                             minHeight: Metrics.emptyPaneMin
                         )
                     } else {
-                        MarkdownView(markdown: markdown, hue: .indigo)
+                        MarkdownView(markdown: markdown, hue: .indigo, suppressedTitle: "Onboarding")
                     }
                 }
                 .padding(Metrics.paneX)
+                .padding(.trailing, store.readingGutter(showsContents: true))
                 .padding(.vertical, Metrics.paneY)
                 .frame(width: DocumentMeasure.pageWidth(paneWidth: geo.size.width), alignment: .leading)
             }
@@ -41,7 +42,10 @@ struct OnboardingView: View {
     }
 
     private func publish() {
-        store.publishOutline(headings: MarkdownParser.headings(in: markdown), hue: .indigo)
+        store.publishOutline(
+            headings: MarkdownParser.headings(in: markdown, suppressingTitle: "Onboarding"),
+            hue: .indigo
+        )
         store.publishPageFocus(PageFocus(
             destination: "onboarding",
             documentPath: "product/onboarding.md",
