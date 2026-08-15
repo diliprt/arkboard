@@ -9,7 +9,7 @@ struct SidebarView: View {
         @Bindable var store = store
         List(selection: $store.sidebarSelection) {
             Section {
-                Label {
+                SwiftUI.Label {
                     Text(store.workspace?.name ?? "Origin Ark")
                         .font(type.bodyStrong)
                 } icon: {
@@ -84,7 +84,7 @@ struct SidebarView: View {
             }
         }()
         return NavigationLink(value: item) {
-            Label {
+            SwiftUI.Label {
                 Text(section.title).font(type.body)
             } icon: {
                 Image(systemName: section.symbol)
