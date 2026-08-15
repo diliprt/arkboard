@@ -1326,6 +1326,34 @@ def check_portfolio_hero_cards(swift: str, sidebar: str, ui: str, decisions: str
     ok("decisions keeps Apple language", "Locked — Apple language, not Apple content" in decisions)
 
 
+def without_comments(source: str) -> str:
+    """Swift source with `//` comments removed.
+
+    Locks about code must read code. A prose line can otherwise satisfy a lock
+    that greps for a call, or trip one that forbids it.
+    """
+    lines = []
+    for line in source.split("\n"):
+        stripped = line.lstrip()
+        if stripped.startswith("//"):
+            continue
+        quoted = False
+        cut = len(line)
+        index = 0
+        while index < len(line) - 1:
+            char = line[index]
+            if char == '"':
+                quoted = not quoted
+            elif char == "\\" and quoted:
+                index += 1
+            elif not quoted and line[index : index + 2] == "//":
+                cut = index
+                break
+            index += 1
+        lines.append(line[:cut])
+    return "\n".join(lines)
+
+
 def summary_sentence(text: str, name: str) -> str:
     """Mirrors MarkdownParser.asSentence: no card line starts mid-sentence."""
     result = strip_name_prefix(text, name).strip()
@@ -1421,16 +1449,36 @@ def check_critique_musts(swift: str, home: str, root: str, sidebar: str, ui: str
     ok("sentence repair lives in Swift", "func asSentence" in swift)
 
     # Must 6 — landing on Mockups does not move the rail.
-    ok("no geometry animation on a tab change", "value: tab)" not in home)
-    ok("the scroll reset is unanimated", "disablesAnimations = true" in home)
-    ok("every tab resets the same way", "restTop(proxy)" in home)
+    code = without_comments(home)
+    ok("no geometry animation on a tab change", "value: tab)" not in code)
+    ok("the scroll reset is unanimated", "disablesAnimations = true" in code)
+    ok("every tab resets the same way", "restTop(proxy)" in code)
     ok("the gallery cell height is known before it paints",
-       "Metrics.mockupCell" in home and "Metrics.mockupThumb" in home)
+       "Metrics.mockupCell" in code and "Metrics.mockupThumb" in code)
+
+    # Design -> Mockups -> Design does not move the tab rail. Each clause below
+    # is one way that promise has already been broken once.
+    setter = code.split("private func selection(for item: ProjectHomeTab)")[1].split("private func")[0] if "private func selection(for item: ProjectHomeTab)" in code else ""
+    stack = code.split("pinnedViews: .sectionHeaders")[1] if "pinnedViews: .sectionHeaders" in code else ""
+    rail_still = [
+        ("the rail is first in the scroll",
+         stack.split("{", 1)[1].strip().startswith("Section {") if stack else False),
+        ("the rail is never the scroll target", 'scrollTo("tab-bar"' not in code),
+        ("no easing wraps the tab assignment", bool(setter) and "withAnimation" not in setter),
+        ("no animation modifier is keyed on the tab", "value: tab)" not in code),
+        ("the reset disables animation", "disablesAnimations = true" in code),
+        ("the gallery is sized before it paints", "Metrics.mockupCell" in code),
+    ]
+    for name, held in rail_still:
+        ok(f"rail stays put — {name}", held)
+    ok("Design to Mockups to Design does not move the tab rail",
+       all(held for _, held in rail_still))
 
     # Sidebar selection stays readable.
     ok("selection is the system's quiet grey", "quietSelection" in swift)
     ok("selection is not a colour we mixed", "unemphasizedSelectedContentBackgroundColor" in swift)
-    ok("the sidebar tints its selection", "StudioColor.quietSelection" in sidebar)
+    ok("the sidebar keeps the unemphasized selection", "quietSelection()" in sidebar)
+    ok("a tint is not used for the selected row", ".tint(" not in without_comments(sidebar))
     ok("destination rows state their own colours", "func destinationRow" in sidebar)
     ok("the project key stays readable when selected",
        "StudioColor.tertiary" not in sidebar.split("Text(project.key)")[1].split("}")[0]
@@ -1445,6 +1493,33 @@ def check_critique_musts(swift: str, home: str, root: str, sidebar: str, ui: str
     ok("ui-spec keeps the rail still", "does not move" in ui.lower() or "stays put" in ui.lower())
     ok("decisions locks the poster card", "Locked — The Portfolio card is the picture" in decisions)
     ok("decisions locks one headline", "Locked — One headline" in decisions)
+    ok("decisions locks the grey selected row",
+       "Locked — The selected sidebar row is always the unemphasized grey" in decisions)
+    ok("decisions says grey holds when focused", "focused or not" in decisions)
+    ok("decisions locks Timeline without a title", "Timeline has no in-page title" in decisions)
+
+    # MUST 7 — one grey selected row, every destination, focused or not.
+    quiet = (SOURCES / "UI/Shell/QuietSelection.swift").read_text()
+    ok("source UI/Shell/QuietSelection.swift", bool(quiet))
+    ok("the sidebar refuses first responder like Finder", "refusesFirstResponder" in quiet)
+    ok("no grey capsule is hand-drawn for selection",
+       "RoundedRectangle" not in quiet and "Capsule" not in quiet)
+    ok("every destination row is quiet", without_comments(sidebar).count("quietSelection()") >= 2)
+    ok("destination symbols keep their section hue", "section.hue.color(for: scheme)" in sidebar)
+    ok("the project mark is not forced white", "StudioColor.primary" in sidebar)
+    ok("the key is not forced white", "StudioColor.secondary" in sidebar)
+
+    # MUST 1 leftover — Timeline opens on the chart.
+    timeline = (SOURCES / "UI/Portfolio/TimelineView.swift").read_text()
+    ok("Timeline has no in-page title band",
+       "ScreenHeader" not in timeline and "Every project on one timeline." not in timeline)
+    ok("Timeline pane opens on the Gantt", "TimelineGanttView(projectId: nil)" in timeline)
+    ok("the window title is one row on every screen", "toolbarTitleDisplayMode(.inline)" in root)
+    ok("ui-spec says Timeline has no in-page title", "Timeline has no in-page title" in ui)
+    ok("ui-spec pins the title to one row", "one row, on every screen" in ui)
+    ok("ui-spec locks the grey selected row",
+       "including when the sidebar has focus" in ui)
+    ok("ui-spec forbids tinting the selection", "Do not \"fix\" this by tinting the list" in ui)
     ok("onboarding tells a human where the card goes", "product/card.png" in
        (PRODUCT / "onboarding.md").read_text())
 

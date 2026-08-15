@@ -35,7 +35,11 @@ On macOS 14 and 15 every one of these resolves to the system material of that re
 
 232pt wide, `.sidebar` list style, one selection. There is no Studio section. The workspace name lives in the window subtitle, not in this column. No workspace icon, no fake destination.
 
-The column is the system's glass and nothing else is painted behind it. The selected row is the one system highlight — not a custom capsule, not a coloured fill.
+The column is the system's glass and nothing else is painted behind it.
+
+**The selected row is always the system's unemphasized selection — the quiet grey — including when the sidebar has focus.** Never the accent blue. A saturated fill forces the row's content to white, which erases the project's mark and its key, and those are the two things the row exists to show. Mark, name and key keep their own colours in every state, and destination symbols keep their section hue.
+
+This is not a colour we paint. `unemphasizedSelectedContentBackgroundColor` is a colour to draw *with*, not a mode to switch on: AppKit picks the emphasized or unemphasized style from whether the list is first responder, and a `tint` reaches the row's icons and stops there. Finder, Mail and Music keep their sidebars from taking first responder, and Arkboard does the same. Do not "fix" this by tinting the list, and do not hand-draw a grey capsule behind the row.
 
 **Pacing.** The navigation column is paced more loosely than the document. Every row takes `Metrics.sidebarRowY` of air above and below its content, and the hairline between the destinations and the pins takes the same, so the column reads as a short list of places rather than a dense table. Row height follows from that air plus the type scale; it is never a fixed number. There are no all-caps section headers anywhere in this column, and no section header at all above the pins.
 
@@ -85,7 +89,11 @@ What replaces it, per screen:
 | Portfolio | `Portfolio` | the cards |
 | Timeline | `Timeline` | the chart, with its own `Week` / `Month` / `Quarter` control |
 | Onboarding | `Onboarding` | the document |
-| A project | the project name | the identity strip, then the tab rail |
+| A project | the project name | the tab rail |
+
+**Timeline has no in-page title.** The pane opens on the scale control and the Gantt, with nothing above them.
+
+The title also sits on **one row, on every screen**. Left to itself, AppKit gives the title its own line beneath the toolbar when a screen carries few toolbar items, and takes it inline when there are more — so Timeline, which has only the Contents toggle, grew a second row while Portfolio and the project page kept theirs inline. A title and subtitle stacked in their own band under the toolbar reads as exactly the in-page headline this section deletes, even though no view is drawing one. The window uses the inline title display mode so every screen looks the same.
 
 Page actions belong in the window toolbar on toolbar glass — `New Project` on Portfolio, the Contents toggle everywhere. A screen-level filter or scale control may sit as a quiet native control at the top of its own content, next to the thing it filters. Neither is a headline.
 
