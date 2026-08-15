@@ -2,19 +2,45 @@ import AppKit
 import SwiftUI
 
 enum FocusedSelection {
+    private static var lastHighlight = ""
+
     static func currentText() -> String {
-        guard let responder = NSApp.keyWindow?.firstResponder else { return "" }
-        if let textView = responder as? NSTextView {
-            return selectedString(in: textView)
+        if let live = liveSelection(), !live.isEmpty {
+            lastHighlight = live
+            return live
         }
-        if let field = responder as? NSTextField, let editor = field.currentEditor() as? NSTextView {
-            return selectedString(in: editor)
+        return lastHighlight
+    }
+
+    private static func liveSelection() -> String? {
+        if let responder = NSApp.keyWindow?.firstResponder {
+            if let textView = responder as? NSTextView {
+                let text = selectedString(in: textView)
+                if !text.isEmpty { return text }
+            }
+            if let field = responder as? NSTextField, let editor = field.currentEditor() as? NSTextView {
+                let text = selectedString(in: editor)
+                if !text.isEmpty { return text }
+            }
+            if let view = responder as? NSView,
+               let editor = view.window?.fieldEditor(false, for: nil) as? NSTextView {
+                let text = selectedString(in: editor)
+                if !text.isEmpty { return text }
+            }
         }
-        if let view = responder as? NSView,
-           let editor = view.window?.fieldEditor(false, for: nil) as? NSTextView {
-            return selectedString(in: editor)
+        guard let root = NSApp.keyWindow?.contentView else { return nil }
+        return firstSelectedText(in: root)
+    }
+
+    private static func firstSelectedText(in view: NSView) -> String? {
+        if let textView = view as? NSTextView {
+            let text = selectedString(in: textView)
+            if !text.isEmpty { return text }
         }
-        return ""
+        for child in view.subviews {
+            if let found = firstSelectedText(in: child) { return found }
+        }
+        return nil
     }
 
     private static func selectedString(in textView: NSTextView) -> String {

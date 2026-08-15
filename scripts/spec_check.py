@@ -777,6 +777,26 @@ def check_chief_handoff(swift: str, home: str, root: str, sidebar: str, ui: str)
        "building.2" not in sidebar and "New Project" not in sidebar and "Divider()" in sidebar)
     ok("#19 cardSummary kept", "cardSummary" in (SOURCES / "UI/Portfolio/PortfolioView.swift").read_text())
 
+    sheet = (SOURCES / "UI/Project/ProjectNoteSheet.swift").read_text()
+    ok("sheet title is Chat with Chief of Staff",
+       "Chat with Chief of Staff" in sheet or "ChiefOfStaffCopy.menuTitle" in sheet or "ChiefOfStaffCopy.sheetTitle" in sheet)
+    ok("sheet title is not Note", 'Text("Note")' not in sheet)
+    ok("menu label stays Chat with Chief of Staff",
+       'static let menuTitle = "Chat with Chief of Staff"' in (SOURCES / "Model/ChiefHandoff.swift").read_text())
+    ok("sheet shows the friendly page line", "pageLine" in sheet)
+    ok("sheet has no quietMetadata dump", "quietMetadata" not in sheet)
+    ok("sheet UI has no ISO timestamp", "StudioISO8601" not in sheet and "T09:" not in sheet)
+    body = sheet.split("var body")[1] if "var body" in sheet else sheet
+    ok("sheet UI has no project · dump", "project ·" not in body and "destination" not in body)
+    ok("ui-spec sheet title matches the menu",
+       "sheet titled" in ui.lower() or "title is exactly" in ui.lower() or "same words as the menu" in ui)
+    ok("ui-spec humans see only the friendly line",
+       "friendly" in ui.lower() and "do not show a raw dump" in ui.lower())
+    ok("SwiftUI menus share the document highlight",
+       "lastHighlight" in swift and "firstSelectedText" in swift)
+    ok("History is still the Activity log",
+       'Text("History")' in sheet and "chat thread" not in sheet.lower())
+
 
 def main() -> int:
     expected_routes = {

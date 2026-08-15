@@ -65,7 +65,7 @@ Not a sidebar row. The engine — open questions parsed from Decisions, capabili
 
 ### Composer
 
-A compact note sheet opened from the project-home header icon (or `⌘N`), not a large box in the project scroll. The same sheet opens from any page — Portfolio, Timeline, Onboarding, or a project — when the human chooses `Chat with Chief of Staff`.
+A compact sheet titled `Chat with Chief of Staff` — the same words as the menu — opened from the project-home header icon (or `⌘N`), not a large box in the project scroll. The same sheet opens from any page — Portfolio, Timeline, Onboarding, or a project — when the human chooses that menu item.
 
 - A short field, placeholder `Tell the team…`, `Send` with `⌘↩`.
 - **History** of notes for this project from existing Activity. No second store. On Portfolio / Timeline / Onboarding the note is studio-scoped (`projectId` empty).
@@ -314,12 +314,14 @@ An AppKit / SwiftUI context menu on the entire app — sidebar, document, tabs, 
 
 Existing useful items stay. Pin / Unpin on a project row stay; this item is added. Issue rows keep `Copy identifier`, `Copy title`, and `Archive`. This menu does not offer status, priority, assignee, or issue creation. It does not open an external Grok chat. The board is the inbox.
 
-Choosing the item (with a highlight or with none) opens the compact note sheet with:
+Choosing the item (with a highlight or with none) opens that sheet. The title is exactly `Chat with Chief of Staff`. Do not title it Note.
 
 - The current selection prefilled in the field (editable). If they copied, prefer the current selection in the view over the clipboard.
-- A quiet metadata line — not a wall of text — from the handoff payload.
+- One quiet friendly line for where they are, e.g. `Arkboard · Design · product/design.md`. Do not show a raw dump — no ISO timestamp, no `project · ARK · Design · …`, no destination jargon, no tab twice.
 
-The payload always includes:
+The handoff still records these fields in Activity so Chief of Staff can act. Humans see only the friendly line on the sheet.
+
+Recorded fields:
 
 - **selected text**, if any
 - **destination** — `portfolio` | `timeline` | `onboarding` | `project`

@@ -14,14 +14,11 @@ struct ProjectNoteSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Note").font(type.title)
+            Text(ChiefOfStaffCopy.menuTitle).font(type.title)
             if let handoff {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(handoff.pageLine)
-                    Text(handoff.quietMetadata)
-                }
-                .font(type.caption)
-                .foregroundStyle(StudioColor.tertiary)
+                Text(handoff.pageLine)
+                    .font(type.caption)
+                    .foregroundStyle(StudioColor.tertiary)
             }
             NoteComposer(projectKey: project?.key, initialDraft: initialDraft, handoff: handoff)
             Text("History").font(type.heading)
