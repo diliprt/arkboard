@@ -1441,6 +1441,64 @@ def swift_constant(source: str, name: str) -> str | None:
     return None
 
 
+def check_glass_navigation(ui: str, decisions: str, design: str) -> None:
+    """Frosted navigation against a solid document, and nothing opaque between."""
+    glass = without_comments((SOURCES / "UI/Theme/GlassSurface.swift").read_text())
+    sidebar = without_comments((SOURCES / "UI/Shell/SidebarView.swift").read_text())
+    contents = without_comments((SOURCES / "UI/Markdown/ContentsOutline.swift").read_text())
+    root = without_comments((SOURCES / "UI/Shell/RootView.swift").read_text())
+    home = without_comments((SOURCES / "UI/Project/ProjectHomeView.swift").read_text())
+
+    # Nothing solid may be painted on a navigation surface. These are the fills
+    # that belong to the content layer; finding one here is the bug.
+    solids = ("StudioColor.documentField", "StudioColor.card", "StudioColor.editor")
+    for name, source in (("the sidebar", sidebar), ("Contents", contents), ("the shell", root)):
+        for solid in solids:
+            ok(f"{name} paints no {solid.split('.')[-1]}", solid not in source)
+    ok("the sidebar hides its own list background", "scrollContentBackground(.hidden)" in sidebar)
+    ok("the sidebar carries no material of its own",
+       ".background(.bar)" not in sidebar and "regularMaterial" not in sidebar)
+    ok("the footer sits on the column, not on a second material",
+       "bar.background(.bar)" not in glass and "seated" in glass)
+
+    # Glass edges are lines, never fills.
+    ok("a glass edge exists", "struct GlassEdge" in glass)
+    ok("the glass edge is a hairline",
+       "StudioColor.hairline" in glass and "axis == .horizontal ? 1 : nil" in glass)
+    rail_surface = glass.split("func navigationBarSurface")[1].split("func ")[0] if "func navigationBarSurface" in glass else ""
+    footer_bar = glass.split("func columnBottomBar")[1].split("func ")[0] if "func columnBottomBar" in glass else ""
+    ok("the tab rail draws its edge", "GlassEdge(.horizontal)" in rail_surface)
+    ok("the sidebar footer draws its edge", "GlassEdge(.horizontal)" in footer_bar)
+    ok("Contents draws its edge", "StudioColor.hairline" in root)
+    ok("the tab rail is still glass", "navigationBarSurface" in home)
+
+    # The document stays solid. Prose is never on glass.
+    ok("the document field is opaque", "documentField" in glass and "paneBackground" in glass)
+    ok("only paneBackground fills the document field",
+       glass.count("StudioColor.documentField") == 1)
+    ok("the markdown reader takes no glass",
+       "glassEffect" not in without_comments((SOURCES / "UI/Markdown/MarkdownView.swift").read_text()))
+    ok("Portfolio cards take no glass",
+       "glassEffect" not in without_comments((SOURCES / "UI/Portfolio/PortfolioView.swift").read_text()))
+    ok("the Gantt takes no glass",
+       "glassEffect" not in without_comments((SOURCES / "UI/Portfolio/TimelineGantt.swift").read_text()))
+
+    # Tahoe behind availability, no third appearance.
+    ok("glass is behind an availability check", "if #available(macOS 26.0, *)" in glass)
+    ok("older releases keep their own material",
+       ".background(.bar)" in glass and "regularMaterial" in glass)
+
+    # What the still is, and is not.
+    ok("decisions locks the dark-glass target",
+       "Locked — Frosted navigation, solid document" in decisions)
+    ok("decisions rules out a wallpaper", "wallpaper" in decisions.lower())
+    ok("decisions rules out IDE chrome",
+       "icon rail" in decisions.lower() and "file tree" in decisions.lower())
+    ok("ui-spec says prose is never on glass", "never on glass" in ui.lower())
+    ok("design names dark as first class", "first-class" in design.lower() or "first class" in design.lower())
+    ok("design keeps the hairline on glass edges", "hairline" in design.lower())
+
+
 def check_mac_measures(ui: str, decisions: str) -> None:
     """Mac-first measures before Critique.
 
@@ -1984,6 +2042,7 @@ def main() -> int:
     check_tab_body_origin(home, ui, decisions)
     check_mac_measures(ui, decisions)
     check_living_tabs(ui, decisions, design)
+    check_glass_navigation(ui, decisions, design)
 
     print()
     if FAIL:

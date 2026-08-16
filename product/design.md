@@ -16,6 +16,8 @@ One window, two columns, and a title bar that names the page once.
 
 **Liquid Glass is the navigation layer and only the navigation layer** — the sidebar, the window toolbar, the project tab rail, the Contents inspector. A page of prose on glass cannot be read, which is the one mistake this split exists to prevent. On macOS 14 and 15 every one of those surfaces resolves to that release's system material; on Tahoe they become glass. There is no third, hand-rolled appearance.
 
+**Dark is a first-class look.** Frosted rails should stand in front of an opaque page the way they do in a good dark IDE — and that is the hardest case for the split, because a translucent rail and a solid page can land close in value and flatten into one field. Glass alone is not enough there, so every glass edge is drawn: a 1pt hairline in `separatorColor` at the bottom of the tab rail, the top of the sidebar footer, and the leading edge of Contents. A line, never a filled strip. Nothing else is painted on a navigation surface, and no wallpaper sits behind the sidebar — the material samples the desktop, which is the system's job and not something to fake with a picture.
+
 ### Portfolio is a wall of posters
 
 Each project is a card led by its own picture — `product/card.png`, full-bleed to the card's rounded corners — with the project's name and one line of summary underneath, and nothing else. Checkout paths, the GitHub remote, and which documents exist are metadata about a project rather than a picture of one; they live on the project page, one click away. A project with no poster yet falls back to its mark, and then to a field in its own colour. Never a small chip beside a stack of fields.
