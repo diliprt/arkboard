@@ -39,19 +39,19 @@ func label(_ date: Date) -> String {
 equal("week column starts on Monday", label(GanttMath.columnStart(containing: day(2026, 8, 15), scale: .week)), "2026-08-10")
 equal("week column start is idempotent", label(GanttMath.columnStart(containing: day(2026, 8, 10), scale: .week)), "2026-08-10")
 equal("month column starts on the first", label(GanttMath.columnStart(containing: day(2026, 8, 15), scale: .month)), "2026-08-01")
-equal("quarter column starts on Q3", label(GanttMath.columnStart(containing: day(2026, 8, 15), scale: .quarter)), "2026-07-01")
-equal("quarter column starts on Q1", label(GanttMath.columnStart(containing: day(2026, 1, 5), scale: .quarter)), "2026-01-01")
-equal("quarter column starts on Q4", label(GanttMath.columnStart(containing: day(2026, 12, 31), scale: .quarter)), "2026-10-01")
+equal("year column starts on 1 January", label(GanttMath.columnStart(containing: day(2026, 8, 15), scale: .year)), "2026-01-01")
+equal("year column start is idempotent", label(GanttMath.columnStart(containing: day(2026, 1, 1), scale: .year)), "2026-01-01")
+equal("year column starts on this year from December", label(GanttMath.columnStart(containing: day(2026, 12, 31), scale: .year)), "2026-01-01")
 
 equal("advance one week", label(GanttMath.advance(day(2026, 8, 10), scale: .week, by: 1)), "2026-08-17")
 equal("advance back one month", label(GanttMath.advance(day(2026, 8, 1), scale: .month, by: -1)), "2026-07-01")
-equal("advance one quarter", label(GanttMath.advance(day(2026, 7, 1), scale: .quarter, by: 1)), "2026-10-01")
-equal("advance across a year", label(GanttMath.advance(day(2026, 10, 1), scale: .quarter, by: 1)), "2027-01-01")
+equal("advance one year", label(GanttMath.advance(day(2026, 1, 1), scale: .year, by: 1)), "2027-01-01")
+equal("advance back one year", label(GanttMath.advance(day(2026, 1, 1), scale: .year, by: -1)), "2025-01-01")
 
 equal("week column label", GanttMath.columnLabel(day(2026, 8, 10), scale: .week), "10 Aug")
 equal("month column label", GanttMath.columnLabel(day(2026, 8, 1), scale: .month), "Aug 2026")
-equal("quarter column label", GanttMath.columnLabel(day(2026, 7, 1), scale: .quarter), "Q3 2026")
-equal("first quarter label", GanttMath.columnLabel(day(2026, 1, 1), scale: .quarter), "Q1 2026")
+equal("year column label", GanttMath.columnLabel(day(2026, 1, 1), scale: .year), "2026")
+equal("year column label from mid-year start", GanttMath.columnLabel(GanttMath.columnStart(containing: day(2027, 8, 15), scale: .year), scale: .year), "2027")
 
 // MARK: - Window
 
@@ -277,8 +277,8 @@ equal(
 
 // MARK: - Scale
 
-equal("scales are week, month, quarter", TimelineScale.allCases.map(\.rawValue), ["week", "month", "quarter"])
-equal("scale labels", TimelineScale.allCases.map(\.label), ["Week", "Month", "Quarter"])
+equal("scales are week, month, year", TimelineScale.allCases.map(\.rawValue), ["week", "month", "year"])
+equal("scale labels", TimelineScale.allCases.map(\.label), ["Week", "Month", "Year"])
 
 print("")
 if failed > 0 {

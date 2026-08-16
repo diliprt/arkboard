@@ -24,10 +24,12 @@ enum ToolCatalogue {
                 "pinned": ["type": "boolean"],
                 "actor": ["type": "string"],
             ], required: ["key", "name"]),
-            tool("update_project", "Update a project. Agents use this to pin or unpin.", [
+            tool("update_project", "Update a project. Agents use this to pin or unpin, or to set the local checkout and GitHub remote.", [
                 "id": ["type": "string"],
                 "key": ["type": "string"],
                 "pinned": ["type": "boolean"],
+                "repoPath": ["type": "string"],
+                "githubRepo": ["type": "string"],
                 "actor": ["type": "string"],
             ]),
             tool("list_documents", "List product/ documents for a project", [
@@ -178,6 +180,10 @@ enum ToolCatalogue {
             let project = try store.updateProject(
                 idOrKey: id,
                 pinned: HTTPJSON.optionalBool(arguments, "pinned"),
+                repoPath: HTTPJSON.string(arguments, "repoPath"),
+                setRepoPath: arguments["repoPath"] != nil,
+                githubRepo: HTTPJSON.string(arguments, "githubRepo"),
+                setGitHubRepo: arguments["githubRepo"] != nil,
                 actor: HTTPJSON.string(arguments, "actor") ?? "Agent"
             )
             return JSONPayload.project(project, openIssueCount: store.openIssueCount(for: project))

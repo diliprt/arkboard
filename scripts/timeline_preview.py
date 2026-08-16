@@ -165,7 +165,7 @@ def panel(plan: dict, pane_width: float, caption: str) -> tuple[list[str], float
         f'<rect x="{cx}" y="{cy}" width="260" height="{control_h}" rx="6" fill="{CARD}" '
         f'stroke="{HAIRLINE}"/>'
     )
-    for i, name in enumerate(("Week", "Month", "Quarter")):
+    for i, name in enumerate(("Week", "Month", "Year")):
         selected = name.lower() == scale
         if selected:
             out.append(
@@ -368,7 +368,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     master_month = sc.gantt_plan(PROJECTS, MILESTONES, EVENTS, scope=None, scale="month", now=NOW)
-    master_quarter = sc.gantt_plan(PROJECTS, MILESTONES, EVENTS, scope=None, scale="quarter", now=NOW)
+    master_year = sc.gantt_plan(PROJECTS, MILESTONES, EVENTS, scope=None, scale="year", now=NOW)
     scoped = sc.gantt_plan(PROJECTS, MILESTONES, EVENTS, scope="p-ark", scale="month", now=NOW)
 
     print("master month rows:", [f'{r["kind"]}:{r["id"]}' for r in master_month["rows"]])
@@ -383,10 +383,10 @@ def main() -> None:
         [(master_month, 1088.0, "Every project on one timeline.")],
     )
     write(
-        out_dir / "timeline_project_tab_and_quarter_scale.png",
+        out_dir / "timeline_project_tab_and_year_scale.png",
         [
             (scoped, 1088.0, "Arkboard's Timeline tab — the same Gantt, scoped to one project."),
-            (master_quarter, 1088.0, "The master Timeline at Quarter scale — same shape, coarser axis."),
+            (master_year, 1088.0, "The master Timeline at Year scale — same shape, coarser axis."),
         ],
         gap=10.0,
     )

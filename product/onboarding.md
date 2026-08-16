@@ -42,7 +42,7 @@ Riyu is reserved for the human sitting at the app. Do not send `actor=Riyu` from
 
 A project may have a local checkout path (`repoPath`), a GitHub remote (`githubRepo` as `owner/name`), or both.
 
-Documents load from local `product/` first. If there is no local folder, they load from GitHub through `gh`. The New Project sheet sets both fields. Whichever sources exist show on the project page, in the Refresh action's help text — not on the Portfolio card, which is a picture.
+Documents load from local `product/` first. If there is no local folder, they load from GitHub through `gh`. The New Project sheet sets both fields. An existing project can edit both later — Settings, or the source caption in the project toolbar. The live source reads `local · product/` or `github · owner/name`. A failed remote read is a quiet in-app message, not a crash. None of this belongs on the Portfolio card, which is a picture.
 
 ## How to run Arkboard
 
@@ -83,12 +83,12 @@ That is the Linux-runnable contract check. It does not launch the app.
 
 Left sidebar, top to bottom:
 
-1. **Portfolio** — destination. Cards of every app: brand, name, key, one-line description (README lead or stored summary), `local · …` and/or `github · owner/name`, four doc pills (Design, Architecture, Mockups, Decisions), and a pin. Clicking a card opens the project. Pinning puts the project on the sidebar; unpinning removes it from the sidebar and leaves it on Portfolio.
-2. **Timeline** — destination. The studio rollup as a Gantt: every project a row, its milestones underneath, bars on one time axis, and links showing which milestone waits on which. Scale is `Week` / `Month` / `Quarter`, default Month. Clicking a project row opens that project's Timeline tab, the same chart scoped to it. Read-only — agents set milestones and their `dependsOn` predecessors through the API.
+1. **Portfolio** — destination. Cards of every app: the picture, the name, one line of summary, and a pin. Clicking a card opens the project. Pinning puts the project on the sidebar; unpinning removes it from the sidebar and leaves it on Portfolio. Paths and document words stay off the tile.
+2. **Timeline** — destination. The studio rollup as a Gantt: every project a row, its milestones underneath, bars on one time axis, and links showing which milestone waits on which. Scale is `Week` / `Month` / `Year`, default Month. Clicking a project row opens that project's Timeline tab, the same chart scoped to it. Read-only — agents set milestones and their `dependsOn` predecessors through the API.
 3. **Pinned projects** — brand, name, key. Clicking opens the project home on Design.
 
 Footer: an **Onboarding** `sparkles` icon (this page) and **Agents · :7420**. **New Project** lives on the Portfolio page only.
 
-Project pages: thin header (mark, name, key, source, refresh, note icon) and six tabs. No overview article. No large composer. Feedback is the compact icon with history from Activity.
+Project pages: mark, key, and live source in the toolbar, then six tabs. No overview article. No large composer. Feedback is the compact icon with history from Activity.
 
 Onboarding is this page. It is not Settings and it is not labelled Setup.

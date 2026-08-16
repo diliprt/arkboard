@@ -20,6 +20,7 @@ struct ArkboardApp: App {
                 .frame(minWidth: Metrics.windowMin.width, minHeight: Metrics.windowMin.height)
         }
         .windowStyle(.automatic)
+        .windowToolbarStyle(.unified)
         .defaultSize(width: Metrics.windowDefault.width, height: Metrics.windowDefault.height)
         .commands {
             CommandGroup(replacing: .newItem) {

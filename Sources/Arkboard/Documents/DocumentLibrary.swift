@@ -186,12 +186,39 @@ actor DocumentLibrary {
                         absoluteURL: nil
                     )
                 )
+            } else if DocumentRouting.isImage(path) {
+                // Remote mockups and brand artwork live in the same tree as
+                // the prose. Skip a single failed image rather than failing
+                // the whole product/ read.
+                if let data = try? await fetchGitHubBytes(repo: repo, path: path) {
+                    documents.append(
+                        StudioDocument(
+                            path: path,
+                            tab: DocumentRouting.tab(for: path),
+                            title: DocumentRouting.title(for: path),
+                            markdown: nil,
+                            imageData: data,
+                            isImage: true,
+                            bytes: data.count,
+                            modifiedAt: Date(),
+                            absoluteURL: nil
+                        )
+                    )
+                }
             }
         }
         return documents.sorted { $0.path.localizedCaseInsensitiveCompare($1.path) == .orderedAscending }
     }
 
     private func fetchGitHubFile(repo: String, path: String) async throws -> String {
+        let data = try await fetchGitHubBytes(repo: repo, path: path)
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw NSError(domain: "DocumentLibrary", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not decode \(path) from \(repo)."])
+        }
+        return text
+    }
+
+    private func fetchGitHubBytes(repo: String, path: String) async throws -> Data {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["gh", "api", "repos/\(repo)/contents/\(path)", "--jq", ".content"]
@@ -202,9 +229,9 @@ actor DocumentLibrary {
         process.waitUntilExit()
         let raw = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         let cleaned = raw.replacingOccurrences(of: "\n", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let data = Data(base64Encoded: cleaned), let text = String(data: data, encoding: .utf8) else {
+        guard process.terminationStatus == 0, let data = Data(base64Encoded: cleaned) else {
             throw NSError(domain: "DocumentLibrary", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not decode \(path) from \(repo)."])
         }
-        return text
+        return data
     }
 }

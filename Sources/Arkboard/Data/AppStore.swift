@@ -279,7 +279,18 @@ final class AppStore {
     func updateRepoPath(projectId: String, path: String?) throws {
         _ = try mutate(actor: "Riyu") { db in
             guard var project = try Project.fetchOne(db, key: projectId) else { throw ValidationError.missingProject }
-            project.repoPath = path
+            let trimmed = path?.trimmingCharacters(in: .whitespacesAndNewlines)
+            project.repoPath = (trimmed?.isEmpty == false) ? trimmed : nil
+            try project.update(db)
+            return (project, nil)
+        }
+    }
+
+    func updateGitHubRepo(projectId: String, repo: String?) throws {
+        let normalized = try Validation.githubRepo(repo)
+        _ = try mutate(actor: "Riyu") { db in
+            guard var project = try Project.fetchOne(db, key: projectId) else { throw ValidationError.missingProject }
+            project.githubRepo = normalized
             try project.update(db)
             return (project, nil)
         }
@@ -294,6 +305,8 @@ final class AppStore {
     func createProject(key: String, name: String, color: String?, icon: String?, summary: String?, repoPath: String?, githubRepo: String?, pinned: Bool = true, actor: String) throws -> Project {
         let key = try Validation.projectKey(key)
         let name = try Validation.collapseTitle(name)
+        let github = try Validation.githubRepo(githubRepo)
+        let local = repoPath?.trimmingCharacters(in: .whitespacesAndNewlines)
         return try mutate(actor: actor) { db in
             if try Project.filter(Column("key") == key).fetchOne(db) != nil {
                 throw ValidationError.duplicateKey(key)
@@ -309,8 +322,8 @@ final class AppStore {
                 color: (color?.isEmpty == false) ? color! : mark.color,
                 icon: (icon?.isEmpty == false) ? icon! : mark.symbol,
                 summary: summary ?? "",
-                repoPath: repoPath,
-                githubRepo: githubRepo,
+                repoPath: (local?.isEmpty == false) ? local : nil,
+                githubRepo: github,
                 issueCounter: 0,
                 capabilityCounter: 0,
                 sortOrder: Double(existing.count),
@@ -322,8 +335,10 @@ final class AppStore {
         }
     }
 
-    func updateProject(idOrKey: String, pinned: Bool?, actor: String) throws -> Project {
-        try mutate(actor: actor) { db in
+    func updateProject(idOrKey: String, pinned: Bool?, repoPath: String? = nil, setRepoPath: Bool = false, githubRepo: String? = nil, setGitHubRepo: Bool = false, actor: String) throws -> Project {
+        let github = setGitHubRepo ? try Validation.githubRepo(githubRepo) : nil
+        let local = repoPath?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return try mutate(actor: actor) { db in
             var project = try Project.fetchOne(db, key: idOrKey)
             if project == nil {
                 project = try Project.filter(Column("key") == idOrKey.uppercased()).fetchOne(db)
@@ -331,6 +346,12 @@ final class AppStore {
             guard var project else { throw ValidationError.missingProject }
             if let pinned {
                 project.pinned = pinned
+            }
+            if setRepoPath {
+                project.repoPath = (local?.isEmpty == false) ? local : nil
+            }
+            if setGitHubRepo {
+                project.githubRepo = github
             }
             try project.update(db)
             return (project, nil)

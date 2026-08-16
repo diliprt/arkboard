@@ -32,18 +32,25 @@ struct SettingsView: View {
                 specimen
             }
             Section("Studio") {
-                Text(store.workspace?.name ?? "Origin Ark")
+                HStack(spacing: 8) {
+                    Image(systemName: "leaf.fill")
+                        .font(type.caption)
+                        .foregroundStyle(OriginArkBrand.sageColor)
+                    Text(store.workspace?.name ?? "Origin Ark")
+                }
                 ForEach(store.projects) { project in
-                    HStack {
-                        ProjectIcon(project: project, imageData: store.markImage(for: project), size: 18)
-                        Text(project.name)
-                        Spacer()
-                        Text(store.documentBundles[project.id]?.root ?? project.repoPath ?? "—")
-                            .font(type.mono)
-                            .foregroundStyle(StudioColor.secondary)
-                            .lineLimit(1)
-                        Button("Choose…") { choose(project) }
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            ProjectIcon(project: project, imageData: store.markImage(for: project), size: 18)
+                            Text(project.name)
+                            Spacer()
+                            Text(project.key)
+                                .font(type.mono)
+                                .foregroundStyle(StudioColor.secondary)
+                        }
+                        ProjectSourcesEditor(project: project, compact: true)
                     }
+                    .padding(.vertical, 4)
                 }
             }
             Section("Agents") {
@@ -70,7 +77,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 560, height: 620)
+        .frame(width: 560, height: 680)
     }
 
     private var specimen: some View {
@@ -107,13 +114,4 @@ struct SettingsView: View {
         }
     }
 
-    private func choose(_ project: Project) {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        if panel.runModal() == .OK, let url = panel.url {
-            try? store.updateRepoPath(projectId: project.id, path: url.path)
-            Task { await store.refreshDocuments(projectId: project.id) }
-        }
-    }
 }

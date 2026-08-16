@@ -89,7 +89,7 @@ What replaces it, per screen:
 | Screen | Window title | What starts the pane |
 | --- | --- | --- |
 | Portfolio | `Portfolio` | the cards |
-| Timeline | `Timeline` | the chart, with its own `Week` / `Month` / `Quarter` control |
+| Timeline | `Timeline` | the chart, with its own `Week` / `Month` / `Year` control |
 | Onboarding | `Onboarding` | the document |
 | A project | the project name | the tab rail |
 
@@ -232,7 +232,7 @@ The window title says Timeline. The pane opens on the chart itself — no repeat
 
 Timeline is a destination, and it is a Gantt: a project plan, not a month grid of days. Rows are the studio's broader projects; each project's milestones sit underneath it. Bars run left to right across one shared time axis, and dependency links join a milestone to the ones it waits on. This is the studio rollup — the view that answers "what is every project doing between now and Christmas", which a grid of dated cells cannot.
 
-Scale control: `Week` / `Month` / `Quarter`. Default Month. The scale only decides how wide one gridline column is; the shape is always bars on a timeline.
+Scale control: `Week` / `Month` / `Year`. Default Month. The scale only decides how wide one gridline column is; the shape is always bars on a timeline.
 
 ### Rows
 
@@ -249,7 +249,7 @@ Completed issues the engine has already dated appear as small moss ticks on thei
 
 ### Time axis
 
-Fixed above the rows, one label per column — `10 Aug`, `Aug 2026`, `Q3 2026` — on a hairline. Columns stretch to fill the pane; when that would squeeze a column below a legible width the chart scrolls horizontally and the row labels stay put. Week columns start on Monday.
+Fixed above the rows, one label per column — `10 Aug`, `Aug 2026`, `2026` — on a hairline. Columns stretch to fill the pane; when that would squeeze a column below a legible width the chart scrolls horizontally and the row labels stay put. Week columns start on Monday.
 
 Exactly one `Today` rule: a moss line through every row, with the word on the axis. The window always has room for it, whether the plan is entirely past, entirely future, or empty.
 
@@ -280,7 +280,7 @@ Everything is inside **one** vertical scroll, and the tab rail is the first thin
 There is no identity strip in the pane. The window title bar already says the project's name, and a mark-plus-key row under it is a second logo row saying the same thing again. Identity lives in the toolbar beside the title, and **the pane starts at the tab rail**.
 
 - Leading, next to the window title: the project mark at `Metrics.markSidebar` and the key in `mono`, secondary.
-- Trailing: `Refresh` (`arrow.clockwise`), whose help text names the document source — `Reload local · product/` or `Reload github · diliprt/arkboard` — and a note action (`bubble.left`) that opens the compact composer sheet.
+- Trailing: the live document source — `local · product/` or `github · diliprt/arkboard` — as a caption that opens the source editor; `Refresh` (`arrow.clockwise`), whose help text names that same source; and a note action (`bubble.left`) that opens the compact composer sheet. Click the source to set the local checkout folder or the GitHub `owner/name` remote.
 - No name in `display`, and no name in the pane at all. No README lead. No article summary. No `More documents` chip row. Those documents stay reachable via tabs. The long description lives on Portfolio.
 
 ### Tab bar
@@ -324,7 +324,7 @@ Grouped rows scoped to this project. A `callout` line above them reads `Tracking
 
 ### Timeline tab
 
-The same Gantt component as the master Timeline, scoped to this project — one project row, its milestones underneath, its dependency links, the same axis and the same `Week` / `Month` / `Quarter` control. Milestones are first-class. Completed issues appear as light ticks on the project bar. Click-through from the master view lands here. Read-only. Agents set milestones and dependencies through the API.
+The same Gantt component as the master Timeline, scoped to this project — one project row, its milestones underneath, its dependency links, the same axis and the same `Week` / `Month` / `Year` control. Milestones are first-class. Completed issues appear as light ticks on the project bar. Click-through from the master view lands here. Read-only. Agents set milestones and dependencies through the API.
 
 ## New Project
 
@@ -343,13 +343,13 @@ Buttons `Cancel` and `Create Project`. Creating it pins the project and selects 
 
 ## Settings
 
-A standard Settings scene, 560 × 620, one `Form` with four sections.
+A standard Settings scene, 560 × 680, one `Form` with four sections.
 
 **Appearance** — segmented `Light` / `Dark` / `System`.
 
 **Text** — a `Text size` picker of `12`, `13 (default)`, `14`, `16`, and a `Text face` picker of the eight faces from [design.md](design.md). Below them, a live specimen card showing a heading, two lines of prose, a bullet, and an inline code span at the current settings, so the choice is visible before closing the window. Both apply app-wide the instant they change and persist.
 
-**Studio** — the workspace name, and one row per project showing its resolved documents folder in `mono` `caption` with a `Choose…` button.
+**Studio** — the workspace name with the Origin Ark sage mark, and one block per project: the local checkout path with a `Choose…` button, and a GitHub `owner/name` field. Both can be set on an existing project, not only at create time. The live source (`local · product/` or `github · owner/name`) is shown above those fields.
 
 **Agents** — the server status dot and one of `Listening on 127.0.0.1:7420` or `Offline — port 7420 is in use`; then `MCP endpoint`, `REST base`, and `Database` in `mono` with copy buttons; then the stdio bridge command in a code block with a copy button.
 

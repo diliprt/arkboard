@@ -1,6 +1,22 @@
 import AppKit
 import SwiftUI
 
+/// Origin Ark brand tokens. Mark, wordmark, and a quiet sage accent only.
+/// Native chrome stays Apple — SF Pro, SF Symbols, `NSColor` semantics.
+enum OriginArkBrand {
+    static let page = "#fefdf9"
+    static let ink = "#161c20"
+    static let mutedInk = "#343a3d"
+    static let sage = "#718b5f"
+    static let sageDeep = "#5f784f"
+    static let line = "#91a583"
+    static let dialogLine = "#c7d0c0"
+    static let wash = "#f2f5ef"
+
+    static var sageColor: Color { Color(hex: sage) }
+    static var sageDeepColor: Color { Color(hex: sageDeep) }
+}
+
 enum Hue: String, CaseIterable, Sendable {
     case rose, ember, gold, moss, teal, azure, indigo, violet, magenta, crimson, slate
 

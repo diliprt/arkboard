@@ -197,7 +197,7 @@ CREATE INDEX activity_project ON activity(projectId);
 
 **Soft delete.** Issues archive by setting `archivedAt`. Nothing in the app hard-deletes an issue. Lists hide archived rows unless explicitly asked, restore clears the column, and the archive action offers a ten-second undo in the UI.
 
-**No GitHub issue sync.** The previous build carried four MCP tools and three columns for mirroring issues into GitHub. It is cut. GitHub appears in exactly one place: reading a remote repository's `product/` folder when a project has `githubRepo` set and no local checkout.
+**No GitHub issue sync.** The previous build carried four MCP tools and three columns for mirroring issues into GitHub. It is cut. GitHub appears in exactly one place: reading a remote repository's `product/` folder when a project has `githubRepo` set and no local checkout. Existing projects can set or edit `repoPath` and `githubRepo` after create. A failed `gh` read is a quiet in-app message, not a crash.
 
 ## AppStore
 
@@ -243,7 +243,7 @@ HTTP/1.1, `Content-Length` required on bodies, 1 MB request cap, one response pe
 | GET | `/health` | liveness and version |
 | GET | `/api/projects` | list projects |
 | POST | `/api/projects` | create a project |
-| PATCH | `/api/projects/{idOrKey}` | update a project (`pinned`) |
+| PATCH | `/api/projects/{idOrKey}` | update a project (`pinned`, `repoPath`, `githubRepo`) |
 | GET | `/api/issues` | list, with `projectKey`, `status`, `query`, `includeArchived` |
 | POST | `/api/issues` | create an issue |
 | GET | `/api/issues/{idOrIdentifier}` | one issue with comments |
@@ -287,7 +287,7 @@ In order, stopping at the first that yields a `product/` directory:
 2. The `ARKBOARD_REPO_ROOT` environment variable, for development runs.
 3. Walking up from `Bundle.main.bundleURL`, at most ten levels, looking for a directory that contains both `.git` and `product/`. This is what makes a Debug build launched from the repo find its own documents.
 4. A folder the user picked in Settings, stored against the project.
-5. `githubRepo`, fetched through the `gh` CLI if it is installed and authenticated.
+5. `githubRepo`, fetched through the `gh` CLI if it is installed and authenticated — text and images under `product/`.
 
 No path to any developer's home directory appears in the source. That was a real bug in the previous build and it made the app work on exactly one machine.
 
@@ -297,7 +297,7 @@ Everything under `product/` is enumerated recursively. `.md` and `.txt` load as 
 
 Results are cached per project in memory. The cache is reloaded when the app becomes active, when the user hits Refresh in the project header, and — if the optional file watcher is built — when anything under the folder changes on disk. A refresh must not replace a successful bundle with an empty one (a later `becomeActive` or a race before `projects` is assigned). The project home and `list_documents` share one publish path (`ensureDocuments` → replace `documentBundles`) so a successful library read is visible in the window. Contents visibility does not affect loading. `arkboard.contentsVisible` is written on toggle and read at launch. Saving `design.md` in an editor and seeing the Design tab update without touching the app is the workflow this exists for.
 
-Load failures are not swallowed. A project whose documents failed to load says so in the project header and contributes a row to Monitor's broken lane. If a later refresh cannot find `product/` again, the last successful bundle stays on screen.
+Load failures are not swallowed. A project whose documents failed to load says so on the document tab (`Documents could not be read` plus the reason) and can retry. It does not crash. If a later refresh cannot find `product/` again, the last successful bundle stays on screen.
 
 ### Routing a file to a tab
 

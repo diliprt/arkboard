@@ -50,6 +50,8 @@ The canned calendar grid is not the Timeline. A month of dated cells answers "wh
 
 `Week` / `Month` / `Quarter` survive as *scale* — the width of a gridline column — with Month the default. They no longer change the shape of the view. Year is dropped: one column per year is not a plan.
 
+> **Supersede, 2026-08-16.** Scale is `Week` / `Month` / `Year`. Quarter is gone. Year is a coarser axis, not a dropped scale. The Gantt shape is unchanged and still read-only.
+
 Milestones stay in SQLite; there is no second timeline store. Dependencies are one new column, `milestone.dependsOn`, a JSON array of predecessor milestone ids added in `v5-milestone-dependencies`. A milestone still holds one date, so its bar runs from its latest predecessor's target — or its project's start — to its own target. Agents write `dependsOn` through `create_milestone` / `update_milestone`; missing ids, self-references, and cycles are rejected. Humans read the links and never edit a milestone, a status, or a dependency.
 
 ## Locked — The project home is a thin header
@@ -272,7 +274,7 @@ The studio-wide Issues screen was leftover ticket chrome. Every project already 
 
 ## Open — What should a project with no repository on this machine do?
 
-A project can have a `githubRepo` and no local checkout, in which case documents are fetched with the `gh` CLI — which may be missing, unauthenticated, or offline. The failure is currently a message in the project header and a line in Monitor's health strip.
+A project can have a `githubRepo` and no local checkout, in which case documents are fetched with the `gh` CLI — which may be missing, unauthenticated, or offline. The failure is a quiet line on the document tab (`Documents could not be read` plus the reason) and a `Try again` button. It is never a crash. Existing projects can set or edit both the local checkout and the GitHub remote from Settings or from the source caption in the project toolbar.
 
 > Until it is answered: fail loudly and specifically. Never show the "a director pass will write this" empty state when the truth is that the documents could not be read. Those two states must never be confused.
 

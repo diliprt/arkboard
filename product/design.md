@@ -18,15 +18,15 @@ One window, two columns, and a title bar that names the page once.
 
 **Dark is a first-class look.** Frosted rails should stand in front of an opaque page the way they do in a good dark IDE — and that is the hardest case for the split, because a translucent rail and a solid page can land close in value and flatten into one field. Glass alone is not enough there, so every glass edge is drawn: a 1pt hairline in `separatorColor` at the bottom of the tab rail, the top of the sidebar footer, and the leading edge of Contents. A line, never a filled strip. Nothing else is painted on a navigation surface, and no wallpaper sits behind the sidebar — the material samples the desktop, which is the system's job and not something to fake with a picture.
 
-### Portfolio is a wall of posters
+### Portfolio is a library of projects
 
-Each project is a card led by its own picture — `product/card.png`, full-bleed to the card's rounded corners — with the project's name and one line of summary underneath, and nothing else. Checkout paths, the GitHub remote, and which documents exist are metadata about a project rather than a picture of one; they live on the project page, one click away. A project with no poster yet falls back to its mark, and then to a field in its own colour. Never a small chip beside a stack of fields.
+Each project is a card in a Mac library — `product/card.png`, full-bleed to the card's rounded corners — with the project's name and one line of summary underneath, and nothing else. Checkout paths, the GitHub remote, and which documents exist are metadata about a project rather than a picture of one; they live on the project page, one click away. A project with no poster yet falls back to its mark, and then to a field in its own colour. Never a small chip beside a stack of fields. The window is a source list and a reading pane, like Notes or Mail, not a site of posters.
 
 ### A project is six tabs and a document
 
 `Design` · `Architecture` · `Mockups` · `Decisions & questions` · `Issues` · `Timeline`
 
-Design is selected by default, because a project is a design object first. The rail is the first thing in the scroll, so it is pinned from the moment the page paints, and the mark and key sit in the window toolbar rather than in a row beneath it. Every tab starts its first line at the same Y under that rail — Design's prose, an empty state's title, the first row of a filled gallery — and switching tabs is instant. A tab that leads with something the others do not have moves the whole pane, and a body that moves is a jump a reader feels even when the rail is perfectly still.
+Design is selected by default, because a project is a design object first. The rail is the first thing in the scroll, so it is pinned from the moment the page paints, and the mark, the key, and the live document source sit in the window toolbar rather than in a row beneath it. The source reads `local · product/` or `github · owner/name`; click it to set the local checkout or the GitHub remote. Every tab starts its first line at the same Y under that rail — Design's prose, an empty state's title, the first row of a filled gallery — and switching tabs is instant. A tab that leads with something the others do not have moves the whole pane, and a body that moves is a jump a reader feels even when the rail is perfectly still.
 
 A heading buys air above itself, which is right in the middle of a document and wrong at the top of one: there the pane's padding is already that air. The first block a tab renders never carries it, including the block that became first when a repeated opener was skipped.
 
@@ -38,7 +38,24 @@ The tabs are not symmetrical, and the origin has to survive that. When more than
 
 ### Timeline is a Gantt
 
-Rows are projects with their milestones underneath, bars run across one shared time axis, and dependency links join a milestone to the ones it waits on. Scale is `Week` / `Month` / `Quarter`, default Month, and the scale only decides how wide a gridline column is; the shape is always bars on a timeline, never a grid of dated cells. It is read-only for humans: agents set milestones and dependencies through the API.
+Rows are projects with their milestones underneath, bars run across one shared time axis, and dependency links join a milestone to the ones it waits on. Scale is `Week` / `Month` / `Year`, default Month, and the scale only decides how wide a gridline column is; the shape is always bars on a timeline, never a grid of dated cells. It is read-only for humans: agents set milestones and dependencies through the API.
+
+## Brand, not chrome
+
+Origin Ark's mark, wordmark, and sage accent live beside the app — they do not paint it. Native chrome stays Apple: SF Pro, SF Symbols, `NSColor` semantics, system materials. Sage is a quiet accent on the brand only.
+
+| Token | Hex |
+| --- | --- |
+| page | `#fefdf9` |
+| ink | `#161c20` |
+| muted-ink | `#343a3d` |
+| sage | `#718b5f` |
+| sage-deep | `#5f784f` |
+| line | `#91a583` |
+| dialog-line | `#c7d0c0` |
+| wash | `#f2f5ef` |
+
+Do not sage-skin the sidebar, the toolbar, or the document. Section identity still comes from the ramp below.
 
 ## The ramp
 

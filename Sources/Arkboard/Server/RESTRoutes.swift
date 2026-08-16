@@ -54,6 +54,10 @@ enum RESTRoutes {
                 let project = try store.updateProject(
                     idOrKey: id,
                     pinned: HTTPJSON.optionalBool(body, "pinned"),
+                    repoPath: HTTPJSON.string(body, "repoPath"),
+                    setRepoPath: body["repoPath"] != nil,
+                    githubRepo: HTTPJSON.string(body, "githubRepo"),
+                    setGitHubRepo: body["githubRepo"] != nil,
                     actor: HTTPJSON.string(body, "actor") ?? "Agent"
                 )
                 return .json(200, JSONPayload.project(project, openIssueCount: store.openIssueCount(for: project)))

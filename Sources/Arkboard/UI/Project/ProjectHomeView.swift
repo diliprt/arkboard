@@ -51,6 +51,7 @@ struct ProjectHomeView: View {
     @State private var tab: ProjectHomeTab = .design
     @State private var selectedPath: String?
     @State private var viewer: StudioDocument?
+    @State private var showingSources = false
 
     var bundle: DocumentBundle? { store.documentBundles[project.id] }
 
@@ -170,6 +171,23 @@ struct ProjectHomeView: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(project.name), \(project.key)")
         }
+        ToolbarItem(placement: .automatic) {
+            Button {
+                showingSources.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: DocumentSource.kind(project: project, bundle: bundle).symbol)
+                    Text(sourceLabel)
+                        .font(type.caption)
+                }
+            }
+            .help("Documents load from \(sourceLabel). Click to set the local folder or GitHub remote.")
+            .popover(isPresented: $showingSources) {
+                ProjectSourcesEditor(project: project)
+                    .padding(16)
+                    .frame(width: 380)
+            }
+        }
         ToolbarItem(placement: .primaryAction) {
             Button {
                 Task { await store.refreshDocuments(projectId: project.id) }
@@ -209,10 +227,7 @@ struct ProjectHomeView: View {
     }
 
     private var sourceLabel: String {
-        if let source = bundle?.source, source == "github", let repo = project.githubRepo {
-            return "github · \(repo)"
-        }
-        return "local · product/"
+        DocumentSource.label(project: project, bundle: bundle)
     }
 
     /// The tab rail is navigation, so it is a row of native accessory-bar

@@ -325,8 +325,8 @@ MONTH_ABBR = (
 )
 
 # Mirrors TimelineScale in Sources/Arkboard/UI/Portfolio/TimelineModel.swift.
-GANTT_MIN_COLUMNS = {"week": 6, "month": 4, "quarter": 4}
-GANTT_MIN_COLUMN_WIDTH = {"week": 54.0, "month": 88.0, "quarter": 96.0}
+GANTT_MIN_COLUMNS = {"week": 6, "month": 4, "year": 3}
+GANTT_MIN_COLUMN_WIDTH = {"week": 54.0, "month": 88.0, "year": 80.0}
 GANTT_LABEL_COLUMN = 240.0
 
 Day = tuple  # (year, month, day)
@@ -338,15 +338,15 @@ def _date(value: Day):
 
 
 def gantt_column_start(year: int, month: int, day: int, scale: str) -> Day:
-    """Monday-start week, first of month, first of quarter. Mirrors GanttMath.columnStart."""
+    """Monday-start week, first of month, first of year. Mirrors GanttMath.columnStart."""
     from datetime import date, timedelta
     if scale == "week":
         start = date(year, month, day) - timedelta(days=date(year, month, day).weekday())
         return start.year, start.month, start.day
     if scale == "month":
         return year, month, 1
-    if scale == "quarter":
-        return year, (month - 1) // 3 * 3 + 1, 1
+    if scale == "year":
+        return year, 1, 1
     raise ValueError(scale)
 
 
@@ -356,7 +356,9 @@ def gantt_advance(year: int, month: int, day: int, scale: str, delta: int) -> Da
     if scale == "week":
         start = date(year, month, day) + timedelta(weeks=delta)
         return start.year, start.month, start.day
-    step = {"month": 1, "quarter": 3}[scale] * delta
+    if scale == "year":
+        return year + delta, 1, 1
+    step = {"month": 1}[scale] * delta
     index = year * 12 + (month - 1) + step
     next_year, next_month = divmod(index, 12)
     return next_year, next_month + 1, 1
@@ -378,8 +380,8 @@ def gantt_column_label(year: int, month: int, day: int, scale: str) -> str:
         return f"{day} {MONTH_ABBR[month - 1]}"
     if scale == "month":
         return f"{MONTH_ABBR[month - 1]} {year}"
-    if scale == "quarter":
-        return f"Q{(month - 1) // 3 + 1} {year}"
+    if scale == "year":
+        return str(year)
     raise ValueError(scale)
 
 
@@ -628,6 +630,16 @@ def check_document_bundle(swift: str) -> None:
     ok("mockups has flow parser", "MockupFlowParser" in swift)
     ok("mockups tab is not a markdown essay", "MarkdownView" not in mockups_tab)
     ok("mockups still one ProseColumn family", "GridColumn" not in home)
+    settings = (SOURCES / "UI/Settings/SettingsView.swift").read_text()
+    sources = (SOURCES / "UI/Project/ProjectSourcesEditor.swift").read_text() if (SOURCES / "UI/Project/ProjectSourcesEditor.swift").exists() else ""
+    ok("existing projects can edit GitHub remote", "updateGitHubRepo" in store and "updateGitHubRepo" in sources)
+    ok("existing projects can edit local checkout", "updateRepoPath" in sources and "Choose…" in sources)
+    ok("Settings edits sources on existing projects", "ProjectSourcesEditor" in settings)
+    ok("project home shows the live source", "sourceLabel" in home and "DocumentSource" in home)
+    ok("project home can refresh the live source", "arrow.clockwise" in home and "refreshDocuments" in home)
+    ok("github repo is validated as owner/name", "invalidGitHubRepo" in swift and "func githubRepo" in swift)
+    ok("github fetch also loads images", "fetchGitHubBytes" in library and "isImage" in library)
+    ok("window uses a unified titlebar", "windowToolbarStyle(.unified)" in swift)
 
 
 def check_layout_musts(swift: str, home: str) -> None:
@@ -667,13 +679,13 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     """Portfolio destination, pins, the master Timeline Gantt, quiet project home."""
     ok("week column starts Monday", gantt_column_start(2026, 8, 15, "week") == (2026, 8, 10))
     ok("month column starts the first", gantt_column_start(2026, 8, 15, "month") == (2026, 8, 1))
-    ok("quarter column starts the quarter", gantt_column_start(2026, 8, 15, "quarter") == (2026, 7, 1))
+    ok("year column starts the year", gantt_column_start(2026, 8, 15, "year") == (2026, 1, 1))
     ok("advance a week column", gantt_advance(2026, 8, 10, "week", 1) == (2026, 8, 17))
     ok("advance a month column back", gantt_advance(2026, 8, 1, "month", -1) == (2026, 7, 1))
-    ok("advance a quarter column", gantt_advance(2026, 7, 1, "quarter", 1) == (2026, 10, 1))
+    ok("advance a year column", gantt_advance(2026, 1, 1, "year", 1) == (2027, 1, 1))
     ok("week column label", gantt_column_label(2026, 8, 10, "week") == "10 Aug")
     ok("month column label", gantt_column_label(2026, 8, 1, "month") == "Aug 2026")
-    ok("quarter column label", gantt_column_label(2026, 7, 1, "quarter") == "Q3 2026")
+    ok("year column label", gantt_column_label(2026, 1, 1, "year") == "2026")
     ok("default timeline scale is month", "TimelineScale = .month" in swift and "TimelineScale" in swift)
 
     enums = (SOURCES / "Model/Enums.swift").read_text()
@@ -737,8 +749,8 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     gantt = (SOURCES / "UI/Portfolio/TimelineGantt.swift").read_text() if (SOURCES / "UI/Portfolio/TimelineGantt.swift").exists() else ""
     ok("timeline model source exists", bool(model))
     ok("timeline Gantt source exists", bool(gantt))
-    ok("timeline scale control Week Month Quarter",
-       all(word in model for word in ("Week", "Month", "Quarter")))
+    ok("timeline scale control Week Month Year",
+       all(word in model for word in ("Week", "Month", "Year")))
     ok("timeline axis math lives in Swift", "enum GanttMath" in model and "columnStart" in model)
     ok("master timeline uses the Gantt", "TimelineGanttView(projectId: nil)" in
        (SOURCES / "UI/Portfolio/TimelineView.swift").read_text())
@@ -749,6 +761,9 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     ok("v3 pin migration", "v3-project-pinned" in swift)
     ok("create project accepts pinned", "pinned" in (SOURCES / "Server/ToolCatalogue.swift").read_text())
     ok("update_project exists so agents can pin", "update_project" in swift)
+    ok("update_project can set checkout and remote",
+       '"repoPath"' in (SOURCES / "Server/ToolCatalogue.swift").read_text().split('tool("update_project"')[1].split("tool(")[0]
+       and '"githubRepo"' in (SOURCES / "Server/ToolCatalogue.swift").read_text().split('tool("update_project"')[1].split("tool(")[0])
     ok("project JSON includes pinned", '"pinned"' in (SOURCES / "Data/JSONPayload.swift").read_text())
 
     header = ""
@@ -767,7 +782,7 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
     ok("ui-spec voids sidebar-is-the-portfolio", "the sidebar *is* the portfolio" not in ui)
     ok("ui-spec voids Portfolio is not a row", "Portfolio are not rows" not in ui and "Portfolio is not a row" not in ui)
     ok("ui-spec Timeline is a sidebar destination", "Timeline is a destination" in ui or "master Timeline" in ui)
-    ok("ui-spec Timeline scale is Week / Month / Quarter", "`Week` / `Month` / `Quarter`" in ui)
+    ok("ui-spec Timeline scale is Week / Month / Year", "`Week` / `Month` / `Year`" in ui)
     ok("ui-spec voids spine as primary Timeline", "vertical spine" not in ui.split("## Timeline")[1].split("## ")[0] if "## Timeline" in ui else True)
     ok("ui-spec project home is a thin header", "thin" in ui.lower() and "overview band" not in ui.lower().split("## project home")[1].split("## ")[0] if "## project home" in ui.lower() else "thin header" in ui.lower())
     ok("ui-spec voids inline composer on project home", "Tell the team" not in ui.split("## Project home")[1].split("## New Project")[0] if "## Project home" in ui else True)
@@ -1108,7 +1123,7 @@ def check_timeline_gantt(swift: str, home: str, ui: str, decisions: str, archite
     ok("Gantt axis places Today once", gantt_today_in_window([m["targetDate"] for m in milestones], "month", now))
     ok("Gantt week scale slices the same span finer",
        len(gantt_columns(*gantt_window([m["targetDate"] for m in milestones], "week", now), "week")) >
-       len(gantt_columns(*gantt_window([m["targetDate"] for m in milestones], "quarter", now), "quarter")))
+       len(gantt_columns(*gantt_window([m["targetDate"] for m in milestones], "year", now), "year")))
 
     # --- Measure: pane-width and left-aligned, no 720 island and no 1000 grid.
     ok("Gantt columns stretch to fill a wide pane", not gantt_scrolls(1280, 5, "month"))
@@ -1177,7 +1192,7 @@ def check_timeline_gantt(swift: str, home: str, ui: str, decisions: str, archite
     ok("ui-spec Timeline shows dependencies", "dependenc" in spec.lower())
     ok("ui-spec Timeline voids the calendar grid",
        "not a month grid of days" in spec and "calendar" not in spec.lower())
-    ok("ui-spec Timeline keeps the scale control", "`Week` / `Month` / `Quarter`" in spec and "Default Month" in spec)
+    ok("ui-spec Timeline keeps the scale control", "`Week` / `Month` / `Year`" in spec and "Default Month" in spec)
     ok("ui-spec Timeline is pane-width and left-aligned",
        "No 720 island" in spec and "No 1000 grid" in spec)
     ok("ui-spec Timeline click-through opens the project tab", "Timeline tab" in spec)
@@ -1244,7 +1259,7 @@ def check_window_title_only(swift: str, home: str, root: str, sidebar: str, ui: 
        after_stack.split("{", 1)[1].strip().startswith("Section {") if after_stack else False)
 
     ok("UndoToast survives the screen-header removal", "struct UndoToast" in swift)
-    ok("Timeline scale control is untouched", "TimelineScale" in swift and "Quarter" in swift)
+    ok("Timeline scale control is untouched", "TimelineScale" in swift and "Year" in swift)
 
     ok("ui-spec voids the screen header", "### Screen header" not in ui)
     ok("ui-spec names the window title as the only title", "the only title in the app" in ui.lower())
@@ -1306,6 +1321,7 @@ def check_portfolio_hero_cards(swift: str, sidebar: str, ui: str, decisions: str
         "UI/Shell/EmptyStateView.swift",
         "UI/Portfolio/PortfolioView.swift",
         "UI/Project/ProjectHomeView.swift",
+        "UI/Project/ProjectSourcesEditor.swift",
         "UI/Markdown/MarkdownView.swift",
         "UI/Markdown/ContentsOutline.swift",
         "UI/Activity/ActivityView.swift",
@@ -1373,10 +1389,83 @@ def sidebar_destinations(design: str) -> set[str]:
     return named
 
 
+def named_project_tabs(design: str) -> set[str]:
+    """Tab names product/design.md presents as the project rail."""
+    if "### A project is six tabs" in design:
+        block = design.split("### A project is six tabs")[1].split("\n### ")[0]
+    elif "A project is six tabs" in design:
+        block = design.split("A project is six tabs")[1].split("\n### ")[0]
+    else:
+        block = ""
+    named = set()
+    known = {
+        "Design", "Architecture", "Mockups", "Decisions & questions",
+        "Issues", "Timeline", "Inbox", "Monitor", "Activity", "Board",
+    }
+    for line in block.splitlines():
+        if "`" not in line:
+            continue
+        found = [match for match in re.findall(r"`([^`]+)`", line) if match in known]
+        if found:
+            named.update(found)
+            break
+    return named
+
+
+def living_sidebar_from_sources(enums: str, sidebar: str) -> set[str]:
+    """Destinations SidebarItem + SidebarView actually implement."""
+    living = set()
+    item = enums.split("enum SidebarItem")[1].split("enum ")[0] if "enum SidebarItem" in enums else ""
+    if "case portfolio" in item and "SidebarItem.portfolio" in sidebar:
+        living.add("Portfolio")
+    if "case timeline" in item and "SidebarItem.timeline" in sidebar:
+        living.add("Timeline")
+    if "pinnedProjects" in sidebar:
+        living.add("pinned")
+    return living
+
+
+def living_tabs_from_sources(home: str) -> set[str]:
+    """Project tabs ProjectHomeTab actually implements."""
+    block = home.split("enum ProjectHomeTab")[1].split("struct ")[0] if "enum ProjectHomeTab" in home else ""
+    mapping = {
+        "design": "Design",
+        "architecture": "Architecture",
+        "mockups": "Mockups",
+        "decisions": "Decisions & questions",
+        "issues": "Issues",
+        "timeline": "Timeline",
+    }
+    living = set()
+    cases = set()
+    for match in re.finditer(r"case ([a-z]+(?:,\s*[a-z]+)*)", block):
+        for part in match.group(1).split(","):
+            cases.add(part.strip())
+    for raw, title in mapping.items():
+        if raw in cases:
+            living.add(title)
+    return living
+
+
+def dead_named_chrome(design: str, living_sidebar: set[str], living_tabs: set[str]) -> list[str]:
+    """Names Design presents as chrome that Sources/ do not implement."""
+    dead: list[str] = []
+    for name in sidebar_destinations(design):
+        if name not in living_sidebar:
+            dead.append(f"sidebar:{name}")
+    for name in named_project_tabs(design):
+        if name not in living_tabs:
+            dead.append(f"tab:{name}")
+    return dead
+
+
 def check_living_tabs(ui: str, decisions: str, design: str) -> None:
     """product/ tabs describe the app on main, not the app we used to have."""
     architecture = (PRODUCT / "architecture.md").read_text()
     onboarding = (PRODUCT / "onboarding.md").read_text()
+    enums = (SOURCES / "Model/Enums.swift").read_text()
+    sidebar = (SOURCES / "UI/Shell/SidebarView.swift").read_text()
+    home = (SOURCES / "UI/Project/ProjectHomeView.swift").read_text()
 
     ok("decisions locks living tabs", "Locked — product/ tabs are living" in decisions)
     ok("decisions ships docs with the chrome",
@@ -1394,7 +1483,13 @@ def check_living_tabs(ui: str, decisions: str, design: str) -> None:
     ok("architecture says Monitor is not a screen",
        "Monitor and Activity are engine, not screens" in architecture)
 
-    # Design must describe the chrome that exists.
+    living_sidebar = living_sidebar_from_sources(enums, sidebar)
+    living_tabs = living_tabs_from_sources(home)
+    ok("Sources implement Portfolio and Timeline destinations",
+       {"Portfolio", "Timeline", "pinned"} <= living_sidebar)
+    ok("Sources implement the six project tabs",
+       {"Design", "Architecture", "Mockups", "Decisions & questions", "Issues", "Timeline"} <= living_tabs)
+
     destinations = sidebar_destinations(design)
     ok("design names a left column", bool(destinations))
     ok("design names Portfolio as a destination", "Portfolio" in destinations)
@@ -1403,8 +1498,36 @@ def check_living_tabs(ui: str, decisions: str, design: str) -> None:
     for dead in ("Monitor", "Issues", "Activity", "Inbox", "Origin Ark"):
         ok(f"design does not put {dead} in the sidebar", dead not in destinations)
 
+    dead = dead_named_chrome(design, living_sidebar, living_tabs)
+    ok("design names no dead chrome", not dead, ", ".join(dead))
+
+    planted_sidebar = design
+    if "**The left column is navigation**" in planted_sidebar:
+        planted_sidebar = planted_sidebar.replace(
+            "**The left column is navigation**",
+            "**The left column is navigation** **Monitor**",
+            1,
+        )
+    planted_tabs = design
+    if "`Issues`" in planted_tabs:
+        planted_tabs = planted_tabs.replace("`Issues`", "`Inbox` · `Issues`", 1)
+    ok(
+        "planted Monitor in the left column is detected as dead chrome",
+        "sidebar:Monitor" in dead_named_chrome(planted_sidebar, living_sidebar, living_tabs),
+    )
+    ok(
+        "planted Inbox tab is detected as dead chrome",
+        "tab:Inbox" in dead_named_chrome(planted_tabs, living_sidebar, living_tabs),
+    )
+    ok(
+        "unplanted design does not carry those dead names",
+        "sidebar:Monitor" not in dead and "tab:Inbox" not in dead,
+    )
+
     ok("design describes poster cards",
        "product/card.png" in design and "poster" in design.lower())
+    ok("design is not a wall of posters",
+       "wall of posters" not in design.lower())
     ok("design describes one window title",
        "names the page once" in design or "one headline" in design.lower())
     ok("design describes the grey focused selection",
@@ -1418,7 +1541,7 @@ def check_living_tabs(ui: str, decisions: str, design: str) -> None:
     ok("design describes Timeline as a Gantt",
        "Gantt" in design and "dependency" in design)
     ok("design uses the scale the code has",
-       "`Week` / `Month` / `Quarter`" in design and "Year" not in design)
+       "`Week` / `Month` / `Year`" in design and "`Week` / `Month` / `Quarter`" not in design)
     ok("design keeps the design system", all(
         word in design for word in ("calm", "coloured", "continuous")))
     ok("design still leads with the app, not a hex table",
@@ -1426,6 +1549,19 @@ def check_living_tabs(ui: str, decisions: str, design: str) -> None:
        if "## What the app looks like" in design and "## The ramp" in design else False)
     ok("design voids the old selected-pill fill", "Selected tab pill fill" not in design)
     ok("design voids the 720 document column", "720 ideal" not in design)
+    ok("design names Origin Ark sage as brand only",
+       "#718b5f" in design and "sage accent" in design.lower())
+    ok("design keeps native chrome Apple",
+       "SF Pro" in design and "NSColor" in design)
+
+    mockups_dir = PRODUCT / "mockups"
+    mockup_files = [p.name.lower() for p in mockups_dir.iterdir() if p.is_file()] if mockups_dir.is_dir() else []
+    ok("mockups folder has a flow file",
+       "flow.md" in mockup_files or "flow.json" in mockup_files)
+    ok("brand artwork stays out of the Mockups gallery",
+       not any(name in BRAND_ASSETS for name in mockup_files))
+    ok("mockups gallery invents no frames",
+       not any(Path(name).suffix in IMAGES for name in mockup_files))
 
 
 def swift_constant(source: str, name: str) -> str | None:
@@ -1936,6 +2072,7 @@ def main() -> int:
         "UI/Project/ProjectNoteSheet.swift",
         "UI/Shell/OnboardingView.swift",
         "UI/Settings/SettingsView.swift",
+        "UI/Project/ProjectSourcesEditor.swift",
         "Model/ChiefHandoff.swift",
         "UI/Shell/ChiefOfStaffMenu.swift",
     ]

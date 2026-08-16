@@ -3,7 +3,7 @@ import Foundation
 /// Column granularity of the Gantt time axis. The shape is always bars on a timeline;
 /// this only decides how wide one gridline column is.
 enum TimelineScale: String, CaseIterable, Identifiable, Sendable {
-    case week, month, quarter
+    case week, month, year
 
     var id: String { rawValue }
 
@@ -11,7 +11,7 @@ enum TimelineScale: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .week: return "Week"
         case .month: return "Month"
-        case .quarter: return "Quarter"
+        case .year: return "Year"
         }
     }
 
@@ -20,7 +20,7 @@ enum TimelineScale: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .week: return 54
         case .month: return 88
-        case .quarter: return 96
+        case .year: return 80
         }
     }
 
@@ -29,7 +29,7 @@ enum TimelineScale: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .week: return 6
         case .month: return 4
-        case .quarter: return 4
+        case .year: return 3
         }
     }
 }
@@ -60,10 +60,9 @@ enum GanttMath {
         case .month:
             let parts = calendar.dateComponents([.year, .month], from: day)
             return calendar.date(from: DateComponents(year: parts.year, month: parts.month, day: 1)) ?? day
-        case .quarter:
-            let parts = calendar.dateComponents([.year, .month], from: day)
-            let month = ((parts.month ?? 1) - 1) / 3 * 3 + 1
-            return calendar.date(from: DateComponents(year: parts.year, month: month, day: 1)) ?? day
+        case .year:
+            let parts = calendar.dateComponents([.year], from: day)
+            return calendar.date(from: DateComponents(year: parts.year, month: 1, day: 1)) ?? day
         }
     }
 
@@ -73,8 +72,8 @@ enum GanttMath {
             return calendar.date(byAdding: .day, value: 7 * delta, to: start) ?? start
         case .month:
             return calendar.date(byAdding: .month, value: delta, to: start) ?? start
-        case .quarter:
-            return calendar.date(byAdding: .month, value: 3 * delta, to: start) ?? start
+        case .year:
+            return calendar.date(byAdding: .year, value: delta, to: start) ?? start
         }
     }
 
@@ -102,10 +101,9 @@ enum GanttMath {
         case .month:
             formatter.dateFormat = "MMM yyyy"
             return formatter.string(from: start)
-        case .quarter:
-            let parts = calendar.dateComponents([.year, .month], from: start)
-            let quarter = (((parts.month ?? 1) - 1) / 3) + 1
-            return "Q\(quarter) \(parts.year ?? 0)"
+        case .year:
+            formatter.dateFormat = "yyyy"
+            return formatter.string(from: start)
         }
     }
 

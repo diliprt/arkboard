@@ -112,9 +112,11 @@ Returns the `Project`.
 | --- | --- | --- | --- |
 | `id` or `key` | string | yes | — |
 | `pinned` | boolean | no | unchanged |
+| `repoPath` | string | no | unchanged; empty clears |
+| `githubRepo` | string | no | unchanged; `owner/name`, empty clears |
 | `actor` | string | no | `Agent` |
 
-Returns the `Project`. Agents use this to pin or unpin. The human UI writes the same field from the Portfolio card and the sidebar context menu.
+Returns the `Project`. Agents use this to pin or unpin, or to point a project at a local checkout and a GitHub remote. The human UI writes the same fields from Settings and the project source editor.
 
 ## Documents
 

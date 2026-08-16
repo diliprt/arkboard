@@ -23,6 +23,7 @@ enum ValidationError: LocalizedError, Equatable {
     case missingCapability
     case missingDocument
     case duplicateKey(String)
+    case invalidGitHubRepo
 
     var errorDescription: String? {
         switch self {
@@ -70,6 +71,8 @@ enum ValidationError: LocalizedError, Equatable {
             return "Unknown document"
         case .duplicateKey(let key):
             return "Project key '\(key)' is already in use."
+        case .invalidGitHubRepo:
+            return "GitHub repository must be owner/name."
         }
     }
 }
@@ -103,6 +106,30 @@ enum Validation {
         let key = ascii.filter { ("A"..."Z").contains($0) || ("0"..."9").contains($0) }
         if key.count < 2 || key.count > 6 { throw ValidationError.invalidProjectKey }
         return key
+    }
+
+    /// `owner/name`. Empty becomes nil. A pasted github.com URL is accepted and reduced.
+    static func githubRepo(_ raw: String?) throws -> String? {
+        var value = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty { return nil }
+        if let range = value.range(of: "github.com/", options: .caseInsensitive) {
+            value = String(value[range.upperBound...])
+        }
+        if value.hasSuffix(".git") {
+            value = String(value.dropLast(4))
+        }
+        if value.hasSuffix("/") {
+            value.removeLast()
+        }
+        let parts = value.split(separator: "/").map(String.init)
+        guard parts.count == 2 else { throw ValidationError.invalidGitHubRepo }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ".-_"))
+        for part in parts {
+            guard !part.isEmpty, part.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+                throw ValidationError.invalidGitHubRepo
+            }
+        }
+        return "\(parts[0])/\(parts[1])"
     }
 
     static func deriveKey(from name: String) -> String {
