@@ -7,20 +7,45 @@ import SwiftUI
 /// Arkboard still deploys to macOS 14, so every Tahoe API here sits behind an
 /// availability check with a system-material fallback. The `compiler` check
 /// keeps the file buildable on toolchains whose SDK predates these symbols.
+/// The 1pt line where a pane of glass meets what is under it.
+///
+/// Glass separates by translucency, which works when there is something behind
+/// it worth seeing. In dark mode a frosted rail and a solid page can sit close
+/// enough in value that the boundary disappears and the window reads as one
+/// flat field — so the edge is drawn, once, at hairline weight. It is a line,
+/// never a fill: a filled strip would be opaque paint on navigation.
+struct GlassEdge: View {
+    enum Axis { case horizontal, vertical }
+    var axis: Axis
+
+    init(_ axis: Axis) { self.axis = axis }
+
+    var body: some View {
+        Rectangle()
+            .fill(StudioColor.hairline)
+            .frame(
+                width: axis == .vertical ? 1 : nil,
+                height: axis == .horizontal ? 1 : nil
+            )
+            .accessibilityHidden(true)
+    }
+}
+
 extension View {
     /// A navigation bar that floats over content: system material carrying the
     /// section wash, so the rail keeps its identity without an opaque
     /// `windowBackgroundColor` slab underneath — that slab is what blocks glass.
     @ViewBuilder
     func navigationBarSurface(tint: Color) -> some View {
+        let edged = self.overlay(alignment: .bottom) { GlassEdge(.horizontal) }
         #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
-            self.background(tint).glassEffect(.regular, in: .rect)
+            edged.background(tint).glassEffect(.regular, in: .rect)
         } else {
-            self.background(tint).background(.bar)
+            edged.background(tint).background(.bar)
         }
         #else
-        self.background(tint).background(.bar)
+        edged.background(tint).background(.bar)
         #endif
     }
 
@@ -38,19 +63,24 @@ extension View {
         #endif
     }
 
-    /// A bar pinned to the bottom of a column. On Tahoe it joins the scroll edge
-    /// effect and inherits the column's own glass rather than painting a second
-    /// material over it.
+    /// A bar pinned to the bottom of a column, sitting on the column's own
+    /// material with a hairline where it meets the list.
+    ///
+    /// It carries no material of its own on any release. A safe-area inset
+    /// already reserves the space, so nothing scrolls under the bar and nothing
+    /// needs to be obscured — and a second material inside a glass column is
+    /// the legacy pattern the new design tells you to delete.
     @ViewBuilder
     func columnBottomBar<Bar: View>(_ bar: Bar) -> some View {
+        let seated = bar.overlay(alignment: .top) { GlassEdge(.horizontal) }
         #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
-            self.safeAreaBar(edge: .bottom) { bar }
+            self.safeAreaBar(edge: .bottom) { seated }
         } else {
-            self.safeAreaInset(edge: .bottom) { bar.background(.bar) }
+            self.safeAreaInset(edge: .bottom) { seated }
         }
         #else
-        self.safeAreaInset(edge: .bottom) { bar.background(.bar) }
+        self.safeAreaInset(edge: .bottom) { seated }
         #endif
     }
 

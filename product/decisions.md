@@ -180,6 +180,20 @@ How it is achieved matters as much as the result. `NSColor.unemphasizedSelectedC
 
 > Do not paint a grey capsule behind the row to fake this. A hand-drawn selection drifts from the system's the first time Apple changes it, and it will not match the one in the Chat sheet three inches away.
 
+## Locked — Frosted navigation, solid document
+
+The reference is a dark glass IDE: frosted rails standing clearly in front of an opaque editor. What we take from it is the **relationship**, not the picture.
+
+**Navigation is glass.** The sidebar, the window toolbar, the project tab rail and the Contents overlay take the system's material and nothing else — Liquid Glass on Tahoe behind an availability check, that release's material on macOS 14 and 15, and no third appearance we rolled ourselves. Nothing opaque is painted on any of them, which specifically means none of `documentField`, `card` or `editor` may appear in a navigation file, and no bar carries a second material inside a column that already has one.
+
+**The document is solid.** The page, the Portfolio cards, the Gantt and every line of markdown sit on an opaque reading field. **Prose is never on glass.** Dark is a first-class look, not a tinted afterthought, and that is exactly where the rule earns itself: a frosted rail and a solid page can land close in value, so glass alone stops separating them.
+
+**So the edges are drawn.** A 1pt hairline in `separatorColor` sits where a pane of glass meets what is under it — the bottom of the tab rail, the top of the sidebar footer, the leading edge of Contents. A line, never a filled strip: a strip is opaque paint on navigation wearing a disguise.
+
+**What we are not taking.** No wallpaper or photograph behind the sidebar, and no `backdrop-filter` over a stock image — the material samples the desktop, which is the system's job and not ours to fake. No icon rail, no file tree, no editor tabs, no marketing chrome. The IA does not move: Portfolio, Timeline, a hairline, pinned projects; six project tabs; Contents as an overlay; Chat with Chief of Staff on a right-click. There is one sidebar.
+
+> A still of another app is a description of a relationship, never a layout to copy. Take the relationship.
+
 ## Locked — The sidebar is material, the document is solid
 
 The two columns are deliberately different surfaces. The sidebar is frosted system material with loosely paced rows; the document is an opaque reading field with the section wash over it. Side by side they read as slightly different colours, and that difference *is* the navigation-versus-content split, visible without reading a word.
