@@ -69,34 +69,52 @@ struct PortfolioView: View {
             name: project.name,
             fallback: project.summary
         )
-        return VStack(alignment: .leading, spacing: 0) {
-            poster(project)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(project.name).font(type.heading)
-                    Spacer(minLength: 8)
+        return ZStack(alignment: .topLeading) {
+            Button {
+                store.sidebarSelection = .project(project.id)
+            } label: {
+                VStack(alignment: .leading, spacing: 0) {
+                    poster(project)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(project.name).font(type.heading)
+                            Spacer(minLength: 28)
+                        }
+                        Text(summary)
+                            .font(type.callout)
+                            .foregroundStyle(StudioColor.secondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(Metrics.cardPad)
+                }
+                .font(type.body)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(StudioColor.card)
+                .clipShape(Concentric.shape(Metrics.radiusCard))
+                .overlay(
+                    Concentric.shape(Metrics.radiusCard)
+                        .stroke(StudioColor.cardStroke(.violet, scheme: scheme), lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(project.name), \(project.key). \(summary)")
+
+            VStack(spacing: 0) {
+                Color.clear
+                    .aspectRatio(Metrics.cardPosterAspect, contentMode: .fit)
+                    .allowsHitTesting(false)
+                HStack {
+                    Spacer(minLength: 0)
+                        .allowsHitTesting(false)
                     pinControl(project)
                 }
-                Text(summary)
-                    .font(type.callout)
-                    .foregroundStyle(StudioColor.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Metrics.cardPad)
+                Spacer(minLength: 0)
+                    .allowsHitTesting(false)
             }
-            .padding(Metrics.cardPad)
-        }
-        .font(type.body)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(StudioColor.card)
-        .clipShape(Concentric.shape(Metrics.radiusCard))
-        .overlay(
-            Concentric.shape(Metrics.radiusCard)
-                .stroke(StudioColor.cardStroke(.violet, scheme: scheme), lineWidth: 1)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            store.sidebarSelection = .project(project.id)
         }
         .contextMenu {
             Button(project.pinned ? "Unpin" : "Pin") {
@@ -104,7 +122,6 @@ struct PortfolioView: View {
             }
             ChiefOfStaffMenuButton(selectedText: FocusedSelection.currentText())
         }
-        .accessibilityLabel("\(project.name), \(project.key). \(summary)")
     }
 
     /// A fixed-aspect box the card's width, so every card in the grid lines up

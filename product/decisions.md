@@ -42,7 +42,7 @@ Long documents list every heading in a right-hand Contents pane. Clicking a head
 
 ## Locked — The left sidebar is Portfolio, Timeline, then pins
 
-Portfolio is a destination. Timeline is a destination. A hairline separates those two rows from pinned projects below. The workspace name lives in the window subtitle — no Origin Ark icon or row in the sidebar. Create lives on the Portfolio page, not in the left chrome. Monitor, Issues, and Activity are not sidebar rows. Existing projects start pinned. Unpinning removes a row from the sidebar and leaves the project on the Portfolio page.
+Portfolio is a destination. Timeline is a destination. A hairline separates those two rows from pinned projects below. The workspace name lives in the window subtitle — no Origin Ark icon or row in the sidebar. Create lives on the Portfolio page, not in the left chrome. Monitor, Issues, and Activity are not sidebar rows. Existing projects start pinned. Unpinning removes a row from the sidebar and leaves the project on the Portfolio page and in Settings.
 
 ## Locked — Timeline is a Gantt, not a calendar
 

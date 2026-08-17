@@ -79,6 +79,8 @@ enum Metrics {
     static let issuesMax: CGFloat = 620
     static let windowMin = CGSize(width: 1080, height: 700)
     static let windowDefault = CGSize(width: 1320, height: 860)
+    static let settingsMin = CGSize(width: 560, height: 520)
+    static let settingsDefault = CGSize(width: 560, height: 680)
     // One radius family. A surface nested inside another takes the container's
     // radius less the inset between them, so the two curves share a centre.
     static let radiusSheet: CGFloat = 14

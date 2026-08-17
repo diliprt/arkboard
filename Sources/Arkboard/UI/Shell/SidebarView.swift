@@ -39,6 +39,8 @@ struct SidebarView: View {
                     }
                     .padding(.vertical, Metrics.sidebarRowY)
                     .quietSelection()
+                    .sidebarRowName("\(project.name), \(project.key)")
+                    .accessibilityLabel("\(project.name), \(project.key)")
                     .tag(SidebarItem.project(project.id))
                     .contextMenu {
                         Button(project.pinned ? "Unpin" : "Pin") {
@@ -71,6 +73,8 @@ struct SidebarView: View {
         }
         .padding(.vertical, Metrics.sidebarRowY)
         .quietSelection()
+        .sidebarRowName(title)
+        .accessibilityLabel(title)
     }
 
     /// Onboarding and the agent server sit on the same bar as the list, not in a

@@ -397,10 +397,27 @@ def gantt_window(dates: list[Day], scale: str, now: Day) -> tuple[Day, Day]:
     return start, end
 
 
-def gantt_fraction(point: Day, start: Day, end: Day) -> float:
-    """Horizontal position as 0…1 of the window. Mirrors GanttMath.fraction."""
-    span = max(1.0, (_date(end) - _date(start)).total_seconds())
-    return min(1.0, max(0.0, (_date(point) - _date(start)).total_seconds() / span))
+def gantt_fraction(point: Day, start: Day, end: Day, scale: str = "month") -> float:
+    """Horizontal position as 0…1 of the plot. Mirrors GanttMath.fraction.
+
+    Dates sit inside their equal-width column, not on raw seconds of the window.
+    """
+    columns = gantt_columns(start, end, scale)
+    if not columns:
+        return 0.0
+    index = 0
+    for i, col in enumerate(columns):
+        if _date(point) >= _date(col):
+            index = i
+        else:
+            break
+    col_start = columns[index]
+    col_end = columns[index + 1] if index + 1 < len(columns) else end
+    if _date(col_end) <= _date(col_start):
+        col_end = gantt_advance(*col_start, scale, 1)
+    span = max(1.0, (_date(col_end) - _date(col_start)).total_seconds())
+    inner = min(1.0, max(0.0, (_date(point) - _date(col_start)).total_seconds() / span))
+    return (index + inner) / len(columns)
 
 
 def gantt_today_in_window(dates: list[Day], scale: str, now: Day) -> bool:
@@ -586,6 +603,7 @@ def check_polish(swift: str, home: str, root: str, sidebar: str) -> None:
     markdown = (SOURCES / "UI/Markdown/MarkdownView.swift").read_text()
     ok("D1 MarkdownView follows the column", "Metrics.proseMax" not in markdown)
     ok("O1 Contents toggle symbol", "sidebar.trailing" in root)
+    ok("Contents toggle is not on every destination", "showsContentsToggle" in root)
     ok("O1 persist contentsVisible", "arkboard.contentsVisible" in swift)
     ok("O2 Contents width range", "outlineMin" in swift and "outlineMax" in swift)
     ok("O2 Contents width is clamped once", "func setContentsWidth" in swift)
@@ -632,6 +650,11 @@ def check_document_bundle(swift: str) -> None:
     ok("mockups still one ProseColumn family", "GridColumn" not in home)
     settings = (SOURCES / "UI/Settings/SettingsView.swift").read_text()
     sources = (SOURCES / "UI/Project/ProjectSourcesEditor.swift").read_text() if (SOURCES / "UI/Project/ProjectSourcesEditor.swift").exists() else ""
+    app_scene = (SOURCES / "ArkboardApp.swift").read_text()
+    settings_scene = app_scene.split("Settings {", 1)[1] if "Settings {" in app_scene else ""
+    ok("settings scene sets a default size", "defaultSize" in settings_scene)
+    ok("settings scene has a minimum size", "settingsMin" in settings_scene or "minWidth" in settings_scene)
+    ok("settings lists every project", "ForEach(store.projects)" in settings)
     ok("existing projects can edit GitHub remote", "updateGitHubRepo" in store and "updateGitHubRepo" in sources)
     ok("existing projects can edit local checkout", "updateRepoPath" in sources and "Choose…" in sources)
     ok("Settings edits sources on existing projects", "ProjectSourcesEditor" in settings)
@@ -702,6 +725,8 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
        portfolio_at != -1 and timeline_at != -1 and pins_at != -1 and portfolio_at < timeline_at < pins_at)
     ok("sidebar project rows are pinned only", "ForEach(store.pinnedProjects)" in sidebar)
     ok("sidebar does not list every project", "ForEach(store.projects)" not in sidebar)
+    ok("sidebar project rows have an accessibility label",
+       'accessibilityLabel("\\(project.name), \\(project.key)")' in sidebar)
     ok("sidebar has pin control", "Unpin" in sidebar or "pin.fill" in sidebar)
     ok("sidebar still has no Monitor", "binoculars" not in sidebar and ".monitor" not in sidebar)
     ok("sidebar still has no Issues row", "tray.full" not in sidebar)
@@ -726,6 +751,8 @@ def check_studio_chrome(swift: str, home: str, root: str, sidebar: str, ui: str)
        not all(word in portfolio for word in ("\"Design\"", "\"Architecture\"", "\"Mockups\"", "\"Decisions\"")))
     ok("portfolio card face is the project picture", "cardImage(for:" in portfolio)
     ok("portfolio card has pin", "pin.fill" in portfolio or "setPinned" in portfolio or "togglePinned" in portfolio)
+    ok("portfolio lists every project", "ForEach(store.projects)" in portfolio)
+    ok("portfolio card is a Button", "Button" in portfolio and "onTapGesture" not in portfolio)
     ok("portfolio has no 1000 grid cap", "gridMax" not in portfolio and "GridColumn" not in portfolio)
     ok("portfolio New Project uses the existing sheet", "arkboardNewProject" in portfolio)
     ok("Portfolio view has no milestone section",
@@ -1119,7 +1146,14 @@ def check_timeline_gantt(swift: str, home: str, ui: str, decisions: str, archite
     columns = gantt_columns(start, end, "month")
     ok("Gantt axis columns are periods, not days", len(columns) == 5 and all(c[2] == 1 for c in columns))
     ok("Gantt axis holds every milestone",
-       gantt_fraction((2026, 8, 20), start, end) > 0 and gantt_fraction((2026, 10, 30), start, end) < 1)
+       gantt_fraction((2026, 8, 20), start, end, "month") > 0
+       and gantt_fraction((2026, 10, 30), start, end, "month") < 1)
+    walk_start, walk_end = gantt_window([(2026, 8, 28)], "month", (2026, 8, 16))
+    today_x = gantt_fraction((2026, 8, 16), walk_start, walk_end, "month")
+    v2_x = gantt_fraction((2026, 8, 28), walk_start, walk_end, "month")
+    ok("16 Aug 2026 sits in the August column", 0.25 <= today_x < 0.50)
+    ok("16 Aug 2026 is not on the Aug/Sep boundary", abs(today_x - 0.50) > 0.05)
+    ok("28 Aug 2026 sits in the August column", 0.25 <= v2_x < 0.50)
     ok("Gantt axis places Today once", gantt_today_in_window([m["targetDate"] for m in milestones], "month", now))
     ok("Gantt week scale slices the same span finer",
        len(gantt_columns(*gantt_window([m["targetDate"] for m in milestones], "week", now), "week")) >

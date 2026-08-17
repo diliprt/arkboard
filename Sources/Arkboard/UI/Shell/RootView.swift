@@ -34,20 +34,22 @@ struct RootView: View {
         .navigationSubtitle(store.workspace?.name ?? "Origin Ark")
         // One title, on one row, on every screen. Left to `.automatic`, AppKit
         // gives the title its own line under the toolbar when a screen has few
-        // toolbar items — which is why Timeline, with only the Contents toggle,
-        // grew a second row that read as an in-page title band while Portfolio
-        // and the project page kept theirs inline.
+        // toolbar items — which is why Timeline, whose page actions live in
+        // the pane, grew a second row that read as an in-page title band while
+        // Portfolio and the project page kept theirs inline.
         .toolbarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .automatic) {
-                Toggle(isOn: Binding(
-                    get: { store.contentsVisible },
-                    set: { store.setContentsVisible($0) }
-                )) {
-                    SwiftUI.Label("Contents", systemImage: "sidebar.trailing")
+            if showsContentsToggle {
+                ToolbarItem(placement: .automatic) {
+                    Toggle(isOn: Binding(
+                        get: { store.contentsVisible },
+                        set: { store.setContentsVisible($0) }
+                    )) {
+                        SwiftUI.Label("Contents", systemImage: "sidebar.trailing")
+                    }
+                    .toggleStyle(.button)
+                    .help(store.contentsVisible ? "Hide Contents" : "Show Contents")
                 }
-                .toggleStyle(.button)
-                .help(store.contentsVisible ? "Hide Contents" : "Show Contents")
             }
         }
         .overlay(alignment: .bottom) {
@@ -145,6 +147,13 @@ struct RootView: View {
 
     private var showsContents: Bool {
         guard store.contentsVisible else { return false }
+        return showsContentsToggle
+    }
+
+    /// Contents is an inspector on a document page. Portfolio and Timeline have
+    /// no outline, so a second sidebar-styled toggle there is a dead twin of
+    /// the system sidebar control — Notes and Mail keep one.
+    private var showsContentsToggle: Bool {
         switch store.sidebarSelection {
         case .project, .onboarding:
             return true

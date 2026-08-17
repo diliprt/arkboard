@@ -62,10 +62,81 @@ struct QuietSelection: NSViewRepresentable {
     }
 }
 
+/// Sets the enclosing table row's accessibility title so VoiceOver and AX
+/// Press can find a project by name + key. SwiftUI labels on the HStack do
+/// not become `AXRow.title`.
+struct SidebarRowName: NSViewRepresentable {
+    var name: String
+
+    func makeNSView(context: Context) -> ProbeView {
+        let probe = ProbeView()
+        probe.translatesAutoresizingMaskIntoConstraints = false
+        probe.name = name
+        return probe
+    }
+
+    func updateNSView(_ view: ProbeView, context: Context) {
+        view.name = name
+        view.apply()
+    }
+
+    final class ProbeView: NSView {
+        var name = ""
+        override var intrinsicContentSize: NSSize { .zero }
+        override var isOpaque: Bool { false }
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            apply()
+            DispatchQueue.main.async { [weak self] in self?.apply() }
+        }
+
+        func apply() {
+            guard !name.isEmpty else { return }
+            var node: NSView? = superview
+            var table: NSTableView?
+            while let current = node {
+                if let row = current as? NSTableRowView {
+                    Self.name(row, name)
+                    return
+                }
+                if let cell = current as? NSTableCellView {
+                    Self.name(cell, name)
+                    if let row = cell.superview as? NSTableRowView {
+                        Self.name(row, name)
+                    }
+                }
+                if table == nil { table = current as? NSTableView }
+                node = current.superview
+            }
+            guard let table else { return }
+            let local = table.convert(CGPoint(x: bounds.midX, y: bounds.midY), from: self)
+            let index = table.row(at: local)
+            guard index >= 0 else { return }
+            if let row = table.rowView(atRow: index, makeIfNecessary: false) {
+                Self.name(row, name)
+            }
+            if let cell = table.view(atColumn: 0, row: index, makeIfNecessary: false) {
+                Self.name(cell, name)
+            }
+        }
+
+        private static func name(_ view: NSView, _ name: String) {
+            view.setAccessibilityLabel(name)
+            view.setAccessibilityTitle(name)
+        }
+    }
+}
+
 extension View {
     /// Attach to a sidebar row so the list it lives in keeps the unemphasized
     /// selection style in every state.
     func quietSelection() -> some View {
         background(QuietSelection().frame(width: 0, height: 0).accessibilityHidden(true))
+    }
+
+    func sidebarRowName(_ name: String) -> some View {
+        background(SidebarRowName(name: name).frame(width: 0, height: 0).accessibilityHidden(true))
     }
 }

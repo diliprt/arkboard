@@ -124,10 +124,27 @@ enum GanttMath {
         return GanttWindow(start: start, end: end)
     }
 
-    /// Horizontal position of a date as 0…1 of the window.
-    static func fraction(of date: Date, in window: GanttWindow) -> Double {
-        let raw = date.timeIntervalSince(window.start) / window.duration
-        return min(1, max(0, raw))
+    /// Horizontal position of a date as 0…1 of the plot. The axis is equal-width
+    /// columns, so the date sits inside its week / month / year column.
+    static func fraction(of date: Date, in window: GanttWindow, scale: TimelineScale) -> Double {
+        let columns = columns(in: window, scale: scale)
+        guard !columns.isEmpty else { return 0 }
+        let day = calendar.startOfDay(for: date)
+        var index = 0
+        for (offset, start) in columns.enumerated() {
+            if day >= start {
+                index = offset
+            } else {
+                break
+            }
+        }
+        let start = columns[index]
+        let columnEnd = index + 1 < columns.count
+            ? columns[index + 1]
+            : max(window.end, advance(start, scale: scale, by: 1))
+        let span = max(1, columnEnd.timeIntervalSince(start))
+        let inner = min(1, max(0, day.timeIntervalSince(start) / span))
+        return (Double(index) + inner) / Double(columns.count)
     }
 }
 

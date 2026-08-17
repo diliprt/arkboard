@@ -221,7 +221,7 @@ def panel(plan: dict, pane_width: float, caption: str) -> tuple[list[str], float
     body_y = chart_y + AXIS_H
 
     def px(point: tuple) -> float:
-        return plot_x + sc.gantt_fraction(point, start, end) * plot_width
+        return plot_x + sc.gantt_fraction(point, start, end, scale) * plot_width
 
     # One Today rule for the whole chart.
     today_x = px(NOW)

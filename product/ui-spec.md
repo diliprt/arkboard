@@ -52,9 +52,9 @@ This is not a colour we paint. `unemphasizedSelectedContentBackgroundColor` is a
 
 A single hairline `Divider` sits between those two destinations and the pinned projects below. Not a section header that says `Projects`.
 
-**Pinned projects** — under that hairline, only projects whose `pinned` flag is true, sorted by `sortOrder` then name. Clicking a pinned row opens that project's document home (Design default). Unpinning removes the row from the sidebar; the project stays on the Portfolio page. Pinning puts it back. Existing projects start pinned so Arkboard does not disappear on first launch.
+**Pinned projects** — under that hairline, only projects whose `pinned` flag is true, sorted by `sortOrder` then name. Clicking a pinned row opens that project's document home (Design default). Unpinning removes the row from the sidebar; the project stays on the Portfolio page and in Settings. Pinning puts it back. Existing projects start pinned so Arkboard does not disappear on first launch.
 
-Each project row: the project's persisted mark (22pt), the name in `body`, and the key in `mono` trailing, right-aligned and tertiary so it never competes with the name. The mark is that app's brand — an SF Symbol on a colour-washed tile whose corner comes off the icon grid, or an image from `product/icon.png` / `product/mark.png` / `product/logo.png` when one exists. It is never the same blue dot for every project. A context menu on the row offers `Pin` / `Unpin` and `Chat with Chief of Staff`.
+Each project row: the project's persisted mark (22pt), the name in `body`, and the key in `mono` trailing, right-aligned and tertiary so it never competes with the name. The row's accessibility label is `name, key`, so VoiceOver can find it. The mark is that app's brand — an SF Symbol on a colour-washed tile whose corner comes off the icon grid, or an image from `product/icon.png` / `product/mark.png` / `product/logo.png` when one exists. It is never the same blue dot for every project. A context menu on the row offers `Pin` / `Unpin` and `Chat with Chief of Staff`.
 
 Arkboard's own mark is `square.3.layers.3d` in indigo `#5A62D6`. Other projects get a distinct symbol (and a distinct colour when they would otherwise share indigo).
 
@@ -73,7 +73,7 @@ A trailing overlay that floats over the right edge of the document on edge-to-ed
 
 **The prose reserves a gutter for it.** "Does not steal width" is not a pass if the last words of every line are unreadable under the overlay. When Contents is open the document reflows with a trailing gutter exactly as wide as the overlay, so no glyph is ever printed underneath it. That is an inset on the text, not a third `NavigationSplitView` column and not a 720 island: the page still measures the whole pane, and closing Contents returns the full width immediately. The document measure does not collapse. 220pt ideal, 180 min, 280 max, user-resizable in that range. The choice persists as `arkboard.contentsVisible`. The document column itself is at least 560pt and always uses the full pane width, Contents shown or hidden. This is the outline. Do not put it on the left. Do not also pin an `On this page` chip rail — one outline, on the right. Do not bring back a third `NavigationSplitView` column, a `GridColumn` 1000, or a 720 island. Nothing opaque is painted behind it; the glass is the surface.
 
-The toggle lives in the window toolbar, on toolbar glass: a `sidebar.trailing` control that carries a selected state while Contents is open, help text `Show Contents` / `Hide Contents`.
+The toggle lives in the window toolbar, on toolbar glass: a `sidebar.trailing` control that carries a selected state while Contents is open, help text `Show Contents` / `Hide Contents`. It appears only on a project page and on Onboarding — the pages that can show Contents. Portfolio and Timeline keep the system sidebar toggle alone, the way Notes and Mail do.
 
 - Header `Contents` in `caption`, secondary.
 - One heading per row, indented 12pt per level below `#`, `bodyStrong` for `#`/`##` and `caption` deeper.
@@ -95,9 +95,9 @@ What replaces it, per screen:
 
 **Timeline has no in-page title.** The pane opens on the scale control and the Gantt, with nothing above them.
 
-The title also sits on **one row, on every screen**. Left to itself, AppKit gives the title its own line beneath the toolbar when a screen carries few toolbar items, and takes it inline when there are more — so Timeline, which has only the Contents toggle, grew a second row while Portfolio and the project page kept theirs inline. A title and subtitle stacked in their own band under the toolbar reads as exactly the in-page headline this section deletes, even though no view is drawing one. The window uses the inline title display mode so every screen looks the same.
+The title also sits on **one row, on every screen**. Left to itself, AppKit gives the title its own line beneath the toolbar when a screen carries few toolbar items, and takes it inline when there are more — so Timeline, which has no page-action toolbar item, grew a second row while Portfolio and the project page kept theirs inline. A title and subtitle stacked in their own band under the toolbar reads as exactly the in-page headline this section deletes, even though no view is drawing one. The window uses the inline title display mode so every screen looks the same.
 
-Page actions belong in the window toolbar on toolbar glass — `New Project` on Portfolio, the Contents toggle everywhere. A screen-level filter or scale control may sit as a quiet native control at the top of its own content, next to the thing it filters. Neither is a headline.
+Page actions belong in the window toolbar on toolbar glass — `New Project` on Portfolio, the Contents toggle on a project page and on Onboarding. A screen-level filter or scale control may sit as a quiet native control at the top of its own content, next to the thing it filters. Neither is a headline.
 
 The pane below carries the section wash, and everything in it lives in exactly one vertical scroll.
 
@@ -224,7 +224,7 @@ Under the picture, quietly:
 
 Each card uses the same `typography` environment as the project home, the sidebar, and documents — one scale, one face. No one-off `.font(.system)` and no custom faces. Settings text size and face flow through.
 
-Clicking the card (not the pin) opens that project's home. This page is the only place a human creates a project. A `New Project` control opens the existing sheet. After create, the project is pinned and selected.
+The card is a `Button`. Pressing it — mouse, keyboard, or VoiceOver — opens that project's home. The pin is a separate control, so pressing the card does not unpin. This page is the only place a human creates a project. A `New Project` control opens the existing sheet. After create, the project is pinned and selected.
 
 ## Timeline
 
@@ -251,7 +251,7 @@ Completed issues the engine has already dated appear as small moss ticks on thei
 
 Fixed above the rows, one label per column — `10 Aug`, `Aug 2026`, `2026` — on a hairline. Columns stretch to fill the pane; when that would squeeze a column below a legible width the chart scrolls horizontally and the row labels stay put. Week columns start on Monday.
 
-Exactly one `Today` rule: a moss line through every row, with the word on the axis. The window always has room for it, whether the plan is entirely past, entirely future, or empty.
+Exactly one `Today` rule: a moss line through every row, with the word on the axis. The window always has room for it, whether the plan is entirely past, entirely future, or empty. A date sits inside its labelled column — 16 August is in August, not on the September boundary.
 
 ### Dependencies
 
@@ -343,7 +343,7 @@ Buttons `Cancel` and `Create Project`. Creating it pins the project and selects 
 
 ## Settings
 
-A standard Settings scene, 560 × 680, one `Form` with four sections.
+A standard Settings scene. The scene itself has `defaultSize` 560 × 680 and a minimum of 560 × 520, so `⌘,` opens a readable grouped window rather than a restored sliver. One `Form` with four sections. Settings lists every project, pinned or not.
 
 **Appearance** — segmented `Light` / `Dark` / `System`.
 

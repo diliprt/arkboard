@@ -77,7 +77,9 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 560, height: 680)
+        .frame(minWidth: Metrics.settingsMin.width, minHeight: Metrics.settingsMin.height)
+        .frame(width: Metrics.settingsDefault.width, height: Metrics.settingsDefault.height)
+        .background(SettingsWindowFrame())
     }
 
     private var specimen: some View {
@@ -114,4 +116,29 @@ struct SettingsView: View {
         }
     }
 
+}
+
+/// Saved Settings frames on this machine have opened at ~57×111. The scene's
+/// defaultSize is ignored once AppKit has a restoration record, so clamp the
+/// real NSWindow if it comes back smaller than a grouped settings form.
+private struct SettingsWindowFrame: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        view.isHidden = true
+        DispatchQueue.main.async { Self.apply(to: view.window) }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async { Self.apply(to: view.window) }
+    }
+
+    private static func apply(to window: NSWindow?) {
+        guard let window else { return }
+        window.minSize = Metrics.settingsMin
+        if window.frame.width + 0.5 < Metrics.settingsMin.width
+            || window.frame.height + 0.5 < Metrics.settingsMin.height {
+            window.setContentSize(Metrics.settingsDefault)
+        }
+    }
 }

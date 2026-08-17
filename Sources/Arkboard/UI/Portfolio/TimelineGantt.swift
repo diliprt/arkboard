@@ -180,9 +180,9 @@ struct TimelineGanttView: View {
     }
 
     private func todayOffset(_ plan: GanttPlan, width: CGFloat) -> CGFloat? {
-        let now = Date()
+        let now = GanttMath.calendar.startOfDay(for: Date())
         guard now >= plan.window.start, now <= plan.window.end else { return nil }
-        return CGFloat(GanttMath.fraction(of: now, in: plan.window)) * width
+        return CGFloat(GanttMath.fraction(of: now, in: plan.window, scale: plan.scale)) * width
     }
 
     private func dependencyLinks(_ plan: GanttPlan, width: CGFloat) -> some View {
@@ -198,8 +198,8 @@ struct TimelineGanttView: View {
                       let to = plan.rows.first(where: { $0.id == link.to }),
                       let fromY = centers[link.from],
                       let toY = centers[link.to] else { continue }
-                let fromX = CGFloat(GanttMath.fraction(of: from.marker ?? from.end, in: plan.window)) * width
-                let toX = CGFloat(GanttMath.fraction(of: to.start, in: plan.window)) * width
+                let fromX = CGFloat(GanttMath.fraction(of: from.marker ?? from.end, in: plan.window, scale: plan.scale)) * width
+                let toX = CGFloat(GanttMath.fraction(of: to.start, in: plan.window, scale: plan.scale)) * width
                 let elbow = toX > fromX + 2 * Metrics.ganttLinkElbow
                     ? toX - Metrics.ganttLinkElbow
                     : fromX + Metrics.ganttLinkElbow
@@ -265,8 +265,8 @@ struct TimelineGanttView: View {
 
     @ViewBuilder
     private func barTrack(_ row: GanttRow, plan: GanttPlan, width: CGFloat) -> some View {
-        let startX = CGFloat(GanttMath.fraction(of: row.start, in: plan.window)) * width
-        let endX = CGFloat(GanttMath.fraction(of: row.end, in: plan.window)) * width
+        let startX = CGFloat(GanttMath.fraction(of: row.start, in: plan.window, scale: plan.scale)) * width
+        let endX = CGFloat(GanttMath.fraction(of: row.end, in: plan.window, scale: plan.scale)) * width
         let barWidth = max(Metrics.ganttBarMin, endX - startX)
         ZStack(alignment: .leading) {
             switch row.kind {
@@ -288,7 +288,7 @@ struct TimelineGanttView: View {
                     Circle()
                         .fill(Hue.moss.color(for: scheme).opacity(0.75))
                         .frame(width: 5, height: 5)
-                        .offset(x: CGFloat(GanttMath.fraction(of: mark.date, in: plan.window)) * width - 2.5)
+                        .offset(x: CGFloat(GanttMath.fraction(of: mark.date, in: plan.window, scale: plan.scale)) * width - 2.5)
                         .help(shippedHelp(mark))
                 }
             case .milestone:

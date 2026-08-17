@@ -81,19 +81,28 @@ equal("empty window still has an axis", GanttMath.columns(in: emptyWindow, scale
 // MARK: - Positions
 
 let year = GanttWindow(start: day(2026, 1, 1), end: day(2027, 1, 1))
-equal("start sits at zero", GanttMath.fraction(of: day(2026, 1, 1), in: year), 0)
-equal("end sits at one", GanttMath.fraction(of: day(2027, 1, 1), in: year), 1)
-equal("before the window clamps to zero", GanttMath.fraction(of: day(2025, 6, 1), in: year), 0)
-equal("after the window clamps to one", GanttMath.fraction(of: day(2028, 6, 1), in: year), 1)
+equal("start sits at zero", GanttMath.fraction(of: day(2026, 1, 1), in: year, scale: .year), 0)
+equal("end sits at one", GanttMath.fraction(of: day(2027, 1, 1), in: year, scale: .year), 1)
+equal("before the window clamps to zero", GanttMath.fraction(of: day(2025, 6, 1), in: year, scale: .year), 0)
+equal("after the window clamps to one", GanttMath.fraction(of: day(2028, 6, 1), in: year, scale: .year), 1)
 check(
     "1 July 2026 sits at 181/365",
-    abs(GanttMath.fraction(of: day(2026, 7, 1), in: year) - 181.0 / 365.0) < 1e-9,
-    String(GanttMath.fraction(of: day(2026, 7, 1), in: year))
+    abs(GanttMath.fraction(of: day(2026, 7, 1), in: year, scale: .year) - 181.0 / 365.0) < 1e-9,
+    String(GanttMath.fraction(of: day(2026, 7, 1), in: year, scale: .year))
 )
 check(
     "positions increase with time",
-    GanttMath.fraction(of: day(2026, 3, 1), in: year) < GanttMath.fraction(of: day(2026, 9, 1), in: year)
+    GanttMath.fraction(of: day(2026, 3, 1), in: year, scale: .year)
+        < GanttMath.fraction(of: day(2026, 9, 1), in: year, scale: .year)
 )
+
+let walkWindow = GanttMath.window(covering: [day(2026, 8, 28)], scale: .month, now: day(2026, 8, 16))
+let todayX = GanttMath.fraction(of: day(2026, 8, 16), in: walkWindow, scale: .month)
+let v2X = GanttMath.fraction(of: day(2026, 8, 28), in: walkWindow, scale: .month)
+check("16 Aug 2026 sits in the August column", todayX >= 0.25 && todayX < 0.50, String(todayX))
+check("16 Aug 2026 is not on the Aug/Sep boundary", abs(todayX - 0.50) > 0.05, String(todayX))
+check("28 Aug 2026 sits in the August column", v2X >= 0.25 && v2X < 0.50, String(v2X))
+check("28 Aug sits later in August than Today", v2X > todayX)
 
 // MARK: - Plan
 

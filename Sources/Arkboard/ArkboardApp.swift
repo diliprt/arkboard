@@ -56,7 +56,10 @@ struct ArkboardApp: App {
                     typography: Typography(bodySize: CGFloat(store.fontSize), family: store.fontFamily),
                     appearance: store.appearance
                 ))
+                .frame(minWidth: Metrics.settingsMin.width, minHeight: Metrics.settingsMin.height)
         }
+        .defaultSize(width: Metrics.settingsDefault.width, height: Metrics.settingsDefault.height)
+        .windowResizability(.contentMinSize)
     }
 }
 
