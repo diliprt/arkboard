@@ -18,13 +18,29 @@ class NudgeEngine(
 ) {
     companion object {
         const val MIN_INTERVAL_MILLIS = 8 * 60 * 1000L // 8 minutes minimum hard lock
-        const val DISTRACTION_QUIET_THRESHOLD_MILLIS = 45 * 1000L // 45s of off-task discussion / quiet confusion
     }
 
+    private var sessionStartTimeMillis: Long = 0L
     private var lastNudgeTimeMillis: Long = 0L
     private var isUserCurrentlyTalking: Boolean = false
     private var lastUserSpeechTimeMillis: Long = 0L
     private var lastHeardTranscript: String = ""
+
+    /**
+     * Spoken once at the immediate start of the session to anchor focus,
+     * after which Still enters quiet listening until the next nudge interval is met.
+     */
+    fun generateSessionStartPrompt(taskTitle: String): String {
+        return "Starting session for $taskTitle. Let's begin calmly."
+    }
+
+    fun onSessionStarted(currentTimeMillis: Long) {
+        sessionStartTimeMillis = currentTimeMillis
+        lastNudgeTimeMillis = currentTimeMillis // Start prompt counts as initial speech anchor
+        isUserCurrentlyTalking = false
+        lastUserSpeechTimeMillis = currentTimeMillis
+        lastHeardTranscript = ""
+    }
 
     fun onUserSpeechStarted(currentTimeMillis: Long) {
         isUserCurrentlyTalking = true
@@ -38,7 +54,7 @@ class NudgeEngine(
     }
 
     fun canNudge(currentTimeMillis: Long): Boolean {
-        // Rule 1: Never interrupt user while talking (Listen-first)
+        // Rule 1: Listen-first: Never interrupt user while they are speaking
         if (isUserCurrentlyTalking) {
             return false
         }
@@ -92,6 +108,7 @@ class NudgeEngine(
     }
 
     fun reset() {
+        sessionStartTimeMillis = 0L
         lastNudgeTimeMillis = 0L
         isUserCurrentlyTalking = false
         lastUserSpeechTimeMillis = 0L
@@ -101,4 +118,6 @@ class NudgeEngine(
     fun setLastNudgeTimeForTesting(timeMillis: Long) {
         lastNudgeTimeMillis = timeMillis
     }
+
+    fun getLastNudgeTimeMillis(): Long = lastNudgeTimeMillis
 }

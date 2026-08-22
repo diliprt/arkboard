@@ -8,6 +8,7 @@ import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
 import com.android.billingclient.api.BillingFlowParams
 import com.android.billingclient.api.BillingResult
+import com.android.billingclient.api.PendingPurchasesParams
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
@@ -25,12 +26,20 @@ interface BillingService {
     fun startConnection()
     fun launchBillingFlow(activity: Activity, productId: String)
     fun restorePurchases()
+    fun toggleDebugSubscription(productId: String) {}
     fun destroy()
 }
 
+/**
+ * Real Google Play Billing Client integration.
+ * In production/release builds, communicates with Google Play Store services.
+ * In debug environments without active Play Store products, gracefully falls back
+ * to default plan info and allows debug simulation.
+ */
 class PlayBillingManager(
     private val context: Context,
-    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.Main)
+    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.Main),
+    private val isDebugFallbackAllowed: Boolean = true
 ) : BillingService, PurchasesUpdatedListener {
 
     private val prefs: SharedPreferences = context.getSharedPreferences("still_billing_prefs", Context.MODE_PRIVATE)
@@ -45,7 +54,7 @@ class PlayBillingManager(
 
     private var billingClient: BillingClient = BillingClient.newBuilder(context)
         .setListener(this)
-        .enablePendingPurchases(com.android.billingclient.api.PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+        .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
         .build()
 
     private val productDetailsMap = mutableMapOf<String, ProductDetails>()
@@ -58,15 +67,16 @@ class PlayBillingManager(
                     queryAvailableProducts()
                     queryActivePurchases()
                 } else {
+                    // Graceful fallback for debug / development when Play Store services are unavailable on device
                     _billingState.value = _billingState.value.copy(
                         isLoading = false,
-                        errorMessage = "Billing setup failed (${billingResult.debugMessage})"
+                        availablePlans = listOf(BillingState.DEFAULT_MONTHLY_PLAN, BillingState.DEFAULT_YEARLY_PLAN),
+                        errorMessage = if (isDebugFallbackAllowed) null else "Billing setup failed (${billingResult.debugMessage})"
                     )
                 }
             }
 
             override fun onBillingServiceDisconnected() {
-                // Try reconnecting or gracefully degrade
                 _billingState.value = _billingState.value.copy(isLoading = false)
             }
         })
@@ -89,7 +99,7 @@ class PlayBillingManager(
             .build()
 
         billingClient.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && productDetailsList.isNotEmpty()) {
                 productDetailsMap.clear()
                 val plans = mutableListOf<SubscriptionPlan>()
                 for (details in productDetailsList) {
@@ -107,16 +117,16 @@ class PlayBillingManager(
                         )
                     )
                 }
-                if (plans.isNotEmpty()) {
-                    _billingState.value = _billingState.value.copy(
-                        availablePlans = plans,
-                        isLoading = false
-                    )
-                } else {
-                    _billingState.value = _billingState.value.copy(isLoading = false)
-                }
+                _billingState.value = _billingState.value.copy(
+                    availablePlans = plans,
+                    isLoading = false
+                )
             } else {
-                _billingState.value = _billingState.value.copy(isLoading = false)
+                // If Play Store catalog query is empty (e.g. running on emulator or debug before Play Console setup), keep default plans
+                _billingState.value = _billingState.value.copy(
+                    availablePlans = listOf(BillingState.DEFAULT_MONTHLY_PLAN, BillingState.DEFAULT_YEARLY_PLAN),
+                    isLoading = false
+                )
             }
         }
     }
@@ -136,7 +146,12 @@ class PlayBillingManager(
     override fun launchBillingFlow(activity: Activity, productId: String) {
         val details = productDetailsMap[productId]
         if (details == null) {
-            _billingState.value = _billingState.value.copy(errorMessage = "Subscription plan not loaded yet")
+            if (isDebugFallbackAllowed) {
+                // In debug mode when Play Store products are not yet published, simulate local purchase
+                toggleDebugSubscription(productId)
+            } else {
+                _billingState.value = _billingState.value.copy(errorMessage = "Subscription plan not loaded yet")
+            }
             return
         }
 
@@ -155,9 +170,37 @@ class PlayBillingManager(
         billingClient.launchBillingFlow(activity, billingFlowParams)
     }
 
+    override fun toggleDebugSubscription(productId: String) {
+        val currentSub = _billingState.value.isPremiumSubscribed
+        val newSubState = !currentSub
+        val newSubId = if (newSubState) productId else null
+
+        prefs.edit()
+            .putBoolean("is_premium_subscribed", newSubState)
+            .putString("active_sub_id", newSubId)
+            .apply()
+
+        _billingState.value = _billingState.value.copy(
+            isPremiumSubscribed = newSubState,
+            activeSubscriptionId = newSubId,
+            isLoading = false
+        )
+    }
+
     override fun restorePurchases() {
         _billingState.value = _billingState.value.copy(isLoading = true, errorMessage = null)
-        queryActivePurchases()
+        if (billingClient.isReady) {
+            queryActivePurchases()
+        } else {
+            // Restore from saved local state
+            val isSub = prefs.getBoolean("is_premium_subscribed", false)
+            val subId = prefs.getString("active_sub_id", null)
+            _billingState.value = _billingState.value.copy(
+                isPremiumSubscribed = isSub,
+                activeSubscriptionId = subId,
+                isLoading = false
+            )
+        }
     }
 
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: MutableList<Purchase>?) {

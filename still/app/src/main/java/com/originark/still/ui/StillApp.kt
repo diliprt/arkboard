@@ -9,16 +9,20 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.originark.still.StillApplication
@@ -87,6 +92,7 @@ fun StillApp() {
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         )
     }
+    var showPermissionRationaleDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -94,6 +100,12 @@ fun StillApp() {
         hasAudioPermission = isGranted
         if (!isGranted) {
             Toast.makeText(context, "Microphone permission is needed for speech detection in focus sessions", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun requestAudioPermissionWithRationale() {
+        if (!hasAudioPermission) {
+            showPermissionRationaleDialog = true
         }
     }
 
@@ -111,13 +123,31 @@ fun StillApp() {
         }
     }
 
-    // Session Timer & Nudge Loop
+    // Session Start & Nudge Loop
     LaunchedEffect(isSessionActive) {
         if (isSessionActive) {
             sessionStartTime = System.currentTimeMillis()
             sessionDurationSeconds = 0L
             nudgeCountInSession = 0
-            focusState = FocusState.LISTENING
+            nudgeEngine.onSessionStarted(sessionStartTime)
+            focusState = FocusState.TALKING
+
+            // Speak initial start prompt once, then enter silence & listen-first mode
+            val startPrompt = nudgeEngine.generateSessionStartPrompt(activeTask?.title ?: "your task")
+            lastNudgeMessage = startPrompt
+            ttsEngine.applyPreset(selectedVoice)
+            ttsEngine.speak(
+                text = startPrompt,
+                onStart = {
+                    focusState = FocusState.TALKING
+                },
+                onDone = {
+                    focusState = FocusState.LISTENING
+                },
+                onError = {
+                    focusState = FocusState.LISTENING
+                }
+            )
 
             // Start SpeechRecognizer in listening mode
             lateinit var speechListener: SpeechListener
@@ -165,7 +195,7 @@ fun StillApp() {
                 delay(1000)
                 sessionDurationSeconds++
 
-                // Periodically check nudge eligibility
+                // Periodically check nudge eligibility (8-min hard lock + user speech silence check)
                 val now = System.currentTimeMillis()
                 val currentTask = activeTask
                 if (currentTask != null) {
@@ -191,6 +221,7 @@ fun StillApp() {
                 }
             }
         } else {
+            // Guarantee mic is completely powered off and audio engine destroyed/reset
             speechManager.stopListening()
             ttsEngine.stop()
             nudgeEngine.reset()
@@ -263,7 +294,7 @@ fun StillApp() {
                         lastNudgeMessage = lastNudgeMessage,
                         onStartSession = {
                             if (!hasAudioPermission) {
-                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                requestAudioPermissionWithRationale()
                             } else {
                                 scope.launch {
                                     val logId = repository.insertSessionLog(
@@ -360,7 +391,7 @@ fun StillApp() {
                     StillScreen.SETTINGS -> SettingsScreen(
                         hasAudioPermission = hasAudioPermission,
                         onRequestPermission = {
-                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            requestAudioPermissionWithRationale()
                         },
                         onRestorePurchases = {
                             billingManager.restorePurchases()
@@ -368,6 +399,39 @@ fun StillApp() {
                         }
                     )
                 }
+            }
+
+            // Microphone Permission Rationale Dialog
+            if (showPermissionRationaleDialog) {
+                AlertDialog(
+                    onDismissRequest = { showPermissionRationaleDialog = false },
+                    title = { Text("Microphone Access Rationale") },
+                    text = {
+                        Text(
+                            "Still uses your microphone solely to detect speech activity during active Focus Sessions. " +
+                            "This ensures Still remains silent when you speak and avoids interrupting you.\n\n" +
+                            "• Active only during explicit Focus Sessions\n" +
+                            "• Processed in ephemeral device memory\n" +
+                            "• Never recorded, uploaded, or shared"
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showPermissionRationaleDialog = false
+                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SagePrimary)
+                        ) {
+                            Text("Continue", color = Color.White)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showPermissionRationaleDialog = false }) {
+                            Text("Not Now")
+                        }
+                    }
+                )
             }
         }
     }

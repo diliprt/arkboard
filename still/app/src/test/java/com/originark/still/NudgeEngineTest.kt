@@ -1,6 +1,5 @@
 package com.originark.still
 
-import com.originark.still.domain.audio.SpeechListener
 import com.originark.still.domain.nudge.NudgeEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,14 +19,40 @@ class NudgeEngineTest {
     }
 
     @Test
+    fun testSessionStartPromptGeneratesOneShortSpokenLine() {
+        val task = "Writing clean code"
+        val prompt = nudgeEngine.generateSessionStartPrompt(task)
+        assertNotNull(prompt)
+        assertTrue("Session start prompt must anchor task name", prompt.contains(task))
+        assertTrue("Session start prompt must be calm", prompt.contains("calmly") || prompt.contains("begin"))
+    }
+
+    @Test
+    fun testSessionStartEnforces8MinutesBeforeFirstNudge() {
+        val t0 = 1000000L
+        val task = "Writing clean code"
+
+        nudgeEngine.onSessionStarted(t0)
+
+        // Immediate subsequent nudge check at t0 + 10s should be in 8-min cooldown
+        val decisionEarly = nudgeEngine.evaluateNudge(task, 10 * 1000L, t0 + 10 * 1000L)
+        assertFalse("Nudge right after session start must be rejected", decisionEarly.shouldNudge)
+        assertTrue(decisionEarly.reason.contains("cooldown"))
+
+        // After 8 minutes + 5 seconds, nudge is allowed
+        val t8Min = t0 + (8 * 60 * 1000L) + 5000L
+        val decision8Min = nudgeEngine.evaluateNudge(task, 8 * 60 * 1000L, t8Min)
+        assertTrue("Nudge after 8 minutes from session start must succeed", decision8Min.shouldNudge)
+        assertNotNull(decision8Min.message)
+    }
+
+    @Test
     fun testNudgeMinimum8MinutesIntervalHardLock() {
         val t0 = 1000000L
         val task = "Writing clean code"
 
-        // First nudge at t0 should succeed
-        val decision1 = nudgeEngine.evaluateNudge(task, 0L, t0)
-        assertTrue("First nudge should succeed", decision1.shouldNudge)
-        assertNotNull(decision1.message)
+        // Set last nudge time
+        nudgeEngine.setLastNudgeTimeForTesting(t0)
 
         // At t0 + 4 minutes (less than 8 minutes), nudge MUST be rejected
         val t4Min = t0 + 4 * 60 * 1000L
